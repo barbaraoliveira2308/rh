@@ -1,0 +1,38 @@
+# Especificações Técnicas — HR Suite
+
+Este directório contém as especificações técnicas (SDD) de cada módulo do sistema.
+
+## Índice de Módulos
+
+| # | Módulo | Pasta | Estado |
+|---|--------|-------|--------|
+| 01 | Autenticação & Segurança | `auth/spec.md` | Draft |
+| 02 | Utilizadores & RBAC | `users/spec.md` | Draft |
+| 03 | Equipas & Organograma | `teams/spec.md` | Draft |
+| 04 | Clientes | `clients/spec.md` | Draft |
+| 05 | Projetos | `projects/spec.md` | Draft |
+| 06 | Capacidade & Alocação | `capacity/spec.md` | Draft |
+| 07 | Assiduidade & Timesheets | `timesheets/spec.md` | Draft |
+| 08 | Ausências | `absences/spec.md` | Draft |
+| 09 | Despesas & Reembolsos | `expenses/spec.md` | Draft |
+| 10 | Gestão Documental | `documents/spec.md` | Draft |
+| 11 | Contratos | `contracts/spec.md` | Draft |
+| 12 | Workflow & Caixa de Entrada | `workflow/spec.md` | Draft |
+| 13 | Calendário Organizacional | `calendar/spec.md` | Draft |
+| 14 | Relatórios | `reports/spec.md` | Draft |
+| 15 | Dashboard de Recursos | `dashboard/spec.md` | Draft |
+| 16 | Dashboard Financeiro | `financials/spec.md` | Draft |
+| 17 | Políticas Internas | `policies/spec.md` | Draft |
+| 18 | Formação & Talento | `training/spec.md` | Draft |
+| 19 | Helpdesk Interno | `helpdesk/spec.md` | Draft |
+| 20 | Notificações & Alertas | `notifications/spec.md` | Draft |
+| 21 | Auditoria | `audit/spec.md` | Draft |
+| 22 | GDPR & Conformidade | `gdpr/spec.md` | Draft |
+| 23 | Administração do Sistema | `admin/spec.md` | Draft |
+
+## Histórico de Alterações
+
+| Versão | Data | Alteração |
+|--------|------|-----------|
+| P-000 | 2026-07-06 | Bootstrap inicial do monorepo: backend (NestJS), frontend (React 18 + Vite), shared (tipos), infra (Docker Compose dev/prod), ESLint, Prettier, Husky, lint-staged |
+| P-001 | 2026-07-06 | Infra Docker: docker-compose.dev.yml (postgres, redis, keycloak, minio, rabbitmq, backend, frontend), docker-compose.prod.yml (com limites de recursos), init.sql (uuid-ossp, schema hr, role hr_app), TypeORM CLI configurado, diretório de migrations |

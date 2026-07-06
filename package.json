@@ -1,0 +1,28 @@
+{
+  "name": "@bridge351/srh",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HR Suite — Sistema de Gestão de Recursos Humanos",
+  "scripts": {
+    "dev": "pnpm -r run dev",
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,yml,yaml,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,yml,yaml,md}\"",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "prettier": "^3.4.0",
+    "husky": "^9.1.0",
+    "lint-staged": "^15.2.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js}": ["eslint --fix", "prettier --write"],
+    "*.{json,yml,yaml,md}": ["prettier --write"]
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}

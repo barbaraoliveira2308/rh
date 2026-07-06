@@ -1,0 +1,17 @@
+{
+  "name": "@bridge351/srh-shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HR Suite — Shared TypeScript types",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "eslint \"src/**/*.ts\" --fix",
+    "format": "prettier --write \"src/**/*.ts\""
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "prettier": "^3.4.0",
+    "typescript": "^5.7.0"
+  }
+}

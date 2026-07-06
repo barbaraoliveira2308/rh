@@ -1,0 +1,332 @@
+# Módulo 02 — Utilizadores & RBAC
+
+## Objetivo
+Gerir o ciclo de vida dos colaboradores no sistema, incluindo perfis, dados pessoais, hierarquia, permissões e organograma.
+
+---
+
+## Responsabilidades
+1. Criar, editar, ativar e desativar utilizadores/colaboradores.
+2. Associar utilizadores a perfis de acesso (RBAC).
+3. Gerir hierarquia organizacional e responsáveis.
+4. Definir cargos e funções.
+5. Apresentar organograma interativo.
+6. Gerir departamentos associados a utilizadores.
+
+---
+
+## Entidades
+
+### Employee (Colaborador)
+| Campo | Tipo | Validação | Notas |
+|-------|------|-----------|-------|
+| id | UUID | PK | — |
+| user_id | UUID | FK → User, Único | Ligação à autenticação |
+| employee_number | VARCHAR(20) | Único, Obrigatório | Número interno |
+| first_name | VARCHAR(100) | Obrigatório | — |
+| last_name | VARCHAR(100) | Obrigatório | — |
+| email | VARCHAR(255) | Único, Obrigatório | Email profissional |
+| personal_email | VARCHAR(255) | Nullable | — |
+| phone | VARCHAR(20) | Nullable | — |
+| nif | VARCHAR(20) | Único, Nullable | Número fiscal (GDPR sensível) |
+| birth_date | DATE | Nullable, GDPR sensível | — |
+| address | TEXT | Nullable, GDPR sensível | — |
+| nationality | VARCHAR(50) | Nullable | — |
+| gender | VARCHAR(20) | Nullable, GDPR sensível | — |
+| photo_url | VARCHAR(512) | Nullable | Armazenado em MinIO |
+| department_id | UUID | FK → Department, Nullable | — |
+| job_title_id | UUID | FK → JobTitle, Nullable | — |
+| manager_id | UUID | FK → Employee, Nullable | Hierarquia direta |
+| employment_start_date | DATE | Obrigatório | — |
+| employment_end_date | DATE | Nullable | Data de saída |
+| status | ENUM | active, inactive, on_leave | — |
+| work_location | VARCHAR(100) | Nullable | Remote, Office, Hybrid |
+| iban | VARCHAR(34) | Nullable, GDPR sensível | Para pagamentos |
+| created_at | TIMESTAMP | Auto | — |
+| updated_at | TIMESTAMP | Auto | — |
+
+### Department (Departamento)
+| Campo | Tipo | Validação | Notas |
+|-------|------|-----------|-------|
+| id | UUID | PK | — |
+| name | VARCHAR(100) | Único, Obrigatório | — |
+| code | VARCHAR(20) | Único, Nullable | Código interno |
+| parent_id | UUID | FK → Department, Nullable | Sub-departamentos |
+| manager_id | UUID | FK → Employee, Nullable | Responsável |
+| description | TEXT | Nullable | — |
+| is_active | BOOLEAN | Default true | — |
+| created_at | TIMESTAMP | Auto | — |
+
+### JobTitle (Cargo/Função)
+| Campo | Tipo | Validação | Notas |
+|-------|------|-----------|-------|
+| id | UUID | PK | — |
+| name | VARCHAR(100) | Único, Obrigatório | — |
+| level | VARCHAR(50) | Nullable | Junior, Mid, Senior, Lead |
+| department_id | UUID | FK → Department, Nullable | — |
+| hourly_rate | DECIMAL(10,2) | Nullable | Tarifário (visível só a Admin) |
+| is_active | BOOLEAN | Default true | — |
+
+---
+
+## Casos de Uso
+
+### UC-USR-001 — Criar Colaborador
+**Objetivo:** Adicionar novo colaborador ao sistema.  
+**Pré-condições:** Utilizador autenticado com perfil Administrador.  
+**Fluxo Principal:**
+1. Admin acede a "Novo Colaborador".
+2. Sistema apresenta formulário com campos obrigatórios.
+3. Admin preenche dados pessoais, cargo, departamento e gestor.
+4. Sistema valida dados (NIF único, email único, campos obrigatórios).
+5. Sistema cria registo Employee e User associado.
+6. Sistema envia email de boas-vindas com link para definir password.
+7. Sistema emite evento `EmployeeCreated`.
+8. Sistema regista auditoria.
+
+**Fluxos Alternativos:**
+- 4a. Email já existe → erro 409, sugerir utilizador existente.
+- 4b. NIF já registado → erro 409.
+
+**Pós-condições:** Colaborador criado, User criado, email enviado.  
+**Erros:** 409 Conflict, 422 Unprocessable Entity.
+
+---
+
+### UC-USR-002 — Editar Colaborador
+**Objetivo:** Atualizar dados de um colaborador existente.  
+**Pré-condições:** Utilizador autenticado; colaborador existe.  
+**Fluxo Principal:**
+1. Admin/Gestor acede ao perfil do colaborador.
+2. Sistema apresenta dados atuais em modo edição.
+3. Utilizador altera os campos pretendidos.
+4. Sistema valida alterações.
+5. Sistema guarda alterações e emite evento `EmployeeUpdated`.
+6. Registo de auditoria com diff dos campos alterados.
+
+**Regras:** Gestor só pode editar colaboradores da sua equipa; dados GDPR sensíveis requerem permissão explícita.
+
+---
+
+### UC-USR-003 — Desativar Colaborador
+**Objetivo:** Encerrar acesso de um colaborador que saiu da organização.  
+**Pré-condições:** Colaborador existe e está ativo.  
+**Fluxo Principal:**
+1. Admin seleciona colaborador e escolhe "Desativar".
+2. Sistema solicita data de saída e motivo.
+3. Sistema define `status = inactive` e `employment_end_date`.
+4. Sistema revoga todas as sessões ativas do utilizador.
+5. Sistema notifica Gestor direto.
+6. Sistema emite evento `EmployeeDeactivated`.
+
+**Fluxos Alternativos:**
+- 3a. Colaborador tem timesheets pendentes de aprovação → alertar admin antes de prosseguir.
+- 3b. Colaborador tem alocações ativas em projetos → alertar gestores de projeto.
+
+---
+
+### UC-USR-004 — Consultar Organograma
+**Objetivo:** Visualizar a estrutura hierárquica da organização.  
+**Pré-condições:** Utilizador autenticado.  
+**Fluxo Principal:**
+1. Utilizador acede a "Organograma".
+2. Sistema carrega estrutura hierárquica baseada em `manager_id`.
+3. Sistema apresenta árvore visual interativa.
+4. Utilizador pode expandir/colapsar nós.
+5. Utilizador pode clicar num colaborador para ver perfil.
+
+**Permissões:** Todos os perfis podem ver o organograma; dados GDPR sensíveis são ocultados para colaboradores comuns.
+
+---
+
+### UC-USR-005 — Gerir Cargos e Funções
+**Objetivo:** Criar e manter catálogo de cargos.  
+**Pré-condições:** Administrador autenticado.  
+**Fluxo Principal:**
+1. Admin acede a "Cargos e Funções".
+2. Sistema lista cargos existentes.
+3. Admin cria/edita cargo com nome, nível e tarifário.
+4. Sistema valida unicidade do nome.
+5. Sistema guarda e emite `JobTitleUpdated`.
+
+---
+
+## Regras de Negócio
+
+| ID | Regra |
+|----|-------|
+| BR-USR-001 | Um colaborador não pode ser o seu próprio gestor direto. |
+| BR-USR-002 | Hierarquias circulares não são permitidas (A → B → A). |
+| BR-USR-003 | Ao desativar um colaborador, todas as suas sessões são imediatamente revogadas. |
+| BR-USR-004 | O campo NIF é sensível (GDPR) e apenas visível a Administradores. |
+| BR-USR-005 | O campo IBAN é sensível (GDPR) e apenas visível a Administradores e RH. |
+| BR-USR-006 | Um colaborador inativo não pode submeter timesheets, ausências ou despesas. |
+| BR-USR-007 | O tarifário por cargo só é visível ao perfil Administrador. |
+| BR-USR-008 | O número de colaborador é único e não pode ser reutilizado após desativação. |
+| BR-USR-009 | Gestores só podem ver e editar colaboradores sob a sua responsabilidade direta ou indireta. |
+
+---
+
+## Requisitos Funcionais
+
+| ID | Descrição |
+|----|-----------|
+| RF-USR-001 | O sistema deve permitir criar, editar, ativar e desativar colaboradores. |
+| RF-USR-002 | O sistema deve suportar associação de utilizadores a perfis (RBAC). |
+| RF-USR-003 | O sistema deve permitir definir gestor direto para cada colaborador. |
+| RF-USR-004 | O sistema deve apresentar organograma visual e interativo. |
+| RF-USR-005 | O sistema deve permitir criar e gerir departamentos com hierarquia. |
+| RF-USR-006 | O sistema deve permitir criar e gerir cargos com tarifários. |
+| RF-USR-007 | O sistema deve suportar upload de fotografia de perfil. |
+| RF-USR-008 | O sistema deve enviar email de boas-vindas ao criar colaborador. |
+| RF-USR-009 | O sistema deve registar auditoria de todas as alterações a dados de colaboradores. |
+| RF-USR-010 | O sistema deve permitir pesquisa e filtragem de colaboradores por múltiplos critérios. |
+
+---
+
+## Permissões por Perfil
+
+| Ação | Administrador | Gestor | Aprovador | Colaborador |
+|------|:---:|:---:|:---:|:---:|
+| Criar colaborador | ✅ | ❌ | ❌ | ❌ |
+| Editar qualquer colaborador | ✅ | ❌ | ❌ | ❌ |
+| Editar colaboradores da equipa | ✅ | ✅ | ❌ | ❌ |
+| Editar próprio perfil (dados não sensíveis) | ✅ | ✅ | ✅ | ✅ |
+| Ver dados GDPR sensíveis (NIF, IBAN) | ✅ | ❌ | ❌ | ❌ |
+| Desativar colaborador | ✅ | ❌ | ❌ | ❌ |
+| Ver organograma | ✅ | ✅ | ✅ | ✅ |
+| Gerir departamentos | ✅ | ❌ | ❌ | ❌ |
+| Gerir cargos | ✅ | ❌ | ❌ | ❌ |
+| Ver tarifários | ✅ | ❌ | ❌ | ❌ |
+
+---
+
+## Eventos do Sistema
+
+| Evento | Trigger |
+|--------|---------|
+| `EmployeeCreated` | Criação de novo colaborador |
+| `EmployeeUpdated` | Alteração de dados do colaborador |
+| `EmployeeDeactivated` | Desativação de colaborador |
+| `EmployeeReactivated` | Reativação de colaborador |
+| `DepartmentCreated` | Criação de departamento |
+| `DepartmentUpdated` | Alteração de departamento |
+| `JobTitleCreated` | Criação de cargo |
+| `ManagerChanged` | Alteração de gestor direto |
+
+---
+
+## APIs
+
+### GET /api/v1/employees
+Listar colaboradores com filtros e paginação.
+- **Query params:** `status`, `department_id`, `team_id`, `search`, `page`, `limit`
+- **Saída:** `{ data: Employee[], total, page, limit }`
+- **HTTP:** 200, 401, 403
+
+### POST /api/v1/employees
+Criar colaborador.
+- **Entrada:** `{ first_name, last_name, email, department_id, job_title_id, manager_id, employment_start_date, ... }`
+- **Saída:** `Employee`
+- **HTTP:** 201, 409, 422
+
+### GET /api/v1/employees/:id
+Obter colaborador por ID.
+- **HTTP:** 200, 404
+
+### PUT /api/v1/employees/:id
+Atualizar colaborador.
+- **HTTP:** 200, 404, 422
+
+### DELETE /api/v1/employees/:id
+Desativar colaborador (soft delete).
+- **Entrada:** `{ end_date, reason }`
+- **HTTP:** 200, 404
+
+### GET /api/v1/employees/org-chart
+Obter estrutura de organograma.
+- **Saída:** Árvore hierárquica de Employee
+- **HTTP:** 200
+
+### GET /api/v1/departments
+### POST /api/v1/departments
+### PUT /api/v1/departments/:id
+
+### GET /api/v1/job-titles
+### POST /api/v1/job-titles
+### PUT /api/v1/job-titles/:id
+
+---
+
+## Diagrama ER (Entidades Principais)
+
+```mermaid
+erDiagram
+    USER ||--o| EMPLOYEE : "tem"
+    EMPLOYEE }o--o| DEPARTMENT : "pertence a"
+    EMPLOYEE }o--o| JOB_TITLE : "tem cargo"
+    EMPLOYEE }o--o| EMPLOYEE : "reporta a (manager)"
+    DEPARTMENT }o--o| DEPARTMENT : "sub-departamento de"
+    DEPARTMENT }o--o| EMPLOYEE : "gerido por"
+    USER }o--|{ USER_ROLE : "tem"
+    USER_ROLE }|--o{ ROLE : "é"
+    ROLE }|--|{ ROLE_PERMISSION : "tem"
+    ROLE_PERMISSION }|--o{ PERMISSION : "permite"
+```
+
+---
+
+## Critérios de Aceitação (Gherkin)
+
+```gherkin
+Feature: Gestão de Colaboradores
+
+  Scenario: Criar colaborador com sucesso
+    Given um utilizador com perfil Administrador autenticado
+    When o admin submete dados válidos de um novo colaborador
+    Then o sistema cria o colaborador com status "active"
+    And envia email de boas-vindas para o email do colaborador
+    And regista evento "EmployeeCreated" na auditoria
+
+  Scenario: Impedir criação com email duplicado
+    Given um colaborador existente com email "joao@empresa.pt"
+    When o admin tenta criar outro colaborador com o mesmo email
+    Then o sistema retorna HTTP 409
+    And NÃO cria o novo colaborador
+
+  Scenario: Desativar colaborador revoga sessões
+    Given um colaborador ativo com sessão aberta
+    When o admin desativa o colaborador
+    Then o sistema define status como "inactive"
+    And revoga imediatamente todas as sessões do colaborador
+    And o colaborador não consegue fazer qualquer pedido autenticado
+
+  Scenario: Gestor não pode ver dados GDPR sensíveis
+    Given um utilizador com perfil Gestor autenticado
+    When o gestor acede ao perfil de um colaborador da sua equipa
+    Then o sistema mostra os dados do colaborador
+    And os campos NIF e IBAN estão ocultados/mascarados
+```
+
+---
+
+## Casos Limite
+
+1. Colaborador é também gestor de outros — desativação deve alertar sobre dependências.
+2. Departamento é eliminado com colaboradores ativos.
+3. Gestor tenta aceder a colaboradores fora da sua hierarquia.
+4. Dois admins editam o mesmo colaborador simultaneamente (concorrência).
+5. Colaborador sem departamento associado — deve ser permitido.
+6. Organograma com mais de 5 níveis hierárquicos.
+
+---
+
+## Questões em Aberto
+
+| ID | Questão | Prioridade |
+|----|---------|------------|
+| Q-USR-001 | Existe processo de onboarding formal que o sistema deve suportar? | Alta |
+| Q-USR-002 | Os campos de dados pessoais são definidos por empresa (multi-tenant) ou globais? | Alta |
+| Q-USR-003 | Existe integração com Active Directory para sincronização de utilizadores? | Alta |
+| Q-USR-004 | O organograma deve suportar múltiplas entidades legais (Bridge351 vs NIVVOS)? | Alta |
+| Q-USR-005 | Um colaborador pode pertencer a mais do que um departamento? | Média |
