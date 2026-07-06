@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthController } from './auth.controller';
+import { AuthService } from './services/auth.service';
 import { JwtService, EncryptionService } from './services';
 import { JwtAuthGuard, SESSION_VALIDATOR } from './guards';
+import { RateLimitGuard } from './guards/rate-limit.guard';
+import { AuthAuditInterceptor, AUDIT_EVENT_HANDLER } from './interceptors/auth-audit.interceptor';
 import { CacheService } from '../cache/cache.service';
 import {
   User,
@@ -30,8 +33,11 @@ import {
   ],
   controllers: [AuthController],
   providers: [
+    AuthService,
     JwtService,
     EncryptionService,
+    AuthAuditInterceptor,
+    RateLimitGuard,
     {
       provide: JwtAuthGuard,
       useFactory: (jwtService: JwtService, cacheService: CacheService) => {
@@ -50,7 +56,21 @@ import {
       }),
       inject: [CacheService],
     },
+    {
+      provide: AUDIT_EVENT_HANDLER,
+      useFactory: () => {
+        return (event: unknown): void => {
+          console.log('[Audit]', JSON.stringify(event));
+        };
+      },
+    },
   ],
-  exports: [JwtService, EncryptionService, JwtAuthGuard, TypeOrmModule],
+  exports: [
+    AuthService,
+    JwtService,
+    EncryptionService,
+    JwtAuthGuard,
+    TypeOrmModule,
+  ],
 })
 export class AuthModule {}

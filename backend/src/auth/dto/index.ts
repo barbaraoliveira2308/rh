@@ -2,3 +2,6 @@ export { LoginDto } from './login.dto';
 export { RegisterDto } from './register.dto';
 export { RefreshTokenDto } from './refresh-token.dto';
 export { MfaVerifyDto } from './mfa-verify.dto';
+export { MfaDisableDto } from './mfa-disable.dto';
+export { ChangePasswordDto } from './change-password.dto';
+export { ResetPasswordDto } from './reset-password.dto';
