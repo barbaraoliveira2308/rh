@@ -15,7 +15,8 @@
     "migration:create": "typeorm-ts-node-commonjs migration:create",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
-    "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts"
+    "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts",
+    "seed": "ts-node src/database/seeds/runner.ts"
   },
   "typeorm": {
     "cli": {
@@ -29,16 +30,14 @@
     "@nestjs/config": "^4.0.0",
     "@nestjs/swagger": "^11.0.0",
     "@nestjs/typeorm": "^11.0.0",
-    "@nestjs/jwt": "^11.0.0",
-    "@nestjs/passport": "^11.0.0",
     "typeorm": "^0.3.20",
     "pg": "^8.13.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "class-validator": "^0.14.1",
     "class-transformer": "^0.5.1",
-    "passport": "^0.7.0",
-    "passport-jwt": "^4.0.1",
+    "argon2": "^0.41.0",
+    "jsonwebtoken": "^9.0.2",
     "helmet": "^8.0.0",
     "compression": "^1.7.4",
     "winston": "^3.17.0"
@@ -49,7 +48,7 @@
     "@nestjs/testing": "^11.0.0",
     "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
-    "@types/passport-jwt": "^4.0.1",
+    "@types/jsonwebtoken": "^9.0.7",
     "@types/compression": "^1.7.5",
     "@types/jest": "^29.5.14",
     "@types/supertest": "^6.0.2",

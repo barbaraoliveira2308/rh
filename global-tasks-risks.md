@@ -8,9 +8,9 @@
 |----|--------|--------|-------------|------------|------------|----------------------|--------|
 | T-001 | Configurar infraestrutura Docker (dev/staging/prod) | Admin | — | Crítica | 3d | docker-compose funcional em todos os ambientes | ✅ Concluído |
 | T-002 | Configurar PostgreSQL com migrações | Admin | T-001 | Crítica | 2d | Esquema base criado; migrações automatizadas | ✅ Concluído |
-| T-003 | Configurar Keycloak (SSO + OIDC) | Auth | T-001 | Crítica | 3d | Login SSO funcional | ⬜ Pendente |
-| T-004 | Implementar autenticação JWT | Auth | T-002, T-003 | Crítica | 3d | Login/Logout/Refresh funcional | ⬜ Pendente |
-| T-005 | Implementar RBAC (Roles + Permissions) | Users | T-004 | Crítica | 2d | Permissões aplicadas por perfil | ⬜ Pendente |
+| T-003 | Configurar Keycloak (SSO + OIDC) | Auth | T-001 | Crítica | 3d | Login SSO funcional | 🔄 Em progresso |
+| T-004 | Implementar autenticação JWT | Auth | T-002, T-003 | Crítica | 3d | Login/Logout/Refresh funcional | 🔄 Em progresso |
+| T-005 | Implementar RBAC (Roles + Permissions) | Users | T-004 | Crítica | 2d | Permissões aplicadas por perfil | ✅ Concluído |
 | T-006 | Implementar MFA (TOTP) | Auth | T-004 | Alta | 2d | MFA funcional para Admin | ⬜ Pendente |
 | T-007 | Criar CRUD de Utilizadores | Users | T-005 | Alta | 3d | Admin pode gerir utilizadores | ⬜ Pendente |
 | T-008 | Implementar auditoria base (AuditLog) | Audit | T-004 | Alta | 2d | Todos os CRUD registam audit log | ⬜ Pendente |
@@ -114,7 +114,7 @@
 
 | ID | Texto Original | Ambiguidade | Interpretação Proposta | Confiança |
 |----|----------------|-------------|----------------------|-----------|
-| AMB-001 | "Perfis de Utilizador – O admin tem permissões exclusivas, todos os outros terão as mesmas autorizações é necessário apenas poder alterar as permissões em caso de managers para aprovações" | Gestor, Aprovador e Colaborador têm as mesmas permissões base? | Existem 4 perfis distintos: Admin (tudo), Gestor (gestão de equipa + aprovações), Aprovador (só aprovações), Colaborador (self-service). Gestor pode ter permissões de aprovação ativadas pelo Admin. | 65% |
+| AMB-001 | "Perfis de Utilizador – O admin tem permissões exclusivas, todos os outros terão as mesmas autorizações é necessário apenas poder alterar as permissões em caso de managers para aprovações" | Gestor, Aprovador e Colaborador têm as mesmas permissões base? | Existem 4 perfis distintos: Admin (tudo), Gestor (gestão de equipa + aprovações), Aprovador (só aprovações — visibilidade apenas própria equipa), Colaborador (self-service). Gestor pode ter permissões de aprovação ativadas pelo Admin. | 80% |
 | AMB-002 | "Aniversário Bridge351 e NIVVOS" | Aniversário de fundação das empresas ou aniversário dos colaboradores? | Aniversário de fundação das entidades legais, apresentado como evento recorrente no calendário. | 60% |
 | AMB-003 | "Margem em cada consultor, tendo em conta a rate do projeto" | Como é calculado o custo do consultor? | Custo hora = Valor contrato / (Horas mensais × 12). Margem = (Rate projeto - Custo hora consultor) × Horas no projeto. | 70% |
 | AMB-004 | "Definir fim do projeto (para consultor) e criar alerta" | "Para consultor" significa alerta específico da alocação do consultor no projeto? | Alerta separado: (1) fim do projeto em geral; (2) fim da alocação do consultor no projeto — ambos configuráveis. | 80% |
