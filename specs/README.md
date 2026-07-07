@@ -4,40 +4,41 @@ Este directório contém as especificações técnicas (SDD) de cada módulo do 
 
 ## Índice de Módulos
 
-| # | Módulo | Pasta | Estado |
-|---|--------|-------|--------|
-| 01 | Autenticação & Segurança | `auth/spec.md` | Draft |
-| 02 | Utilizadores & RBAC | `users/spec.md` | Draft |
-| 03 | Equipas & Organograma | `teams/spec.md` | Draft |
-| 04 | Clientes | `clients/spec.md` | Draft |
-| 05 | Projetos | `projects/spec.md` | Draft |
-| 06 | Capacidade & Alocação | `capacity/spec.md` | Draft |
-| 07 | Assiduidade & Timesheets | `timesheets/spec.md` | Draft |
-| 08 | Ausências | `absences/spec.md` | Draft |
-| 09 | Despesas & Reembolsos | `expenses/spec.md` | Draft |
-| 10 | Gestão Documental | `documents/spec.md` | Draft |
-| 11 | Contratos | `contracts/spec.md` | Draft |
-| 12 | Workflow & Caixa de Entrada | `workflow/spec.md` | Draft |
-| 13 | Calendário Organizacional | `calendar/spec.md` | Draft |
-| 14 | Relatórios | `reports/spec.md` | Draft |
-| 15 | Dashboard de Recursos | `dashboard/spec.md` | Draft |
-| 16 | Dashboard Financeiro | `financials/spec.md` | Draft |
-| 17 | Políticas Internas | `policies/spec.md` | Draft |
-| 18 | Formação & Talento | `training/spec.md` | Draft |
-| 19 | Helpdesk Interno | `helpdesk/spec.md` | Draft |
-| 20 | Notificações & Alertas | `notifications/spec.md` | Draft |
-| 21 | Auditoria | `audit/spec.md` | Draft |
-| 22 | GDPR & Conformidade | `gdpr/spec.md` | Draft |
-| 23 | Administração do Sistema | `admin/spec.md` | Draft |
+| #   | Módulo                      | Pasta                   | Estado |
+| --- | --------------------------- | ----------------------- | ------ |
+| 01  | Autenticação & Segurança    | `auth/spec.md`          | Draft  |
+| 02  | Utilizadores & RBAC         | `users/spec.md`         | Draft  |
+| 03  | Equipas & Organograma       | `teams/spec.md`         | Draft  |
+| 04  | Clientes                    | `clients/spec.md`       | Draft  |
+| 05  | Projetos                    | `projects/spec.md`      | Draft  |
+| 06  | Capacidade & Alocação       | `capacity/spec.md`      | Draft  |
+| 07  | Assiduidade & Timesheets    | `timesheets/spec.md`    | Draft  |
+| 08  | Ausências                   | `absences/spec.md`      | Draft  |
+| 09  | Despesas & Reembolsos       | `expenses/spec.md`      | Draft  |
+| 10  | Gestão Documental           | `documents/spec.md`     | Draft  |
+| 11  | Contratos                   | `contracts/spec.md`     | Draft  |
+| 12  | Workflow & Caixa de Entrada | `workflow/spec.md`      | Draft  |
+| 13  | Calendário Organizacional   | `calendar/spec.md`      | Draft  |
+| 14  | Relatórios                  | `reports/spec.md`       | Draft  |
+| 15  | Dashboard de Recursos       | `dashboard/spec.md`     | Draft  |
+| 16  | Dashboard Financeiro        | `financials/spec.md`    | Draft  |
+| 17  | Políticas Internas          | `policies/spec.md`      | Draft  |
+| 18  | Formação & Talento          | `training/spec.md`      | Draft  |
+| 19  | Helpdesk Interno            | `helpdesk/spec.md`      | Draft  |
+| 20  | Notificações & Alertas      | `notifications/spec.md` | Draft  |
+| 21  | Auditoria                   | `audit/spec.md`         | Draft  |
+| 22  | GDPR & Conformidade         | `gdpr/spec.md`          | Draft  |
+| 23  | Administração do Sistema    | `admin/spec.md`         | Draft  |
 
 ## Histórico de Alterações
 
-| Versão | Data | Alteração |
-|--------|------|-----------|
-| P-000 | 2026-07-06 | Bootstrap inicial do monorepo: backend (NestJS), frontend (React 18 + Vite), shared (tipos), infra (Docker Compose dev/prod), ESLint, Prettier, Husky, lint-staged |
-| P-001 | 2026-07-06 | Infra Docker: docker-compose.dev.yml (postgres, redis, keycloak, minio, rabbitmq, backend, frontend), docker-compose.prod.yml (com limites de recursos), init.sql (uuid-ossp, schema hr, role hr_app), TypeORM CLI configurado, diretório de migrations |
-| P-002 | 2026-07-06 | Módulo Auth: entidades TypeORM (User, Session, Role, Permission, RolePermission, UserRole, PasswordResetToken, ApiKey), DTOs (Login, Register, RefreshToken, MfaVerify), JwtService customizado (jsonwebtoken), EncryptionService (AES-256-GCM), JwtAuthGuard com verificação de sessão no Redis, CacheModule, migração inicial, testes unitários JwtService |
-| P-003 | 2026-07-06 | Módulo RBAC: decorators @Roles e @Permissions, RolesGuard, PermissionsGuard, RbacService (assignRole, revokeRole, getUserPermissions, hasPermission), seed rbac.seed.ts (4 roles, 30 permissões base, admin@hr-suite.local), definição de permissões por perfil (admin:* → manager:crud+approve → approver:read+approve → employee:self) |
-| P-004 | 2026-07-06 | Endpoints de autenticação: AuthService (login com argon2, refresh com rotação de tokens, logout, MFA enable/verify/disable com TOTP+QR code, change/reset password, getProfile), RateLimitGuard (10 req/min/IP), AuthAuditInterceptor, E2E test (login→refresh→logout) |
-| P-005 | 2026-07-07 | Módulo de Auditoria (AuditLog): entidade AuditLog (schema hr), migração, serviço com queue assíncrona, AuditInterceptor (REQUEST scope) com auto-log de CRUD via @Audit decorator, controller GET /audit/logs com filtros e paginação cursor-based, export CSV, mascaramento de campos sensíveis, permissão admin |
-| P-006 | 2026-07-07 | Integração Keycloak SSO (KeycloakService, KeycloakStrategy Passport OIDC, endpoints GET /auth/sso/redirect e GET /auth/sso/callback), MFA TOTP com otpauth (MfaService, geração secret+QR code, validação com janela ±1), EncryptionService testado (AES-256-GCM), realm-export.json atualizado (clients srh-backend e srh-frontend com PKCE, realm-roles mapper) |
+| Versão | Data       | Alteração                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| P-000  | 2026-07-06 | Bootstrap inicial do monorepo: backend (NestJS), frontend (React 18 + Vite), shared (tipos), infra (Docker Compose dev/prod), ESLint, Prettier, Husky, lint-staged                                                                                                                                                                                                                                           |
+| P-001  | 2026-07-06 | Infra Docker: docker-compose.dev.yml (postgres, redis, keycloak, minio, rabbitmq, backend, frontend), docker-compose.prod.yml (com limites de recursos), init.sql (uuid-ossp, schema hr, role hr_app), TypeORM CLI configurado, diretório de migrations                                                                                                                                                      |
+| P-002  | 2026-07-06 | Módulo Auth: entidades TypeORM (User, Session, Role, Permission, RolePermission, UserRole, PasswordResetToken, ApiKey), DTOs (Login, Register, RefreshToken, MfaVerify), JwtService customizado (jsonwebtoken), EncryptionService (AES-256-GCM), JwtAuthGuard com verificação de sessão no Redis, CacheModule, migração inicial, testes unitários JwtService                                                 |
+| P-003  | 2026-07-06 | Módulo RBAC: decorators @Roles e @Permissions, RolesGuard, PermissionsGuard, RbacService (assignRole, revokeRole, getUserPermissions, hasPermission), seed rbac.seed.ts (4 roles, 30 permissões base, admin@hr-suite.local), definição de permissões por perfil (admin:* → manager:crud+approve → approver:read+approve → employee:self)                                                                     |
+| P-004  | 2026-07-06 | Endpoints de autenticação: AuthService (login com argon2, refresh com rotação de tokens, logout, MFA enable/verify/disable com TOTP+QR code, change/reset password, getProfile), RateLimitGuard (10 req/min/IP), AuthAuditInterceptor, E2E test (login→refresh→logout)                                                                                                                                       |
+| P-005  | 2026-07-07 | Módulo de Auditoria (AuditLog): entidade AuditLog (schema hr), migração, serviço com queue assíncrona, AuditInterceptor (REQUEST scope) com auto-log de CRUD via @Audit decorator, controller GET /audit/logs com filtros e paginação cursor-based, export CSV, mascaramento de campos sensíveis, permissão admin                                                                                            |
+| P-006  | 2026-07-07 | Integração Keycloak SSO (KeycloakService, KeycloakStrategy Passport OIDC, endpoints GET /auth/sso/redirect e GET /auth/sso/callback), MFA TOTP com otpauth (MfaService, geração secret+QR code, validação com janela ±1), EncryptionService testado (AES-256-GCM), realm-export.json atualizado (clients srh-backend e srh-frontend com PKCE, realm-roles mapper)                                            |
+| P-007  | 2026-07-07 | Módulo Users: entidades Employee/Department/JobTitle, decorator @GdprSensitive, repositórios EmployeeRepository (findWithHierarchy) e DepartmentRepository (findTree), DTOs de validação, UsersService (CRUD, getOrganizationChart, transferEmployee), UsersController (endpoints /users, /departments, /job-titles), migration CreateUsersTables, testes unitários (getOrganizationChart, transferEmployee) |
