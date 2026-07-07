@@ -10,12 +10,14 @@
 
 5. Após concluir a implementação, executa as acções de fecho descritas na secção "Acções de Fecho" no final de cada prompt. Não saltes esta secção.
 
-7. Mantém o ficheiro `PROJECT_STATE.md` actualizado. Sempre que uma fase é concluída, regista:
+6. Mantém o ficheiro `PROJECT_STATE.md` actualizado. Sempre que uma fase é concluída, regista:
    - A fase, passo, data e descrição no histórico
    - Qualquer decisão tomada (com ID, valor e impacto)
    - Actualiza o estado corrente e a data da última actualização
 
-6. Formato das perguntas ao utilizador:
+7. Formato das perguntas ao utilizador:
    QUESTÃO [ID]: [descrição clara do que precisa de decisão]
    Opções sugeridas: [lista de alternativas se aplicável]
    Impacto: [o que muda consoante a resposta]
+
+8. Ao final de cada interacção, alteração ou prompt, exibe o comando para fazer commit e push no git (ex: `git add -A && git commit -m "mensagem" && git push`).
