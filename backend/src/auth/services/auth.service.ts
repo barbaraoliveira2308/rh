@@ -158,7 +158,7 @@ export class AuthService {
     await this.cacheService.del(`refresh:${oldRefreshHash}`);
 
     const user = await this.userRepository.findOneBy({ id: payload.sub });
-    if (!user || !user.isActive) {
+    if (!user?.isActive) {
       throw new UnauthorizedException('Utilizador não encontrado ou inativo');
     }
 

@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { CacheModule } from './cache/cache.module';
 import { RbacModule } from './rbac/rbac.module';
+import { AuditModule } from './audit/audit.module';
 import { dataSourceOptions } from './database/data-source';
 
 @Module({
@@ -18,6 +19,7 @@ import { dataSourceOptions } from './database/data-source';
     CacheModule,
     AuthModule,
     RbacModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [AppService],

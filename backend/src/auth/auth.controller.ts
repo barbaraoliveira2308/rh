@@ -56,7 +56,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async logout(@Req() req: Request): Promise<{ message: string }> {
     const authHeader = req.headers.authorization;
-    const token = authHeader!.split(' ')[1]!;
+    const token = authHeader!.split(' ')[1];
     const tokenHash = this.jwtService.computeTokenHash(token);
     await this.authService.logout(tokenHash);
     return { message: 'Sessão terminada' };
@@ -79,7 +79,7 @@ export class AuthController {
   async enableMfa(
     @Req() req: Request,
   ): Promise<{ secret: string; qrCodeUrl: string }> {
-    const user = req['user'] as JwtPayload;
+    const user = req.user as JwtPayload;
     return this.authService.enableMfa(user.sub);
   }
 
@@ -92,7 +92,7 @@ export class AuthController {
     @Req() req: Request,
     @Body() dto: MfaVerifyDto,
   ): Promise<{ message: string }> {
-    const user = req['user'] as JwtPayload;
+    const user = req.user as JwtPayload;
     await this.authService.verifyMfa(user.sub, dto.code);
     return { message: 'MFA ativado com sucesso' };
   }
@@ -106,7 +106,7 @@ export class AuthController {
     @Req() req: Request,
     @Body() dto: MfaDisableDto,
   ): Promise<{ message: string }> {
-    const user = req['user'] as JwtPayload;
+    const user = req.user as JwtPayload;
     await this.authService.disableMfa(user.sub, dto.code);
     return { message: 'MFA desativado' };
   }
@@ -120,7 +120,7 @@ export class AuthController {
     @Req() req: Request,
     @Body() dto: ChangePasswordDto,
   ): Promise<{ message: string }> {
-    const user = req['user'] as JwtPayload;
+    const user = req.user as JwtPayload;
     await this.authService.changePassword(user.sub, dto.oldPassword, dto.newPassword);
     return { message: 'Password alterada com sucesso' };
   }
@@ -151,7 +151,7 @@ export class AuthController {
     lastLoginAt: Date | null;
     roles: string[];
   }> {
-    const user = req['user'] as JwtPayload;
+    const user = req.user as JwtPayload;
     return this.authService.getProfile(user.sub);
   }
 }

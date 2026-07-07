@@ -19,7 +19,7 @@ const EMPLOYEE = 'employee' as const;
 
 type RoleName = typeof ADMIN | typeof MANAGER | typeof APPROVER | typeof EMPLOYEE;
 
-const rolePermissionsMap: Record<RoleName, Array<{ resource: Resource; action: Action }>> = {
+const rolePermissionsMap: Record<RoleName, { resource: Resource; action: Action }[]> = {
   admin: RESOURCES.flatMap((r) => ACTIONS.map((a) => ({ resource: r, action: a }))),
   manager: [
     { resource: 'users', action: 'read' },

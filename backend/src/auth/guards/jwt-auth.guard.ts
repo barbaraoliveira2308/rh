@@ -41,7 +41,7 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Sessão inválida ou expirada');
     }
 
-    request['user'] = payload;
+    request.user = payload;
 
     return true;
   }

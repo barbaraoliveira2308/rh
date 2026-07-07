@@ -37,7 +37,7 @@ export class AuthAuditInterceptor implements NestInterceptor {
         const body = request.body as Record<string, unknown> | undefined;
         this.handler({
           type: `${method}:${request.route?.path ?? 'unknown'}`,
-          userId: (request as Record<string, unknown>)['user'] as string | undefined,
+          userId: (request as Record<string, unknown>).user as string | undefined,
           username: body?.username as string | undefined,
           ip: ip ?? 'unknown',
           timestamp: new Date().toISOString(),

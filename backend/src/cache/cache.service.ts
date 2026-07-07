@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class CacheService implements OnModuleDestroy {
-  private readonly store: Map<string, { value: string; expiresAt: number }> = new Map();
+  private readonly store = new Map<string, { value: string; expiresAt: number }>();
   private readonly cleanupInterval: ReturnType<typeof setInterval>;
 
   constructor(configService: ConfigService) {
