@@ -5,15 +5,18 @@ import {
   UseGuards,
   Get,
   Req,
+  Query,
   UseInterceptors,
   HttpCode,
   HttpStatus,
+  Redirect,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { Request } from 'express';
 import { AuthService } from './services/auth.service';
 import { JwtService } from './services/jwt.service';
-import { LoginDto, RegisterDto, RefreshTokenDto, MfaVerifyDto, ChangePasswordDto, ResetPasswordDto, MfaDisableDto } from './dto';
+import { KeycloakService } from './keycloak/keycloak.service';
+import { LoginDto, RefreshTokenDto, MfaVerifyDto, ChangePasswordDto, ResetPasswordDto, MfaDisableDto } from './dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RateLimitGuard } from './guards/rate-limit.guard';
 import { AuthAuditInterceptor } from './interceptors/auth-audit.interceptor';
@@ -26,7 +29,28 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly jwtService: JwtService,
+    private readonly keycloakService: KeycloakService,
   ) {}
+
+  @Get('sso/redirect')
+  @ApiOperation({ summary: 'Redirecionar para Keycloak SSO' })
+  @Redirect()
+  ssoRedirect(): { url: string; statusCode: number } {
+    const redirectUri = `${this.keycloakService.configService.get<string>('APP_URL', 'http://localhost:3000')}/auth/sso/callback`;
+    const url = this.keycloakService.getAuthorizationUrl(redirectUri);
+    return { url, statusCode: 302 };
+  }
+
+  @Get('sso/callback')
+  @ApiOperation({ summary: 'Callback do Keycloak SSO' })
+  @ApiQuery({ name: 'code', required: true })
+  @ApiQuery({ name: 'state', required: false })
+  @HttpCode(HttpStatus.OK)
+  async ssoCallback(
+    @Query('code') code: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    return this.authService.ssoLogin(code, this.keycloakService);
+  }
 
   @Post('login')
   @UseGuards(RateLimitGuard)
@@ -56,7 +80,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async logout(@Req() req: Request): Promise<{ message: string }> {
     const authHeader = req.headers.authorization;
-    const token = authHeader!.split(' ')[1];
+    if (!authHeader) {
+      return { message: 'Sessão terminada' };
+    }
+    const token = authHeader.split(' ')[1];
     const tokenHash = this.jwtService.computeTokenHash(token);
     await this.authService.logout(tokenHash);
     return { message: 'Sessão terminada' };

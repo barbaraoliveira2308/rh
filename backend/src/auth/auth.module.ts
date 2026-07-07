@@ -1,12 +1,15 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './services/auth.service';
 import { JwtService, EncryptionService } from './services';
+import { MfaService } from './services/mfa.service';
 import { JwtAuthGuard, SESSION_VALIDATOR } from './guards';
 import { RateLimitGuard } from './guards/rate-limit.guard';
 import { AuthAuditInterceptor, AUDIT_EVENT_HANDLER } from './interceptors/auth-audit.interceptor';
 import { CacheService } from '../cache/cache.service';
+import { KeycloakModule } from './keycloak/keycloak.module';
 import {
   User,
   Session,
@@ -30,12 +33,15 @@ import {
       PasswordResetToken,
       ApiKey,
     ]),
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+    KeycloakModule,
   ],
   controllers: [AuthController],
   providers: [
     AuthService,
     JwtService,
     EncryptionService,
+    MfaService,
     AuthAuditInterceptor,
     RateLimitGuard,
     {

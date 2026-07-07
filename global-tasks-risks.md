@@ -8,10 +8,10 @@
 |----|--------|--------|-------------|------------|------------|----------------------|--------|
 | T-001 | Configurar infraestrutura Docker (dev/staging/prod) | Admin | — | Crítica | 3d | docker-compose funcional em todos os ambientes | ✅ Concluído |
 | T-002 | Configurar PostgreSQL com migrações | Admin | T-001 | Crítica | 2d | Esquema base criado; migrações automatizadas | ✅ Concluído |
-| T-003 | Configurar Keycloak (SSO + OIDC) | Auth | T-001 | Crítica | 3d | Login SSO funcional | 🔄 Em progresso |
+| T-003 | Configurar Keycloak (SSO + OIDC) | Auth | T-001 | Crítica | 3d | Login SSO funcional | ✅ Concluído |
 | T-004 | Implementar autenticação JWT | Auth | T-002, T-003 | Crítica | 3d | Login/Logout/Refresh funcional | ✅ Concluído |
 | T-005 | Implementar RBAC (Roles + Permissions) | Users | T-004 | Crítica | 2d | Permissões aplicadas por perfil | ✅ Concluído |
-| T-006 | Implementar MFA (TOTP) | Auth | T-004 | Alta | 2d | MFA funcional para Admin | ⬜ Pendente |
+| T-006 | Implementar MFA (TOTP) | Auth | T-004 | Alta | 2d | MFA funcional para Admin | ✅ Concluído |
 | T-007 | Criar CRUD de Utilizadores | Users | T-005 | Alta | 3d | Admin pode gerir utilizadores | ⬜ Pendente |
 | T-008 | Implementar auditoria base (AuditLog) | Audit | T-004 | Alta | 2d | Todos os CRUD registam audit log | ✅ Concluído |
 | T-009 | Configurar ELK Stack para logging | Admin | T-001 | Alta | 2d | Logs centralizados | ⬜ Pendente |

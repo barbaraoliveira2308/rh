@@ -62,7 +62,23 @@
       "authorizationServicesEnabled": true,
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
-      "secret": "srh-backend-secret"
+      "secret": "srh-backend-secret",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"],
+      "protocolMappers": [
+        {
+          "name": "realm-roles-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "multivalued": true,
+            "user.attribute": "foo",
+            "claim.name": "realm_roles",
+            "access.token.claim": true,
+            "id.token.claim": true,
+            "jsonType.label": "String"
+          }
+        }
+      ]
     },
     {
       "clientId": "srh-frontend",
@@ -72,7 +88,10 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "redirectUris": ["http://localhost:5173/*"],
-      "webOrigins": ["http://localhost:5173"]
+      "webOrigins": ["http://localhost:5173"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
     }
   ]
 }

@@ -3,22 +3,17 @@ import {
   UnauthorizedException,
   ForbiddenException,
   BadRequestException,
-  Inject,
-  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as argon2 from 'argon2';
-import { authenticator } from 'otplib';
-import { toDataURL } from 'qrcode';
 import { ConfigService } from '@nestjs/config';
 import { User } from '../entities/user.entity';
 import { Session } from '../entities/session.entity';
 import { UserRole } from '../entities/user-role.entity';
 import { JwtService } from './jwt.service';
-import { EncryptionService } from './encryption.service';
+import { MfaService } from './mfa.service';
 import { CacheService } from '../../cache/cache.service';
-import { Role } from '../entities/role.entity';
 
 @Injectable()
 export class AuthService {
@@ -33,7 +28,7 @@ export class AuthService {
     @InjectRepository(UserRole)
     private readonly userRoleRepository: Repository<UserRole>,
     private readonly jwtService: JwtService,
-    private readonly encryptionService: EncryptionService,
+    private readonly mfaService: MfaService,
     private readonly cacheService: CacheService,
     private readonly configService: ConfigService,
   ) {
@@ -83,8 +78,10 @@ export class AuthService {
       if (!mfaCode) {
         throw new BadRequestException('Código MFA obrigatório');
       }
-      const secret = this.encryptionService.decrypt(user.mfaSecret!);
-      const isValid = authenticator.verify({ token: mfaCode, secret });
+      if (!user.mfaSecret) {
+        throw new BadRequestException('MFA não configurado');
+      }
+      const isValid = this.mfaService.validateToken(user.mfaSecret, mfaCode);
       if (!isValid) {
         throw new UnauthorizedException('Código MFA inválido');
       }
@@ -199,16 +196,11 @@ export class AuthService {
   }
 
   async enableMfa(userId: string): Promise<{ secret: string; qrCodeUrl: string }> {
-    const secret = authenticator.generateSecret();
-    const appName = this.configService.get<string>('APP_NAME', 'HR Suite');
-
-    const otpauth = authenticator.keyuri(userId, appName, secret);
-    const qrCodeUrl = await toDataURL(otpauth);
-
-    const encrypted = this.encryptionService.encrypt(secret);
+    const { secret, encryptedSecret, qrCodeUrl } =
+      this.mfaService.generateSecret(userId);
 
     await this.userRepository.update(userId, {
-      mfaSecret: encrypted,
+      mfaSecret: encryptedSecret,
       mfaEnabled: false,
     });
 
@@ -229,8 +221,7 @@ export class AuthService {
       throw new BadRequestException('MFA já está ativo');
     }
 
-    const secret = this.encryptionService.decrypt(user.mfaSecret);
-    const isValid = authenticator.verify({ token: code, secret });
+    const isValid = this.mfaService.validateToken(user.mfaSecret, code);
 
     if (!isValid) {
       throw new BadRequestException('Código MFA inválido');
@@ -249,8 +240,7 @@ export class AuthService {
       throw new BadRequestException('MFA não está configurado');
     }
 
-    const secret = this.encryptionService.decrypt(user.mfaSecret);
-    const isValid = authenticator.verify({ token: code, secret });
+    const isValid = this.mfaService.validateToken(user.mfaSecret, code);
 
     if (!isValid) {
       throw new BadRequestException('Código MFA inválido');
@@ -324,6 +314,39 @@ export class AuthService {
       mfaEnabled: user.mfaEnabled,
       lastLoginAt: user.lastLoginAt,
       roles,
+    };
+  }
+
+  async ssoLogin(
+    code: string,
+    keycloakService: { exchangeCodeForTokens(code: string, redirectUri: string): Promise<{ accessToken: string; refreshToken: string }>; getUserInfo(accessToken: string): Promise<{ sub: string; email: string; preferred_username?: string }>; syncUser(userInfo: { sub: string; email: string; preferred_username?: string }): Promise<User> },
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    const redirectUri = `${this.configService.get<string>('APP_URL', 'http://localhost:3000')}/auth/sso/callback`;
+    const kcTokens = await keycloakService.exchangeCodeForTokens(code, redirectUri);
+    const userInfo = await keycloakService.getUserInfo(kcTokens.accessToken);
+    const user = await keycloakService.syncUser(userInfo);
+
+    const userRoles = await this.userRoleRepository.find({
+      where: { userId: user.id },
+      relations: { role: true },
+    });
+    const roles = userRoles.map((ur) => ur.role.name);
+
+    const internalTokens = this.jwtService.generateTokenPair(user, roles);
+
+    const accessHash = this.jwtService.computeTokenHash(internalTokens.accessToken);
+    const refreshHash = this.jwtService.computeTokenHash(internalTokens.refreshToken);
+
+    await this.cacheService.set(`session:${accessHash}`, user.id, 15 * 60 * 1000);
+    await this.cacheService.set(
+      `refresh:${refreshHash}`,
+      JSON.stringify({ userId: user.id, sessionId: user.id }),
+      7 * 24 * 60 * 60 * 1000,
+    );
+
+    return {
+      accessToken: internalTokens.accessToken,
+      refreshToken: internalTokens.refreshToken,
     };
   }
 
