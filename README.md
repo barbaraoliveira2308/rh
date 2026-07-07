@@ -114,7 +114,7 @@ Dashboard Financeiro ← Projetos, Timesheets, Despesas, Contratos
 
 ---
 
-## Questões em Aberto Globais
+## Questões Globais
 
 | ID      | Questão                                                           | Módulo      | Prioridade | Estado  |
 | ------- | ----------------------------------------------------------------- | ----------- | ---------- | ------- |
