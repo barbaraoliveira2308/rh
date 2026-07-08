@@ -21,6 +21,7 @@ import { ExpensesModule } from './expenses/expenses.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { WorkflowModule } from './workflow/workflow.module';
+import { CalendarModule } from './calendar/calendar.module';
 import { StorageModule } from './storage/storage.module';
 import { dataSourceOptions } from './database/data-source';
 
@@ -50,6 +51,7 @@ import { dataSourceOptions } from './database/data-source';
     AnalyticsModule,
     NotificationsModule,
     WorkflowModule,
+    CalendarModule,
   ],
   controllers: [AppController],
   providers: [AppService],

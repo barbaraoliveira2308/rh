@@ -19,6 +19,7 @@ import { TimesheetSubmittedEvent } from '../events/timesheet-submitted.event';
 import { TimesheetApprovedEvent } from '../events/timesheet-approved.event';
 import { TimesheetRejectedEvent } from '../events/timesheet-rejected.event';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
+import { CalendarService } from '../../calendar/services/calendar.service';
 
 interface AbsenceRow {
   id: string;
@@ -45,6 +46,7 @@ export class TimesheetsService {
     @InjectRepository(Employee)
     private readonly employeeRepository: Repository<Employee>,
     private readonly eventEmitter: EventEmitter2,
+    private readonly calendarService: CalendarService,
   ) {}
 
   async generateMonthlyPeriods(year: number, month: number): Promise<number> {
@@ -211,6 +213,8 @@ export class TimesheetsService {
     if (entry.isLocked) {
       throw new BadRequestException('Entrada bloqueada após aprovação');
     }
+
+    await this.calendarService.validateBlockedPeriodForTimesheets(entry.entryDate);
 
     const updateData: Record<string, unknown> = {};
 

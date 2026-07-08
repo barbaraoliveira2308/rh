@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AbsencesService } from './absences.service';
+import { CalendarService } from '../../calendar/services/calendar.service';
 import { AbsenceType } from '../entities/absence-type.entity';
 import { AbsenceRequest } from '../entities/absence-request.entity';
 import { AbsenceApproval } from '../entities/absence-approval.entity';
@@ -20,6 +21,7 @@ describe('AbsencesService', () => {
   let mockEmployeeRepo: Record<string, jest.Mock>;
   let mockHolidayRepo: Record<string, jest.Mock>;
   let mockEventEmitter: Record<string, jest.Mock>;
+  let mockCalendarService: Record<string, jest.Mock>;
 
   const mockEmployee = {
     id: 'emp-1',
@@ -112,6 +114,10 @@ describe('AbsencesService', () => {
       emit: jest.fn(),
     };
 
+    mockCalendarService = {
+      validateBlockedPeriodForAbsences: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AbsencesService,
@@ -122,6 +128,7 @@ describe('AbsencesService', () => {
         { provide: getRepositoryToken(Employee), useValue: mockEmployeeRepo },
         { provide: getRepositoryToken(HolidayCalendar), useValue: mockHolidayRepo },
         { provide: EventEmitter2, useValue: mockEventEmitter },
+        { provide: CalendarService, useValue: mockCalendarService },
       ],
     }).compile();
 

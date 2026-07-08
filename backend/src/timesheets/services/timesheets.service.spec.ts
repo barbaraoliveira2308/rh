@@ -3,6 +3,7 @@ import { getRepositoryToken, getEntityManagerToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TimesheetsService } from './timesheets.service';
+import { CalendarService } from '../../calendar/services/calendar.service';
 import { TimesheetPeriod } from '../entities/timesheet-period.entity';
 import { TimesheetEntry } from '../entities/timesheet-entry.entity';
 import { TimesheetApproval } from '../entities/timesheet-approval.entity';
@@ -20,6 +21,7 @@ describe('TimesheetsService', () => {
   let mockEntityManager: Record<string, jest.Mock>;
   let mockEmployeeRepo: Record<string, jest.Mock>;
   let mockEventEmitter: Record<string, jest.Mock>;
+  let mockCalendarService: Record<string, jest.Mock>;
 
   const mockEmployee = {
     id: 'emp-1',
@@ -108,6 +110,10 @@ describe('TimesheetsService', () => {
       emit: jest.fn(),
     };
 
+    mockCalendarService = {
+      validateBlockedPeriodForTimesheets: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TimesheetsService,
@@ -118,6 +124,7 @@ describe('TimesheetsService', () => {
         { provide: getEntityManagerToken(), useValue: mockEntityManager },
         { provide: getRepositoryToken(Employee), useValue: mockEmployeeRepo },
         { provide: EventEmitter2, useValue: mockEventEmitter },
+        { provide: CalendarService, useValue: mockCalendarService },
       ],
     }).compile();
 

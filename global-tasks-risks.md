@@ -32,19 +32,19 @@
 
 ### FASE 3 — Core Operacional
 
-| ID    | Tarefa                                | Módulo     | Dependências | Prioridade | Estimativa | Critério de Conclusão                  | Estado      |
-| ----- | ------------------------------------- | ---------- | ------------ | ---------- | ---------- | -------------------------------------- | ----------- |
-| T-019 | CRUD Projetos com estados             | Projects   | T-015, T-013 | Crítica    | 4d         | Projetos com draft/active/closed       | ⬜ Pendente |
-| T-020 | Alocações de colaboradores a projetos | Projects   | T-019        | Crítica    | 3d         | Alocações com alertas de sobrealodação | ⬜ Pendente |
-| T-021 | Calendário de feriados por país       | Calendar   | T-002        | Alta       | 2d         | Feriados PT importados                 | ⬜ Pendente |
-| T-022 | Geração automática de Timesheets      | Timesheets | T-021, T-013 | Crítica    | 3d         | Pré-preenchimento mensal automático    | ⬜ Pendente |
-| T-023 | CRUD entradas de Timesheet            | Timesheets | T-022, T-019 | Crítica    | 3d         | Colaborador edita horas com projeto    | ⬜ Pendente |
-| T-024 | Fluxo submissão/aprovação Timesheet   | Timesheets | T-023        | Crítica    | 3d         | Aprovação individual e em massa        | ⬜ Pendente |
-| T-025 | Tipos de Ausência configuráveis       | Absences   | T-002        | Alta       | 2d         | 10 tipos base criados                  | ⬜ Pendente |
-| T-026 | CRUD pedidos de Ausência              | Absences   | T-025, T-013 | Crítica    | 4d         | Pedido com validação de saldo          | ⬜ Pendente |
-| T-027 | Fluxo de aprovação de Ausências       | Absences   | T-026        | Crítica    | 3d         | Multi-etapa funcional                  | ⬜ Pendente |
-| T-028 | Saldos de Férias (LeaveBalance)       | Absences   | T-026        | Alta       | 2d         | Saldo automático e manual              | ⬜ Pendente |
-| T-029 | Integração Ausências → Timesheets     | Timesheets | T-027, T-023 | Alta       | 2d         | Ausências refletidas na folha          | ⬜ Pendente |
+| ID    | Tarefa                                | Módulo     | Dependências | Prioridade | Estimativa | Critério de Conclusão                  | Estado       |
+| ----- | ------------------------------------- | ---------- | ------------ | ---------- | ---------- | -------------------------------------- | ------------ |
+| T-019 | CRUD Projetos com estados             | Projects   | T-015, T-013 | Crítica    | 4d         | Projetos com draft/active/closed       | ⬜ Pendente  |
+| T-020 | Alocações de colaboradores a projetos | Projects   | T-019        | Crítica    | 3d         | Alocações com alertas de sobrealodação | ⬜ Pendente  |
+| T-021 | Calendário de feriados por país       | Calendar   | T-002        | Alta       | 2d         | Feriados PT importados                 | ✅ Concluído |
+| T-022 | Geração automática de Timesheets      | Timesheets | T-021, T-013 | Crítica    | 3d         | Pré-preenchimento mensal automático    | ⬜ Pendente  |
+| T-023 | CRUD entradas de Timesheet            | Timesheets | T-022, T-019 | Crítica    | 3d         | Colaborador edita horas com projeto    | ⬜ Pendente  |
+| T-024 | Fluxo submissão/aprovação Timesheet   | Timesheets | T-023        | Crítica    | 3d         | Aprovação individual e em massa        | ⬜ Pendente  |
+| T-025 | Tipos de Ausência configuráveis       | Absences   | T-002        | Alta       | 2d         | 10 tipos base criados                  | ⬜ Pendente  |
+| T-026 | CRUD pedidos de Ausência              | Absences   | T-025, T-013 | Crítica    | 4d         | Pedido com validação de saldo          | ⬜ Pendente  |
+| T-027 | Fluxo de aprovação de Ausências       | Absences   | T-026        | Crítica    | 3d         | Multi-etapa funcional                  | ⬜ Pendente  |
+| T-028 | Saldos de Férias (LeaveBalance)       | Absences   | T-026        | Alta       | 2d         | Saldo automático e manual              | ⬜ Pendente  |
+| T-029 | Integração Ausências → Timesheets     | Timesheets | T-027, T-023 | Alta       | 2d         | Ausências refletidas na folha          | ⬜ Pendente  |
 
 ### FASE 4 — Financeiro e Despesas
 
@@ -66,7 +66,7 @@
 | T-038 | Notificações in-app               | Notifications | T-036        | Alta       | 2d         | Centro de notificações funcional        | ✅ Concluído |
 | T-039 | Caixa de Entrada (Workflow Inbox) | Workflow      | T-037, T-038 | Alta       | 3d         | Centro unificado de aprovações          | ✅ Concluído |
 | T-040 | Fluxos configuráveis multi-etapa  | Workflow      | T-039        | Média      | 3d         | Admin configura fluxos                  | ✅ Concluído |
-| T-041 | Calendário Organizacional         | Calendar      | T-028, T-021 | Alta       | 3d         | Visão mensal com ausências e feriados   | ⬜ Pendente  |
+| T-041 | Calendário Organizacional         | Calendar      | T-028, T-021 | Alta       | 3d         | Visão mensal com ausências e feriados   | ✅ Concluído |
 | T-042 | Alertas agendados (cron jobs)     | Notifications | T-037        | Alta       | 2d         | Alertas de contrato, projeto, timesheet | ⬜ Pendente  |
 
 ### FASE 6 — Relatórios e GDPR

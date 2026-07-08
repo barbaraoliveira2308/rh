@@ -19,6 +19,7 @@ import { AbsenceRejectedEvent } from '../events/absence-rejected.event';
 import { AbsenceCancelledEvent } from '../events/absence-cancelled.event';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
 import { HolidayCalendar } from '../../timesheets/entities/holiday-calendar.entity';
+import { CalendarService } from '../../calendar/services/calendar.service';
 
 @Injectable()
 export class AbsencesService {
@@ -36,6 +37,7 @@ export class AbsencesService {
     @InjectRepository(HolidayCalendar)
     private readonly holidayRepository: Repository<HolidayCalendar>,
     private readonly eventEmitter: EventEmitter2,
+    private readonly calendarService: CalendarService,
   ) {}
 
   async create(dto: CreateAbsenceDto, employeeId: string): Promise<AbsenceRequest> {
@@ -73,6 +75,8 @@ export class AbsencesService {
     }
 
     this.validateBlockedPeriods(absenceType, startDate, endDate);
+
+    await this.calendarService.validateBlockedPeriodForAbsences(dto.startDate, dto.endDate);
 
     const overlapping = await this.requestRepository.findOne({
       where: {

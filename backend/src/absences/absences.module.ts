@@ -8,6 +8,7 @@ import { AbsenceApproval } from './entities/absence-approval.entity';
 import { LeaveBalance } from './entities/leave-balance.entity';
 import { Employee } from '../users/entities/employee.entity';
 import { HolidayCalendar } from '../timesheets/entities/holiday-calendar.entity';
+import { CalendarModule } from '../calendar/calendar.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { HolidayCalendar } from '../timesheets/entities/holiday-calendar.entity'
       Employee,
       HolidayCalendar,
     ]),
+    CalendarModule,
   ],
   controllers: [AbsencesController],
   providers: [AbsencesService],
