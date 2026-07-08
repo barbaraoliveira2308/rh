@@ -1,6 +1,6 @@
 # Project State
 
-**Current Phase:** P-012 Absences (95% complete)
+**Current Phase:** P-012 Absences (100% complete)
 **Last Updated:** 2026-07-08
 
 ## Phase History
@@ -11,6 +11,7 @@
 | P-012 | 00-01 | 2026-07-08 | Absences module foundation                                                               |
 | P-012 | 00-02 | 2026-07-08 | Unit tests for approve(), reject(), cancel(), getLeaveBalance()                          |
 | P-012 | 00-03 | 2026-07-08 | Integration/e2e tests passing (24 tests) after fixing cross-module compilation/DI issues |
+| P-012 | 00-04 | 2026-07-08 | Updated spec documentation (specs/absences/spec.md and specs/README.md)                  |
 
 ## Decisions
 
@@ -38,7 +39,4 @@
 - P-012: TypeScript compilation clean on absences files
 - P-012: Integration/e2e tests passing (`test/absences.e2e-spec.ts` and `test/auth.e2e-spec.ts`, 24 tests total)
 - P-012: dotenv runtime dependency added to satisfy existing imports
-
-### Remaining
-
-- P-012: Update spec documentation
+- P-012: Spec documentation updated (`specs/absences/spec.md` and `specs/README.md`)

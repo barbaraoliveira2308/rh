@@ -4,31 +4,31 @@ Este directório contém as especificações técnicas (SDD) de cada módulo do 
 
 ## Índice de Módulos
 
-| #   | Módulo                      | Pasta                   | Estado |
-| --- | --------------------------- | ----------------------- | ------ |
-| 01  | Autenticação & Segurança    | `auth/spec.md`          | Draft  |
-| 02  | Utilizadores & RBAC         | `users/spec.md`         | Draft  |
-| 03  | Equipas & Organograma       | `teams/spec.md`         | Draft  |
-| 04  | Clientes                    | `clients/spec.md`       | Draft  |
-| 05  | Projetos                    | `projects/spec.md`      | Draft  |
-| 06  | Capacidade & Alocação       | `capacity/spec.md`      | Draft  |
-| 07  | Assiduidade & Timesheets    | `timesheets/spec.md`    | Draft  |
-| 08  | Ausências                   | `absences/spec.md`      | Draft  |
-| 09  | Despesas & Reembolsos       | `expenses/spec.md`      | Draft  |
-| 10  | Gestão Documental           | `documents/spec.md`     | Draft  |
-| 11  | Contratos                   | `contracts/spec.md`     | Draft  |
-| 12  | Workflow & Caixa de Entrada | `workflow/spec.md`      | Draft  |
-| 13  | Calendário Organizacional   | `calendar/spec.md`      | Draft  |
-| 14  | Relatórios                  | `reports/spec.md`       | Draft  |
-| 15  | Dashboard de Recursos       | `dashboard/spec.md`     | Draft  |
-| 16  | Dashboard Financeiro        | `financials/spec.md`    | Draft  |
-| 17  | Políticas Internas          | `policies/spec.md`      | Draft  |
-| 18  | Formação & Talento          | `training/spec.md`      | Draft  |
-| 19  | Helpdesk Interno            | `helpdesk/spec.md`      | Draft  |
-| 20  | Notificações & Alertas      | `notifications/spec.md` | Draft  |
-| 21  | Auditoria                   | `audit/spec.md`         | Draft  |
-| 22  | GDPR & Conformidade         | `gdpr/spec.md`          | Draft  |
-| 23  | Administração do Sistema    | `admin/spec.md`         | Draft  |
+| #   | Módulo                      | Pasta                   | Estado      |
+| --- | --------------------------- | ----------------------- | ----------- |
+| 01  | Autenticação & Segurança    | `auth/spec.md`          | Draft       |
+| 02  | Utilizadores & RBAC         | `users/spec.md`         | Draft       |
+| 03  | Equipas & Organograma       | `teams/spec.md`         | Draft       |
+| 04  | Clientes                    | `clients/spec.md`       | Draft       |
+| 05  | Projetos                    | `projects/spec.md`      | Draft       |
+| 06  | Capacidade & Alocação       | `capacity/spec.md`      | Draft       |
+| 07  | Assiduidade & Timesheets    | `timesheets/spec.md`    | Draft       |
+| 08  | Ausências                   | `absences/spec.md`      | Implemented |
+| 09  | Despesas & Reembolsos       | `expenses/spec.md`      | Draft       |
+| 10  | Gestão Documental           | `documents/spec.md`     | Draft       |
+| 11  | Contratos                   | `contracts/spec.md`     | Draft       |
+| 12  | Workflow & Caixa de Entrada | `workflow/spec.md`      | Draft       |
+| 13  | Calendário Organizacional   | `calendar/spec.md`      | Draft       |
+| 14  | Relatórios                  | `reports/spec.md`       | Draft       |
+| 15  | Dashboard de Recursos       | `dashboard/spec.md`     | Draft       |
+| 16  | Dashboard Financeiro        | `financials/spec.md`    | Draft       |
+| 17  | Políticas Internas          | `policies/spec.md`      | Draft       |
+| 18  | Formação & Talento          | `training/spec.md`      | Draft       |
+| 19  | Helpdesk Interno            | `helpdesk/spec.md`      | Draft       |
+| 20  | Notificações & Alertas      | `notifications/spec.md` | Draft       |
+| 21  | Auditoria                   | `audit/spec.md`         | Draft       |
+| 22  | GDPR & Conformidade         | `gdpr/spec.md`          | Draft       |
+| 23  | Administração do Sistema    | `admin/spec.md`         | Draft       |
 
 ## Histórico de Alterações
 
@@ -46,3 +46,4 @@ Este directório contém as especificações técnicas (SDD) de cada módulo do 
 | P-009  | 2026-07-08 | Módulos Clients, Contracts e Documents: entidade Client com CRUD + soft-delete; entidades Contract (com tipos permanent/fixed_term/freelancer/b2b, estados draft/active/expired/terminated) e ContractRenewal; ContractsService (findExpiringSoon, scheduleExpirationAlerts cron diário às 08:00 com emissão de ContractExpiringSoon + arquivamento automático de expirados); DocumentsService (upload para MinIO, presigned URL, lixeira, restauro, purge); StorageService global para MinIO; migrations Clients/Contracts/Documents                           |
 | P-010  | 2026-07-08 | Módulo Projects: entidades Project (draft/active/closed), ProjectAllocation (percentage/hours), ProjectTeamAllocation; ProjectsService (create/activate/close/allocateEmployee com validação de sobreposição, warning de sobrealocação, eventos AllocationCreated/OverallocationDetected); cron job diário 09:00 com alertas ProjectEndingAlert/AllocationEndingAlert; endpoints /projects e /projects/:id/allocations; migration CreateProjectsTables; testes unitários allocateEmployee (7 cenários)                                                          |
 | P-011  | 2026-07-08 | Módulo Timesheets: entidades TimesheetPeriod, TimesheetEntry, TimesheetApproval, HolidayCalendar, AbsenceRequest; TimesheetsService (generateMonthlyPeriods com pré-preenchimento de dias úteis, submitForApproval, approve/reject com validação de manager, bulkApprove, syncAbsences, recalculateTotals); cron jobs (dia 1 geração mensal, segunda-feira alerta submissões pendentes); controller com endpoints /timesheets (CRUD+submissão+aprovação+export CSV); migration CreateTimesheetsTables; testes unitários syncAbsences e bulkApprove (5 cenários) |
+| P-012  | 2026-07-08 | Módulo Absences: entidades AbsenceType, AbsenceRequest, AbsenceApproval, LeaveBalance; AbsencesService (create/approve/reject/cancel/getLeaveBalance com validação de saldo, sobreposição e dias úteis); controller com endpoints /api/absences; cálculo de dias úteis com HolidayCalendar; eventos AbsenceRequested/AbsenceApproved/AbsenceRejected/AbsenceCancelled; migration CreateAbsencesTables; testes unitários (25) e e2e (15)                                                                                                                         |

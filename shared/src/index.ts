@@ -13,12 +13,12 @@ export interface BaseEntity {
   deletedAt: ISO8601 | null;
 }
 
-export type PaginationParams = {
+export interface PaginationParams {
   page: number;
   limit: number;
-};
+}
 
-export type PaginatedResponse<T> = {
+export interface PaginatedResponse<T> {
   data: T[];
   meta: {
     total: number;
@@ -26,17 +26,17 @@ export type PaginatedResponse<T> = {
     limit: number;
     totalPages: number;
   };
-};
+}
 
-export type ApiResponse<T> = {
+export interface ApiResponse<T> {
   data: T;
   message?: string;
-};
+}
 
-export type ApiError = {
+export interface ApiError {
   statusCode: number;
   message: string;
   error: string;
   timestamp: ISO8601;
   path: string;
-};
+}
