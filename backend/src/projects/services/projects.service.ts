@@ -143,10 +143,6 @@ export class ProjectsService {
       throw new BadRequestException('Não é possível alocar em projeto fechado');
     }
 
-    if (project.status === ProjectStatus.DRAFT) {
-      throw new BadRequestException('Não é possível alocar em projeto em rascunho');
-    }
-
     const employee = await this.employeeRepository.findOne({
       where: { id: dto.employeeId },
     });

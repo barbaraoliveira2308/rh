@@ -399,7 +399,7 @@ Feature: Folha de Horas Mensal
 ### Testes
 
 - **Unitários:** existe `timesheets.service.spec.ts` com cobertura parcial dos métodos `syncAbsences` e `bulkApprove`.
-- **e2e:** não existem testes end-to-end para o módulo de timesheets.
+- **e2e:** `test/timesheets.e2e-spec.ts` cobre listagem, consulta, edição de entrada, submissão, aprovação, rejeição, bulk-approve e exportação CSV.
 
 ---
 

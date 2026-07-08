@@ -12,6 +12,11 @@ import { Employee } from '../../users/entities/employee.entity';
 import { TimesheetEntry } from './timesheet-entry.entity';
 import { TimesheetStatus } from './timesheet-status.enum';
 
+const numericTransformer = {
+  to: (value: number | null): number | null => value,
+  from: (value: string | number | null): number | null => (value === null ? null : Number(value)),
+};
+
 @Entity({ schema: 'hr', name: 'timesheet_periods' })
 export class TimesheetPeriod {
   @PrimaryGeneratedColumn('uuid')
@@ -38,16 +43,44 @@ export class TimesheetPeriod {
   @Column({ name: 'approved_by', type: 'uuid', nullable: true })
   approvedBy: string | null;
 
-  @Column({ name: 'total_planned_hours', type: 'decimal', precision: 6, scale: 2, default: 0 })
+  @Column({
+    name: 'total_planned_hours',
+    type: 'decimal',
+    precision: 6,
+    scale: 2,
+    default: 0,
+    transformer: numericTransformer,
+  })
   totalPlannedHours: number;
 
-  @Column({ name: 'total_worked_hours', type: 'decimal', precision: 6, scale: 2, default: 0 })
+  @Column({
+    name: 'total_worked_hours',
+    type: 'decimal',
+    precision: 6,
+    scale: 2,
+    default: 0,
+    transformer: numericTransformer,
+  })
   totalWorkedHours: number;
 
-  @Column({ name: 'total_overtime_hours', type: 'decimal', precision: 6, scale: 2, default: 0 })
+  @Column({
+    name: 'total_overtime_hours',
+    type: 'decimal',
+    precision: 6,
+    scale: 2,
+    default: 0,
+    transformer: numericTransformer,
+  })
   totalOvertimeHours: number;
 
-  @Column({ name: 'hours_balance', type: 'decimal', precision: 6, scale: 2, default: 0 })
+  @Column({
+    name: 'hours_balance',
+    type: 'decimal',
+    precision: 6,
+    scale: 2,
+    default: 0,
+    transformer: numericTransformer,
+  })
   hoursBalance: number;
 
   @CreateDateColumn({ type: 'timestamp' })

@@ -15,17 +15,21 @@
 | P-012 | 00-05 | 2026-07-08 | Fixed unit test failures in Projects and Timesheets modules                                                                                  |
 | P-012 | 00-06 | 2026-07-08 | Fixed all pre-existing backend lint errors and warnings                                                                                      |
 | P-012 | 00-07 | 2026-07-08 | Updated specs of all implemented previous modules (auth, audit, users, teams, clients, contracts, documents, projects, timesheets, absences) |
+| P-012 | 00-08 | 2026-07-08 | Added e2e tests for Projects and Timesheets; fixed decimal transformer and route order issues uncovered by tests                             |
 
 ## Decisions
 
-| ID      | Valor                                      | Impacto                                                                |
-| ------- | ------------------------------------------ | ---------------------------------------------------------------------- |
-| P011-01 | 0h completed entry is valid                | Allows zero-hour entries in timesheets                                 |
-| P012-01 | Leave balance in business days             | Balance calculation excludes weekends/holidays                         |
-| P012-02 | AuthModule and RbacModule are @Global      | Guards (JwtAuthGuard/RolesGuard) resolve in all feature modules        |
-| P012-03 | Decimal columns use numeric transformer    | LeaveBalance/AbsenceRequest decimal fields return JS numbers           |
-| P012-04 | e2e tests run with --runInBand and MFA key | Sequential execution and required env var for EncryptionService        |
-| P012-05 | dotenv added as runtime dependency         | Existing data-source/runner imports now satisfied; tests can bootstrap |
+| ID      | Valor                                                 | Impacto                                                                        |
+| ------- | ----------------------------------------------------- | ------------------------------------------------------------------------------ |
+| P011-01 | 0h completed entry is valid                           | Allows zero-hour entries in timesheets                                         |
+| P012-01 | Leave balance in business days                        | Balance calculation excludes weekends/holidays                                 |
+| P012-02 | AuthModule and RbacModule are @Global                 | Guards (JwtAuthGuard/RolesGuard) resolve in all feature modules                |
+| P012-03 | Decimal columns use numeric transformer               | LeaveBalance/AbsenceRequest decimal fields return JS numbers                   |
+| P012-04 | e2e tests run with --runInBand and MFA key            | Sequential execution and required env var for EncryptionService                |
+| P012-05 | dotenv added as runtime dependency                    | Existing data-source/runner imports now satisfied; tests can bootstrap         |
+| P012-06 | Numeric transformer on TimesheetPeriod/TimesheetEntry | Decimal fields return JS numbers instead of strings; avoids concatenation bugs |
+| P012-07 | Timesheets export route before :id route              | Prevents `/timesheets/export` being matched as a period id                     |
+| P012-08 | Allow allocation in draft projects                    | Enables natural draft → allocate → activate workflow                           |
 
 ## Current State
 
@@ -40,9 +44,13 @@
 - P-012: 16 unit tests passing for approve(), reject(), cancel(), getLeaveBalance() covering success, validation, and balance update scenarios
 - P-012: Lint clean on all absences files
 - P-012: TypeScript compilation clean on absences files
-- P-012: Integration/e2e tests passing (`test/absences.e2e-spec.ts` and `test/auth.e2e-spec.ts`, 24 tests total)
+- P-012: Integration/e2e tests passing (47 tests across auth, absences, projects and timesheets)
 - P-012: dotenv runtime dependency added to satisfy existing imports
 - P-012: Spec documentation updated (`specs/absences/spec.md` and `specs/README.md`)
 - P-012: Unit test failures fixed in previous modules (`projects.service.spec.ts` / `projects.service.ts`, `timesheets.service.spec.ts`)
 - P-012: All pre-existing backend lint errors/warnings fixed; `pnpm run lint` now green across shared, backend and frontend
 - P-012: Specs of all implemented previous modules updated with implementation notes (`specs/auth/spec.md`, `specs/audit/spec.md`, `specs/users/spec.md`, `specs/teams/spec.md`, `specs/clients/spec.md`, `specs/contracts/spec.md`, `specs/documents/spec.md`, `specs/projects/spec.md`, `specs/timesheets/spec.md`, `specs/absences/spec.md`)
+- P-012: e2e tests added for Projects (`test/projects.e2e-spec.ts`, 11 tests) and Timesheets (`test/timesheets.e2e-spec.ts`, 12 tests)
+- P-012: Numeric transformer added to TimesheetPeriod/TimesheetEntry decimal columns to fix DB string/number conversion
+- P-012: TimesheetsController route order fixed so `GET /timesheets/export` is resolved before `GET /timesheets/:id`
+- P-012: ProjectsService draft-allocation restriction removed to allow natural draft → allocate → activate flow

@@ -2,6 +2,11 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 't
 import { TimesheetPeriod } from './timesheet-period.entity';
 import { EntryType } from './entry-type.enum';
 
+const numericTransformer = {
+  to: (value: number | null): number | null => value,
+  from: (value: string | number | null): number | null => (value === null ? null : Number(value)),
+};
+
 @Entity({ schema: 'hr', name: 'timesheet_entries' })
 export class TimesheetEntry {
   @PrimaryGeneratedColumn('uuid')
@@ -19,13 +24,34 @@ export class TimesheetEntry {
   @Column({ name: 'absence_id', type: 'uuid', nullable: true })
   absenceId: string | null;
 
-  @Column({ name: 'planned_hours', type: 'decimal', precision: 4, scale: 2, default: 8 })
+  @Column({
+    name: 'planned_hours',
+    type: 'decimal',
+    precision: 4,
+    scale: 2,
+    default: 8,
+    transformer: numericTransformer,
+  })
   plannedHours: number;
 
-  @Column({ name: 'worked_hours', type: 'decimal', precision: 4, scale: 2, default: 0 })
+  @Column({
+    name: 'worked_hours',
+    type: 'decimal',
+    precision: 4,
+    scale: 2,
+    default: 0,
+    transformer: numericTransformer,
+  })
   workedHours: number;
 
-  @Column({ name: 'overtime_hours', type: 'decimal', precision: 4, scale: 2, default: 0 })
+  @Column({
+    name: 'overtime_hours',
+    type: 'decimal',
+    precision: 4,
+    scale: 2,
+    default: 0,
+    transformer: numericTransformer,
+  })
   overtimeHours: number;
 
   @Column({ type: 'enum', enum: EntryType, default: EntryType.WORK })

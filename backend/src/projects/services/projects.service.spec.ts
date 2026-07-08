@@ -172,13 +172,21 @@ describe('ProjectsService', () => {
       expect(result.warning).toBeDefined();
     });
 
-    it('deve lançar erro para projeto em estado draft ao tentar alocar', async () => {
+    it('deve permitir alocação em projeto em estado draft', async () => {
       mockProjectRepo.findOne.mockResolvedValue({
         ...mockProject,
         status: ProjectStatus.DRAFT,
       });
+      mockEmployeeRepo.findOne.mockResolvedValue(mockEmployee);
+      mockAllocationRepo.findOne.mockResolvedValue(null);
+      mockAllocationRepo.find.mockResolvedValue([]);
+      mockAllocationRepo.create.mockReturnValue(Object.assign({ id: 'alloc-draft' }, dto));
+      mockAllocationRepo.save.mockResolvedValue(Object.assign({ id: 'alloc-draft' }, dto));
 
-      await expect(service.allocateEmployee('proj-1', dto)).rejects.toThrow(BadRequestException);
+      const result = await service.allocateEmployee('proj-1', dto);
+
+      expect(result.allocation).toBeDefined();
+      expect(result.allocation.id).toBe('alloc-draft');
     });
   });
 });

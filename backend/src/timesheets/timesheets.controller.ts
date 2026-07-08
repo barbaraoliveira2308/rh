@@ -49,6 +49,48 @@ export class TimesheetsController {
     return this.timesheetsService.findAll({ employeeId, year, month, status });
   }
 
+  @Get('timesheets/export')
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER)
+  @ApiOperation({ summary: 'Exportar folhas de horas (CSV/XLSX)' })
+  @HttpCode(HttpStatus.OK)
+  async export(
+    @Query('month') month: string,
+    @Query('format') format: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const [yearStr, monthStr] = month.split('-');
+    const year = Number(yearStr);
+    const monthNum = Number(monthStr);
+
+    const periods = await this.timesheetsService.findAll({ year, month: monthNum });
+
+    if (format === 'csv') {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=timesheets.csv');
+
+      let csv = 'employee_id,period,total_worked,total_planned,status\n';
+      for (const p of periods) {
+        csv +=
+          p.employeeId +
+          ',' +
+          String(p.periodYear) +
+          '-' +
+          String(p.periodMonth).padStart(2, '0') +
+          ',' +
+          String(p.totalWorkedHours) +
+          ',' +
+          String(p.totalPlannedHours) +
+          ',' +
+          p.status +
+          '\n';
+      }
+
+      res.send(csv);
+    } else {
+      res.status(HttpStatus.BAD_REQUEST).json({ message: 'Formato não suportado. Use csv.' });
+    }
+  }
+
   @Get('timesheets/:id')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
   @ApiOperation({ summary: 'Obter folha de horas por ID' })
@@ -129,47 +171,5 @@ export class TimesheetsController {
   async bulkApprove(@Body() dto: BulkApproveDto, @Req() req: Request): Promise<TimesheetPeriod[]> {
     const user = req.user as JwtPayload;
     return this.timesheetsService.bulkApprove(dto.ids, user.sub);
-  }
-
-  @Get('timesheets/export')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER)
-  @ApiOperation({ summary: 'Exportar folhas de horas (CSV/XLSX)' })
-  @HttpCode(HttpStatus.OK)
-  async export(
-    @Query('month') month: string,
-    @Query('format') format: string,
-    @Res() res: Response,
-  ): Promise<void> {
-    const [yearStr, monthStr] = month.split('-');
-    const year = Number(yearStr);
-    const monthNum = Number(monthStr);
-
-    const periods = await this.timesheetsService.findAll({ year, month: monthNum });
-
-    if (format === 'csv') {
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', 'attachment; filename=timesheets.csv');
-
-      let csv = 'employee_id,period,total_worked,total_planned,status\n';
-      for (const p of periods) {
-        csv +=
-          p.employeeId +
-          ',' +
-          String(p.periodYear) +
-          '-' +
-          String(p.periodMonth).padStart(2, '0') +
-          ',' +
-          String(p.totalWorkedHours) +
-          ',' +
-          String(p.totalPlannedHours) +
-          ',' +
-          p.status +
-          '\n';
-      }
-
-      res.send(csv);
-    } else {
-      res.status(HttpStatus.BAD_REQUEST).json({ message: 'Formato não suportado. Use csv.' });
-    }
   }
 }

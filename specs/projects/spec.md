@@ -314,7 +314,7 @@ Feature: Gestão de Projetos
 - **Cron job:** `checkEndingProjects()` executa diariamente às 09:00 para emitir alertas de fim de projeto e fim de alocação.
 - **Validações:**
   - Transições de estado `draft` → `active` (requer pelo menos uma alocação) e `active` → `closed`.
-  - Impedida alocação em projetos `draft` ou `closed`.
+  - Impedida alocação em projetos `closed`.
   - Deteção de colaborador já ativo no mesmo projeto (alocação sem `end_date`).
   - Aviso de sobrealocação quando a soma de percentagens ativas ultrapassa 100%.
 
@@ -332,8 +332,8 @@ Feature: Gestão de Projetos
 
 ### Testes
 
-- **Unitários:** `projects.service.spec.ts` cobre criação de alocações, erros para projeto `draft`/`closed`, colaborador inexistente, alocação ativa duplicada e aviso de sobrealocação.
-- **e2e:** Não existem testes end-to-end dedicados ao módulo Projects.
+- **Unitários:** `projects.service.spec.ts` cobre criação de alocações, alocação em projeto `draft`, colaborador inexistente, alocação ativa duplicada e aviso de sobrealocação.
+- **e2e:** `test/projects.e2e-spec.ts` cobre criação, listagem, consulta, atualização, alocação, activação, encerramento e remoção de alocação.
 
 ## Questões em Aberto
 
