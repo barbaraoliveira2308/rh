@@ -21,3 +21,9 @@
    Impacto: [o que muda consoante a resposta]
 
 8. Ao final de cada interacção, alteração ou prompt, exibe o comando para fazer commit e push no git (ex: `git add -A && git commit -m "mensagem" && git push`).
+
+9. Antes de propor o commit, corre o lint (`pnpm run lint`) e corrige **todos** os erros nos ficheiros que criaste ou modificaste. Verifica especificamente:
+   - Imports não utilizados
+   - `restrict-template-expressions` (converte números para string com `String()`)
+   - Dependências de tipos em falta (ex: `@types/*`) e instala se necessário
+   - Unsafe member access em tipos que o TypeScript não consegue resolver
