@@ -15,6 +15,7 @@ import { ClientsModule } from './clients/clients.module';
 import { ContractsModule } from './contracts/contracts.module';
 import { DocumentsModule } from './documents/documents.module';
 import { ProjectsModule } from './projects/projects.module';
+import { TimesheetsModule } from './timesheets/timesheets.module';
 import { StorageModule } from './storage/storage.module';
 import { dataSourceOptions } from './database/data-source';
 
@@ -38,6 +39,7 @@ import { dataSourceOptions } from './database/data-source';
     ContractsModule,
     DocumentsModule,
     ProjectsModule,
+    TimesheetsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
