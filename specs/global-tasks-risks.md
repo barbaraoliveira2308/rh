@@ -24,6 +24,11 @@
 | T-033 | Exportação Excel/CSV de despesas        | Concluido |
 | T-034 | Dashboard de Recursos (ocupação)        | Concluido |
 | T-035 | Dashboard Financeiro (margem consultor) | Concluido |
+| T-036 | Configurar RabbitMQ/Kafka (mensagens)   | Concluido |
+| T-037 | Serviço de notificações por email       | Concluido |
+| T-038 | Notificações in-app                     | Concluido |
+| T-039 | Caixa de Entrada (Workflow Inbox)       | Concluido |
+| T-040 | Fluxos configuráveis multi-etapa        | Concluido |
 
 ## Riscos
 

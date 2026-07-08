@@ -1,0 +1,7 @@
+<h2>Pedido de Ausência Rejeitado</h2>
+<p>Olá {{employeeName}},</p>
+<p>O teu pedido de ausência de <strong>{{startDate}}</strong> a <strong>{{endDate}}</strong> foi rejeitado.</p>
+{{#if reason}}
+<p>Motivo: {{reason}}</p>
+{{/if}}
+<p><a href="{{link}}">Ver detalhes</a></p>

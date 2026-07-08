@@ -19,6 +19,8 @@ import { TimesheetsModule } from './timesheets/timesheets.module';
 import { AbsencesModule } from './absences/absences.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { WorkflowModule } from './workflow/workflow.module';
 import { StorageModule } from './storage/storage.module';
 import { dataSourceOptions } from './database/data-source';
 
@@ -46,6 +48,8 @@ import { dataSourceOptions } from './database/data-source';
     AbsencesModule,
     ExpensesModule,
     AnalyticsModule,
+    NotificationsModule,
+    WorkflowModule,
   ],
   controllers: [AppController],
   providers: [AppService],
