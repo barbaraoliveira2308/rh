@@ -47,6 +47,9 @@ export class Contract {
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   value: number | null;
 
+  @Column({ name: 'monthly_cost', type: 'decimal', precision: 12, scale: 2, nullable: true })
+  monthlyCost: number | null;
+
   @Column({ type: 'varchar', length: 3, default: 'EUR' })
   currency: string;
 

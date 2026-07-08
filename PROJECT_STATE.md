@@ -1,22 +1,23 @@
 # Project State
 
-**Current Phase:** P-013 Expenses (100% complete)
+**Current Phase:** P-014 Analytics (100% complete)
 **Last Updated:** 2026-07-08
 
 ## Phase History
 
-| Fase  | Passo | Data       | Descrição                                                                                                                                    |
-| ----- | ----- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| P-011 | 00-09 | 2026-07-08 | Timesheets module (entities, service, controller, tests, migration)                                                                          |
-| P-012 | 00-01 | 2026-07-08 | Absences module foundation                                                                                                                   |
-| P-012 | 00-02 | 2026-07-08 | Unit tests for approve(), reject(), cancel(), getLeaveBalance()                                                                              |
-| P-012 | 00-03 | 2026-07-08 | Integration/e2e tests passing (24 tests) after fixing cross-module compilation/DI issues                                                     |
-| P-012 | 00-04 | 2026-07-08 | Updated spec documentation (specs/absences/spec.md and specs/README.md)                                                                      |
-| P-012 | 00-05 | 2026-07-08 | Fixed unit test failures in Projects and Timesheets modules                                                                                  |
-| P-012 | 00-06 | 2026-07-08 | Fixed all pre-existing backend lint errors and warnings                                                                                      |
-| P-012 | 00-07 | 2026-07-08 | Updated specs of all implemented previous modules (auth, audit, users, teams, clients, contracts, documents, projects, timesheets, absences) |
-| P-012 | 00-08 | 2026-07-08 | Added e2e tests for Projects and Timesheets; fixed decimal transformer and route order issues uncovered by tests                             |
-| P-013 | 00-01 | 2026-07-08 | Expenses module: entities, service, controller, DTOs, events, seed, migration, unit tests for detectDuplicates, exceljs dependency           |
+| Fase  | Passo | Data       | Descrição                                                                                                                                        |
+| ----- | ----- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| P-011 | 00-09 | 2026-07-08 | Timesheets module (entities, service, controller, tests, migration)                                                                              |
+| P-012 | 00-01 | 2026-07-08 | Absences module foundation                                                                                                                       |
+| P-012 | 00-02 | 2026-07-08 | Unit tests for approve(), reject(), cancel(), getLeaveBalance()                                                                                  |
+| P-012 | 00-03 | 2026-07-08 | Integration/e2e tests passing (24 tests) after fixing cross-module compilation/DI issues                                                         |
+| P-012 | 00-04 | 2026-07-08 | Updated spec documentation (specs/absences/spec.md and specs/README.md)                                                                          |
+| P-012 | 00-05 | 2026-07-08 | Fixed unit test failures in Projects and Timesheets modules                                                                                      |
+| P-012 | 00-06 | 2026-07-08 | Fixed all pre-existing backend lint errors and warnings                                                                                          |
+| P-012 | 00-07 | 2026-07-08 | Updated specs of all implemented previous modules (auth, audit, users, teams, clients, contracts, documents, projects, timesheets, absences)     |
+| P-012 | 00-08 | 2026-07-08 | Added e2e tests for Projects and Timesheets; fixed decimal transformer and route order issues uncovered by tests                                 |
+| P-013 | 00-01 | 2026-07-08 | Expenses module: entities, service, controller, DTOs, events, seed, migration, unit tests for detectDuplicates, exceljs dependency               |
+| P-014 | 00-01 | 2026-07-08 | Analytics module: resource and financial dashboards, Redis cache decorator, monthly_cost field on Contract, ioredis dependency, basic unit tests |
 
 ## Decisions
 
@@ -32,6 +33,9 @@
 | P012-07 | Timesheets export route before :id route              | Prevents `/timesheets/export` being matched as a period id                     |
 | P012-08 | Allow allocation in draft projects                    | Enables natural draft → allocate → activate workflow                           |
 | P013-01 | Expense category limit applies per report             | BR-EXP-002 validates each item against category limit within the same report   |
+| P014-01 | Consultant margin uses active contract in period      | getConsultantMargin() selects the active Contract at the calculation period    |
+| P014-02 | Add monthly_cost field to Contract entity             | New nullable decimal column supports hourly cost calculation                   |
+| P014-03 | Use Redis for AnalyticsService cache                  | RedisCacheService + @CacheResult decorator with 5-minute TTL                   |
 
 ## Current State
 
@@ -64,3 +68,10 @@
 - P-013: 10 unit tests passing for `detectDuplicates()` covering exact match, ±5% margin, date window, category mismatch, employee isolation, self-exclusion and multiple items
 - P-013: `exceljs` added as runtime dependency for Excel export
 - P-013: `specs/README.md` updated with P-013 entry; `specs/global-tasks-risks.md` and `global-tasks-risks.md` mark T-030, T-031, T-032, T-033 as completed
+- P-014: Analytics module (`AnalyticsService`, `AnalyticsController`, `AnalyticsModule`) with resource dashboards (occupancy, unallocated, forecast) and financial dashboards (margins, profitability, revenue, top-projects)
+- P-014: Endpoints `/analytics/resources/occupancy`, `/analytics/resources/unallocated`, `/analytics/resources/forecast`, `/analytics/financials/margins`, `/analytics/financials/project/:id/profitability`, `/analytics/financials/revenue`, `/analytics/financials/top-projects` with `?format=json|csv`
+- P-014: `RedisCacheService` using `ioredis` and custom `@CacheResult(ttl)` decorator with 5-minute TTL applied to all `AnalyticsService` methods
+- P-014: `monthly_cost` column added to `contracts` table via migration `AddMonthlyCostToContracts1821000000000`; `Contract` entity updated
+- P-014: `ioredis` added as runtime dependency and `@types/ioredis` as dev dependency
+- P-014: Basic unit tests for `AnalyticsService` (unallocated employees and null margin when contract has no monthly cost)
+- P-014: `specs/README.md` updated with P-014 entry; `specs/global-tasks-risks.md` and `global-tasks-risks.md` mark T-034 and T-035 as completed

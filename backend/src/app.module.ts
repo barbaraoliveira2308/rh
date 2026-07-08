@@ -18,6 +18,7 @@ import { ProjectsModule } from './projects/projects.module';
 import { TimesheetsModule } from './timesheets/timesheets.module';
 import { AbsencesModule } from './absences/absences.module';
 import { ExpensesModule } from './expenses/expenses.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { StorageModule } from './storage/storage.module';
 import { dataSourceOptions } from './database/data-source';
 
@@ -44,6 +45,7 @@ import { dataSourceOptions } from './database/data-source';
     TimesheetsModule,
     AbsencesModule,
     ExpensesModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

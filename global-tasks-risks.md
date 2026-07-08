@@ -54,8 +54,8 @@
 | T-031 | Fluxo aprovação de Despesas             | Expenses   | T-030        | Alta       | 2d         | Aprovação + estados             | ✅ Concluído |
 | T-032 | Deteção de duplicados                   | Expenses   | T-030        | Média      | 1d         | Alerta automático de duplicado  | ✅ Concluído |
 | T-033 | Exportação Excel/CSV de despesas        | Expenses   | T-031        | Média      | 1d         | Export funcional                | ✅ Concluído |
-| T-034 | Dashboard de Recursos (ocupação)        | Dashboard  | T-020, T-028 | Alta       | 4d         | Indicadores em tempo real       | ⬜ Pendente  |
-| T-035 | Dashboard Financeiro (margem consultor) | Financials | T-034, T-016 | Alta       | 4d         | Cálculo de margem por consultor | ⬜ Pendente  |
+| T-034 | Dashboard de Recursos (ocupação)        | Dashboard  | T-020, T-028 | Alta       | 4d         | Indicadores em tempo real       | ✅ Concluído |
+| T-035 | Dashboard Financeiro (margem consultor) | Financials | T-034, T-016 | Alta       | 4d         | Cálculo de margem por consultor | ✅ Concluído |
 
 ### FASE 5 — Comunicação e Workflow
 
