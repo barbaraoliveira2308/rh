@@ -8,6 +8,10 @@
 | T-012 | Módulo de Equipas (frontend)      | Concluido |
 | T-013 | Módulo de Utilizadores (backend)  | Concluido |
 | T-014 | Módulo de Utilizadores (frontend) | Concluido |
+| T-015 | Módulo de Clientes (backend)      | Concluido |
+| T-016 | Módulo de Contratos (backend)     | Concluido |
+| T-017 | Configurar MinIO (armazenamento)  | Concluido |
+| T-018 | Gestão Documental (backend)       | Concluido |
 
 ## Riscos
 
@@ -17,6 +21,7 @@
 
 ## Ambiguidades
 
-| ID      | Descrição                                                  | Decisão            |
-| ------- | ---------------------------------------------------------- | ------------------ |
-| P008-01 | Equipa pode ter colaboradores de departamentos diferentes? | Sim, sem restrição |
+| ID      | Descrição                                                    | Decisão                                                     |
+| ------- | ------------------------------------------------------------ | ----------------------------------------------------------- |
+| P008-01 | Equipa pode ter colaboradores de departamentos diferentes?   | Sim, sem restrição                                          |
+| P009-01 | Contratos expirados: arquivamento automático ou ação manual? | Arquivamento automático no dia seguinte + alerta preventivo |

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -10,6 +11,10 @@ import { RbacModule } from './rbac/rbac.module';
 import { AuditModule } from './audit/audit.module';
 import { UsersModule } from './users/users.module';
 import { TeamsModule } from './teams/teams.module';
+import { ClientsModule } from './clients/clients.module';
+import { ContractsModule } from './contracts/contracts.module';
+import { DocumentsModule } from './documents/documents.module';
+import { StorageModule } from './storage/storage.module';
 import { dataSourceOptions } from './database/data-source';
 
 @Module({
@@ -20,12 +25,17 @@ import { dataSourceOptions } from './database/data-source';
     }),
     TypeOrmModule.forRoot(dataSourceOptions),
     EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(),
+    StorageModule,
     CacheModule,
     AuthModule,
     RbacModule,
     AuditModule,
     UsersModule,
     TeamsModule,
+    ClientsModule,
+    ContractsModule,
+    DocumentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
