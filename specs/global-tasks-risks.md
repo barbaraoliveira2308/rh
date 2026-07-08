@@ -18,6 +18,10 @@
 | T-023 | Geração automática de folhas      | Concluido |
 | T-024 | Submissão e aprovação de folhas   | Concluido |
 | T-029 | Sincronização com ausências       | Concluido |
+| T-030 | CRUD Despesas por colaborador     | Concluido |
+| T-031 | Fluxo aprovação de Despesas       | Concluido |
+| T-032 | Deteção de duplicados             | Concluido |
+| T-033 | Exportação Excel/CSV de despesas  | Concluido |
 
 ## Riscos
 

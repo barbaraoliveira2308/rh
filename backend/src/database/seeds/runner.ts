@@ -2,6 +2,7 @@ import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
 import { dataSourceOptions } from '../data-source';
 import { rbacSeed } from './index';
+import { run as expenseCategoriesSeed } from '../../expenses/seeds/expense-categories.seed';
 
 config();
 
@@ -14,6 +15,12 @@ async function main(): Promise<void> {
   await rbacSeed(dataSource);
   // eslint-disable-next-line no-console
   console.log('RBAC seed completed.');
+
+  // eslint-disable-next-line no-console
+  console.log('Running expense categories seed...');
+  await expenseCategoriesSeed(dataSource);
+  // eslint-disable-next-line no-console
+  console.log('Expense categories seed completed.');
 
   await dataSource.destroy();
 }

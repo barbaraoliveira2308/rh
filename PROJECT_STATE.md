@@ -1,6 +1,6 @@
 # Project State
 
-**Current Phase:** P-012 Absences (100% complete)
+**Current Phase:** P-013 Expenses (100% complete)
 **Last Updated:** 2026-07-08
 
 ## Phase History
@@ -16,6 +16,7 @@
 | P-012 | 00-06 | 2026-07-08 | Fixed all pre-existing backend lint errors and warnings                                                                                      |
 | P-012 | 00-07 | 2026-07-08 | Updated specs of all implemented previous modules (auth, audit, users, teams, clients, contracts, documents, projects, timesheets, absences) |
 | P-012 | 00-08 | 2026-07-08 | Added e2e tests for Projects and Timesheets; fixed decimal transformer and route order issues uncovered by tests                             |
+| P-013 | 00-01 | 2026-07-08 | Expenses module: entities, service, controller, DTOs, events, seed, migration, unit tests for detectDuplicates, exceljs dependency           |
 
 ## Decisions
 
@@ -30,6 +31,7 @@
 | P012-06 | Numeric transformer on TimesheetPeriod/TimesheetEntry | Decimal fields return JS numbers instead of strings; avoids concatenation bugs |
 | P012-07 | Timesheets export route before :id route              | Prevents `/timesheets/export` being matched as a period id                     |
 | P012-08 | Allow allocation in draft projects                    | Enables natural draft → allocate → activate workflow                           |
+| P013-01 | Expense category limit applies per report             | BR-EXP-002 validates each item against category limit within the same report   |
 
 ## Current State
 
@@ -54,3 +56,11 @@
 - P-012: Numeric transformer added to TimesheetPeriod/TimesheetEntry decimal columns to fix DB string/number conversion
 - P-012: TimesheetsController route order fixed so `GET /timesheets/export` is resolved before `GET /timesheets/:id`
 - P-012: ProjectsService draft-allocation restriction removed to allow natural draft → allocate → activate flow
+- P-013: Expenses module entities (`ExpenseCategory`, `ExpenseReport`, `ExpenseItem`, `ExpenseApproval`) with TypeORM decorators and numeric transformer
+- P-013: `ExpensesService` with `createReport`, `addItem`, `submit`, `approve`, `reject`, `detectDuplicates`, `exportToExcel`, `findAll`, `findOne`, `findCategories`, `createCategory`
+- P-013: `ExpensesController` with endpoints `/expenses` (GET/POST), `/expenses/:id`, `/expenses/:id/items`, `/expenses/:id/submit`, `/expenses/:id/approve`, `/expenses/:id/reject`, `/expenses/export`, `/expenses/categories` (GET/POST)
+- P-013: Seed of 8 default expense categories (`Alimentação`, `Transporte`, `Alojamento`, `Material de Escritório`, `Tecnologia`, `Formação`, `Entretenimento`, `Outros`)
+- P-013: Migration `CreateExpensesTables1820000000000` creating `expense_categories`, `expense_reports`, `expense_items`, `expense_approvals` with indexes and foreign keys
+- P-013: 10 unit tests passing for `detectDuplicates()` covering exact match, ±5% margin, date window, category mismatch, employee isolation, self-exclusion and multiple items
+- P-013: `exceljs` added as runtime dependency for Excel export
+- P-013: `specs/README.md` updated with P-013 entry; `specs/global-tasks-risks.md` and `global-tasks-risks.md` mark T-030, T-031, T-032, T-033 as completed
