@@ -176,7 +176,7 @@ describe('TimesheetsService', () => {
           end_date: '2026-07-01',
           type: 'vacation',
           status: 'approved',
-          hours: 8,
+          total_hours: 8,
         },
       ];
 
