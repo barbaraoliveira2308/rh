@@ -34,7 +34,7 @@ export class JwtService {
     };
 
     return jwt.sign(payload, this.accessSecret, {
-      expiresIn: this.accessExpiresIn,
+      expiresIn: this.accessExpiresIn as jwt.SignOptions['expiresIn'],
     });
   }
 
@@ -46,14 +46,11 @@ export class JwtService {
     };
 
     return jwt.sign(payload, this.refreshSecret, {
-      expiresIn: this.refreshExpiresIn,
+      expiresIn: this.refreshExpiresIn as jwt.SignOptions['expiresIn'],
     });
   }
 
-  generateTokenPair(
-    user: Pick<User, 'id' | 'email' | 'username'>,
-    roles: string[],
-  ): TokenPair {
+  generateTokenPair(user: Pick<User, 'id' | 'email' | 'username'>, roles: string[]): TokenPair {
     return {
       accessToken: this.generateAccessToken(user, roles),
       refreshToken: this.generateRefreshToken(user),

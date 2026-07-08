@@ -8,12 +8,15 @@ import { rbacSeed } from '../src/database/seeds';
 import { hash } from 'argon2';
 import { Employee, EmployeeStatus } from '../src/users/entities/employee.entity';
 
+process.env.MFA_ENCRYPTION_KEY = 'change_me_mfa_key_32_bytes';
+
 describe('Absences (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let adminToken: string;
   let empToken: string;
   let absenceTypeId: string;
+  let unpaidAbsenceTypeId: string;
   let adminEmployeeId: string;
   let empEmployeeId: string;
 
@@ -21,6 +24,7 @@ describe('Absences (e2e)', () => {
     dataSource = new DataSource({
       ...dataSourceOptions,
       synchronize: true,
+      dropSchema: true,
     });
     await dataSource.initialize();
 
@@ -102,6 +106,21 @@ describe('Absences (e2e)', () => {
     await absenceTypeRepo.save(vacationType);
     absenceTypeId = vacationType.id;
 
+    const unpaidType = absenceTypeRepo.create({
+      name: 'Ausência não remunerada',
+      code: 'UNPAID',
+      unit: 'days',
+      limitPerYear: null,
+      requiresDocument: false,
+      isPaid: false,
+      affectsBalance: false,
+      color: '#FF0000',
+      isSystem: false,
+      isActive: true,
+    });
+    await absenceTypeRepo.save(unpaidType);
+    unpaidAbsenceTypeId = unpaidType.id;
+
     const adminBalance = balanceRepo.create({
       employeeId: adminEmployeeId,
       absenceTypeId,
@@ -161,7 +180,9 @@ describe('Absences (e2e)', () => {
 
   afterAll(async () => {
     await dataSource.destroy();
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   describe('POST /api/absences', () => {
@@ -171,6 +192,10 @@ describe('Absences (e2e)', () => {
       endDate: '2026-08-12',
       reason: 'Férias planeadas',
     };
+
+    beforeEach(() => {
+      validPayload.absenceTypeId = absenceTypeId;
+    });
 
     it('should create an absence as employee', async () => {
       const res = await request(app.getHttpServer())
@@ -204,26 +229,20 @@ describe('Absences (e2e)', () => {
   });
 
   describe('POST /api/absences/:id/approve', () => {
-    let absenceId: string;
-
-    beforeEach(async () => {
-      const res = await request(app.getHttpServer())
+    it('should approve absence as manager', async () => {
+      const createRes = await request(app.getHttpServer())
         .post('/api/absences')
         .set('Authorization', 'Bearer ' + empToken)
         .send({
-          absenceTypeId,
+          absenceTypeId: unpaidAbsenceTypeId,
           startDate: '2026-09-01',
           endDate: '2026-09-03',
           reason: 'Ausência para aprovar',
         })
         .expect(201);
 
-      absenceId = res.body.id;
-    });
-
-    it('should approve absence as manager', async () => {
       const res = await request(app.getHttpServer())
-        .post('/api/absences/' + absenceId + '/approve')
+        .post('/api/absences/' + createRes.body.id + '/approve')
         .set('Authorization', 'Bearer ' + adminToken)
         .send({})
         .expect(200);
@@ -232,22 +251,44 @@ describe('Absences (e2e)', () => {
     });
 
     it('should return 400 for already approved absence', async () => {
+      const createRes = await request(app.getHttpServer())
+        .post('/api/absences')
+        .set('Authorization', 'Bearer ' + empToken)
+        .send({
+          absenceTypeId: unpaidAbsenceTypeId,
+          startDate: '2026-09-04',
+          endDate: '2026-09-06',
+          reason: 'Ausência para aprovar',
+        })
+        .expect(201);
+
       await request(app.getHttpServer())
-        .post('/api/absences/' + absenceId + '/approve')
+        .post('/api/absences/' + createRes.body.id + '/approve')
         .set('Authorization', 'Bearer ' + adminToken)
         .send({})
         .expect(200);
 
       await request(app.getHttpServer())
-        .post('/api/absences/' + absenceId + '/approve')
+        .post('/api/absences/' + createRes.body.id + '/approve')
         .set('Authorization', 'Bearer ' + adminToken)
         .send({})
         .expect(400);
     });
 
     it('should return 403 for non-manager approver', async () => {
+      const createRes = await request(app.getHttpServer())
+        .post('/api/absences')
+        .set('Authorization', 'Bearer ' + empToken)
+        .send({
+          absenceTypeId: unpaidAbsenceTypeId,
+          startDate: '2026-09-09',
+          endDate: '2026-09-10',
+          reason: 'Ausência para aprovar',
+        })
+        .expect(201);
+
       await request(app.getHttpServer())
-        .post('/api/absences/' + absenceId + '/approve')
+        .post('/api/absences/' + createRes.body.id + '/approve')
         .set('Authorization', 'Bearer ' + empToken)
         .send({})
         .expect(403);
@@ -262,7 +303,7 @@ describe('Absences (e2e)', () => {
         .post('/api/absences')
         .set('Authorization', 'Bearer ' + empToken)
         .send({
-          absenceTypeId,
+          absenceTypeId: unpaidAbsenceTypeId,
           startDate: '2026-09-07',
           endDate: '2026-09-08',
           reason: 'Ausência para rejeitar',
@@ -314,7 +355,7 @@ describe('Absences (e2e)', () => {
         .post('/api/absences')
         .set('Authorization', 'Bearer ' + empToken)
         .send({
-          absenceTypeId,
+          absenceTypeId: unpaidAbsenceTypeId,
           startDate: '2026-10-01',
           endDate: '2026-10-02',
           reason: 'Ausência para cancelar',
@@ -377,7 +418,7 @@ describe('Absences (e2e)', () => {
         .post('/api/absences')
         .set('Authorization', 'Bearer ' + empToken)
         .send({
-          absenceTypeId,
+          absenceTypeId: unpaidAbsenceTypeId,
           startDate: '2026-10-05',
           endDate: '2026-10-05',
           reason: 'Ausência individual',

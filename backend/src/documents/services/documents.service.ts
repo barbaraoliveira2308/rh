@@ -4,15 +4,12 @@ import { Repository, IsNull } from 'typeorm';
 import { Document, DocumentFileType } from '../entities/document.entity';
 import { UploadDocumentDto } from '../dto/upload-document.dto';
 import { StorageService } from '../../storage/services/storage.service';
-import { Employee } from '../../users/entities/employee.entity';
 
 @Injectable()
 export class DocumentsService {
   constructor(
     @InjectRepository(Document)
     private readonly documentRepository: Repository<Document>,
-    @InjectRepository(Employee)
-    private readonly employeeRepository: Repository<Employee>,
     private readonly storageService: StorageService,
   ) {}
 

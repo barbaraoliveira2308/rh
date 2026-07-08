@@ -4,8 +4,10 @@ import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
 import { dataSourceOptions } from '../src/database/data-source';
-import { rbacSeed } from '../src/database/seeds/rbac.seed';
+import { rbacSeed } from '../src/database/seeds';
 import { hash } from 'argon2';
+
+process.env.MFA_ENCRYPTION_KEY = 'change_me_mfa_key_32_bytes';
 
 describe('Auth (e2e)', () => {
   let app: INestApplication;
@@ -15,6 +17,7 @@ describe('Auth (e2e)', () => {
     dataSource = new DataSource({
       ...dataSourceOptions,
       synchronize: true,
+      dropSchema: true,
     });
     await dataSource.initialize();
 
@@ -22,7 +25,8 @@ describe('Auth (e2e)', () => {
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).overrideProvider(DataSource)
+    })
+      .overrideProvider(DataSource)
       .useValue(dataSource)
       .compile();
 
@@ -40,7 +44,9 @@ describe('Auth (e2e)', () => {
 
   afterAll(async () => {
     await dataSource.destroy();
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   describe('POST /api/auth/login', () => {
@@ -54,10 +60,7 @@ describe('Auth (e2e)', () => {
     it('should login with seeded admin user', async () => {
       const userRepo = dataSource.getRepository('User');
       const adminPasswordHash = await hash('Admin123!');
-      await userRepo.update(
-        { email: 'admin@hr-suite.local' },
-        { passwordHash: adminPasswordHash },
-      );
+      await userRepo.update({ email: 'admin@hr-suite.local' }, { passwordHash: adminPasswordHash });
 
       const res = await request(app.getHttpServer())
         .post('/api/auth/login')
@@ -115,9 +118,7 @@ describe('Auth (e2e)', () => {
     });
 
     it('should return 401 without token', () => {
-      return request(app.getHttpServer())
-        .post('/api/auth/logout')
-        .expect(401);
+      return request(app.getHttpServer()).post('/api/auth/logout').expect(401);
     });
   });
 
@@ -140,9 +141,7 @@ describe('Auth (e2e)', () => {
     });
 
     it('should return 401 without token', () => {
-      return request(app.getHttpServer())
-        .get('/api/auth/me')
-        .expect(401);
+      return request(app.getHttpServer()).get('/api/auth/me').expect(401);
     });
   });
 

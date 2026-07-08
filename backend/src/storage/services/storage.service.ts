@@ -13,7 +13,7 @@ export class StorageService {
   private readonly s3: S3Client;
   private readonly bucket: string;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(configService: ConfigService) {
     this.s3 = new S3Client({
       endpoint: configService.get<string>('STORAGE_ENDPOINT'),
       region: configService.get<string>('STORAGE_REGION', 'eu-west-1'),

@@ -15,13 +15,8 @@ interface RateLimitEntry {
 @Injectable()
 export class RateLimitGuard implements CanActivate {
   private readonly store = new Map<string, RateLimitEntry>();
-  private readonly maxRequests: number;
-  private readonly windowMs: number;
-
-  constructor(maxRequests = 10, windowMs = 60_000) {
-    this.maxRequests = maxRequests;
-    this.windowMs = windowMs;
-  }
+  private readonly maxRequests = 10;
+  private readonly windowMs = 60_000;
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<Request>();

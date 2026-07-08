@@ -1,40 +1,39 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class CacheService implements OnModuleDestroy {
   private readonly store = new Map<string, { value: string; expiresAt: number }>();
   private readonly cleanupInterval: ReturnType<typeof setInterval>;
 
-  constructor(configService: ConfigService) {
-    const _redisUrl = configService.get<string>('REDIS_URL');
-
+  constructor() {
     this.cleanupInterval = setInterval(() => {
       this.cleanup();
     }, 60_000);
   }
 
-  async get(key: string): Promise<string | null> {
+  get(key: string): Promise<string | null> {
     const entry = this.store.get(key);
 
     if (!entry) {
-      return null;
+      return Promise.resolve(null);
     }
 
     if (Date.now() > entry.expiresAt) {
       this.store.delete(key);
-      return null;
+      return Promise.resolve(null);
     }
 
-    return entry.value;
+    return Promise.resolve(entry.value);
   }
 
-  async set(key: string, value: string, ttlMs: number): Promise<void> {
+  set(key: string, value: string, ttlMs: number): Promise<void> {
     this.store.set(key, { value, expiresAt: Date.now() + ttlMs });
+    return Promise.resolve();
   }
 
-  async del(key: string): Promise<void> {
+  del(key: string): Promise<void> {
     this.store.delete(key);
+    return Promise.resolve();
   }
 
   async exists(key: string): Promise<boolean> {

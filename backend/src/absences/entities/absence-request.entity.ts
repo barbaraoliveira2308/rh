@@ -11,6 +11,11 @@ import { Employee } from '../../users/entities/employee.entity';
 import { AbsenceType } from './absence-type.entity';
 import { AbsenceStatus } from './absence-status.enum';
 
+const numericTransformer = {
+  to: (value: number | null): number | null => value,
+  from: (value: string | number | null): number | null => (value === null ? null : Number(value)),
+};
+
 @Entity({ schema: 'hr', name: 'absence_requests' })
 export class AbsenceRequest {
   @PrimaryGeneratedColumn('uuid')
@@ -34,10 +39,24 @@ export class AbsenceRequest {
   @Column({ name: 'end_half', type: 'boolean', default: false })
   endHalf: boolean;
 
-  @Column({ name: 'total_days', type: 'decimal', precision: 5, scale: 2, default: 0 })
+  @Column({
+    name: 'total_days',
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    default: 0,
+    transformer: numericTransformer,
+  })
   totalDays: number;
 
-  @Column({ name: 'total_hours', type: 'decimal', precision: 6, scale: 2, default: 0 })
+  @Column({
+    name: 'total_hours',
+    type: 'decimal',
+    precision: 6,
+    scale: 2,
+    default: 0,
+    transformer: numericTransformer,
+  })
   totalHours: number;
 
   @Column({ type: 'enum', enum: AbsenceStatus, default: AbsenceStatus.PENDING })

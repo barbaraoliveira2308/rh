@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import * as argon2 from 'argon2';
 import { ConfigService } from '@nestjs/config';
 import { User } from '../entities/user.entity';
@@ -50,8 +50,15 @@ export class AuthService {
     const user = await this.userRepository.findOne({
       where: { email },
       select: [
-        'id', 'email', 'username', 'passwordHash', 'isActive',
-        'mfaEnabled', 'mfaSecret', 'failedLoginCount', 'lockedUntil',
+        'id',
+        'email',
+        'username',
+        'passwordHash',
+        'isActive',
+        'mfaEnabled',
+        'mfaSecret',
+        'failedLoginCount',
+        'lockedUntil',
         'passwordChangedAt',
       ],
     });
@@ -113,11 +120,7 @@ export class AuthService {
     });
     await this.sessionRepository.save(session);
 
-    await this.cacheService.set(
-      `session:${accessHash}`,
-      user.id,
-      15 * 60 * 1000,
-    );
+    await this.cacheService.set(`session:${accessHash}`, user.id, 15 * 60 * 1000);
     await this.cacheService.set(
       `refresh:${refreshHash}`,
       JSON.stringify({ userId: user.id, sessionId: session.id }),
@@ -141,9 +144,7 @@ export class AuthService {
     await this.sessionRepository.update({ tokenHash }, { revokedAt: new Date() });
   }
 
-  async refresh(
-    refreshToken: string,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
+  async refresh(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
     const payload = this.jwtService.verifyRefreshToken(refreshToken);
     const oldRefreshHash = this.jwtService.computeTokenHash(refreshToken);
 
@@ -173,16 +174,9 @@ export class AuthService {
 
     const parsed = JSON.parse(sessionData) as { userId: string; sessionId: string };
 
-    await this.sessionRepository.update(
-      { id: parsed.sessionId },
-      { tokenHash: newAccessHash },
-    );
+    await this.sessionRepository.update({ id: parsed.sessionId }, { tokenHash: newAccessHash });
 
-    await this.cacheService.set(
-      `session:${newAccessHash}`,
-      user.id,
-      15 * 60 * 1000,
-    );
+    await this.cacheService.set(`session:${newAccessHash}`, user.id, 15 * 60 * 1000);
     await this.cacheService.set(
       `refresh:${newRefreshHash}`,
       JSON.stringify({ userId: user.id, sessionId: parsed.sessionId }),
@@ -196,8 +190,7 @@ export class AuthService {
   }
 
   async enableMfa(userId: string): Promise<{ secret: string; qrCodeUrl: string }> {
-    const { secret, encryptedSecret, qrCodeUrl } =
-      this.mfaService.generateSecret(userId);
+    const { secret, encryptedSecret, qrCodeUrl } = this.mfaService.generateSecret(userId);
 
     await this.userRepository.update(userId, {
       mfaSecret: encryptedSecret,
@@ -273,10 +266,7 @@ export class AuthService {
       passwordChangedAt: new Date(),
     });
 
-    await this.sessionRepository.update(
-      { userId, revokedAt: null },
-      { revokedAt: new Date() },
-    );
+    await this.sessionRepository.update({ userId, revokedAt: IsNull() }, { revokedAt: new Date() });
   }
 
   async resetPassword(email: string): Promise<void> {
@@ -319,7 +309,20 @@ export class AuthService {
 
   async ssoLogin(
     code: string,
-    keycloakService: { exchangeCodeForTokens(code: string, redirectUri: string): Promise<{ accessToken: string; refreshToken: string }>; getUserInfo(accessToken: string): Promise<{ sub: string; email: string; preferred_username?: string }>; syncUser(userInfo: { sub: string; email: string; preferred_username?: string }): Promise<User> },
+    keycloakService: {
+      exchangeCodeForTokens(
+        code: string,
+        redirectUri: string,
+      ): Promise<{ accessToken: string; refreshToken: string }>;
+      getUserInfo(
+        accessToken: string,
+      ): Promise<{ sub: string; email: string; preferred_username?: string }>;
+      syncUser(userInfo: {
+        sub: string;
+        email: string;
+        preferred_username?: string;
+      }): Promise<User>;
+    },
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const redirectUri = `${this.configService.get<string>('APP_URL', 'http://localhost:3000')}/auth/sso/callback`;
     const kcTokens = await keycloakService.exchangeCodeForTokens(code, redirectUri);

@@ -10,7 +10,6 @@ import { Cron } from '@nestjs/schedule';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Project, ProjectStatus } from '../entities/project.entity';
 import { ProjectAllocation, AllocationType } from '../entities/project-allocation.entity';
-import { ProjectTeamAllocation } from '../entities/project-team-allocation.entity';
 import { CreateProjectDto } from '../dto/create-project.dto';
 import { UpdateProjectDto } from '../dto/update-project.dto';
 import { AllocateEmployeeDto } from '../dto/allocate-employee.dto';
@@ -28,8 +27,6 @@ export class ProjectsService {
     private readonly projectRepository: Repository<Project>,
     @InjectRepository(ProjectAllocation)
     private readonly allocationRepository: Repository<ProjectAllocation>,
-    @InjectRepository(ProjectTeamAllocation)
-    private readonly teamAllocationRepository: Repository<ProjectTeamAllocation>,
     @InjectRepository(Employee)
     private readonly employeeRepository: Repository<Employee>,
     private readonly eventEmitter: EventEmitter2,

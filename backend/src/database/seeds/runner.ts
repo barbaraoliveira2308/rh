@@ -1,7 +1,7 @@
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
 import { dataSourceOptions } from '../data-source';
-import { rbacSeed } from './rbac.seed';
+import { rbacSeed } from './index';
 
 config();
 
@@ -16,7 +16,7 @@ async function main(): Promise<void> {
   await dataSource.destroy();
 }
 
-main().catch((error) => {
+main().catch((error: unknown) => {
   console.error('Seed failed:', error);
   process.exit(1);
 });

@@ -29,6 +29,7 @@ export default tseslint.config(
       '**/build/**',
       '**/.turbo/**',
       '**/coverage/**',
+      '**/test/**',
     ],
   },
 );
