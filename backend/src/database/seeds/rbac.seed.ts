@@ -12,12 +12,7 @@ const ACTIONS = ['create', 'read', 'update', 'delete', 'approve'] as const;
 type Resource = (typeof RESOURCES)[number];
 type Action = (typeof ACTIONS)[number];
 
-const ADMIN = 'admin' as const;
-const MANAGER = 'manager' as const;
-const APPROVER = 'approver' as const;
-const EMPLOYEE = 'employee' as const;
-
-type RoleName = typeof ADMIN | typeof MANAGER | typeof APPROVER | typeof EMPLOYEE;
+type RoleName = 'admin' | 'manager' | 'approver' | 'employee';
 
 const rolePermissionsMap: Record<RoleName, { resource: Resource; action: Action }[]> = {
   admin: RESOURCES.flatMap((r) => ACTIONS.map((a) => ({ resource: r, action: a }))),

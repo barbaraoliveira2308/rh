@@ -1,4 +1,4 @@
-import { Global, Module } from '@nestjs/common';
+import { Global, Module, Logger } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
@@ -67,8 +67,9 @@ import {
     {
       provide: AUDIT_EVENT_HANDLER,
       useFactory: (): ((event: unknown) => void) => {
+        const logger = new Logger('AuthAudit');
         return (event: unknown): void => {
-          console.log('[Audit]', JSON.stringify(event));
+          logger.log(JSON.stringify(event));
         };
       },
     },

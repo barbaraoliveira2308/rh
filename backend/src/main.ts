@@ -43,8 +43,8 @@ async function bootstrap(): Promise<void> {
   const port = configService.get<number>('BACKEND_PORT', 3000);
   await app.listen(port);
 
-  logger.log(`Application running on http://localhost:${port}`);
-  logger.log(`Swagger docs at http://localhost:${port}/api/docs`);
+  logger.log(`Application running on http://localhost:${String(port)}`);
+  logger.log(`Swagger docs at http://localhost:${String(port)}/api/docs`);
 }
 
 void bootstrap();

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+import * as jwt from 'jsonwebtoken';
 import { JwtService } from './jwt.service';
 
 describe('JwtService', () => {
@@ -27,10 +28,7 @@ describe('JwtService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        JwtService,
-        { provide: ConfigService, useValue: mockConfigService },
-      ],
+      providers: [JwtService, { provide: ConfigService, useValue: mockConfigService }],
     }).compile();
 
     service = module.get<JwtService>(JwtService);
@@ -85,7 +83,6 @@ describe('JwtService', () => {
     });
 
     it('should throw UnauthorizedException for expired token', () => {
-      const jwt = require('jsonwebtoken');
       const expiredToken = jwt.sign(
         { sub: mockUser.id, email: mockUser.email, username: mockUser.username, roles: mockRoles },
         'test-access-secret-at-least-32-chars-long!!',

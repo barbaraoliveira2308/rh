@@ -11,4 +11,5 @@ import { AuditLog } from './entities/audit-log.entity';
   providers: [AuditService, AuditInterceptor],
   exports: [AuditService, AuditInterceptor, TypeOrmModule],
 })
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class AuditModule {}

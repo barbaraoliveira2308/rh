@@ -1,18 +1,25 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuditLog } from '../entities/audit-log.entity';
 import { CreateAuditLogDto, AuditFiltersDto, PaginatedResult } from '../dto';
 
 const SENSITIVE_PATTERNS = [
-  'password', 'password_hash', 'passwordhash',
-  'mfa_secret', 'mfasecret',
-  'nif', 'iban',
-  'token', 'refreshtoken', 'secret',
+  'password',
+  'password_hash',
+  'passwordhash',
+  'mfa_secret',
+  'mfasecret',
+  'nif',
+  'iban',
+  'token',
+  'refreshtoken',
+  'secret',
 ];
 
 @Injectable()
 export class AuditService {
+  private readonly logger = new Logger(AuditService.name);
   private readonly queue: CreateAuditLogDto[] = [];
   private processing = false;
 
@@ -60,9 +67,8 @@ export class AuditService {
     const results = await query.getMany();
     const hasMore = results.length > limit;
     const data = hasMore ? results.slice(0, limit) : results;
-    const nextCursor = hasMore && data.length > 0
-      ? data[data.length - 1].timestamp.toISOString()
-      : null;
+    const nextCursor =
+      hasMore && data.length > 0 ? data[data.length - 1].timestamp.toISOString() : null;
 
     return { data, nextCursor, hasMore };
   }
@@ -105,7 +111,10 @@ export class AuditService {
       try {
         await this.writeToDb(entry);
       } catch (err) {
-        console.error('[Audit] Failed to write log:', err);
+        this.logger.error(
+          '[Audit] Failed to write log',
+          err instanceof Error ? err.message : String(err),
+        );
       }
     }
     this.processing = false;
@@ -128,14 +137,10 @@ export class AuditService {
     await this.auditLogRepository.save(log);
   }
 
-  private maskSensitiveFields(
-    obj: Record<string, unknown>,
-  ): Record<string, unknown> {
+  private maskSensitiveFields(obj: Record<string, unknown>): Record<string, unknown> {
     const masked: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
-      const isSensitive = SENSITIVE_PATTERNS.some(
-        (pattern) => key.toLowerCase().includes(pattern),
-      );
+      const isSensitive = SENSITIVE_PATTERNS.some((pattern) => key.toLowerCase().includes(pattern));
       masked[key] = isSensitive ? '***' : value;
     }
     return masked;

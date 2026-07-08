@@ -13,6 +13,7 @@
 | P-012 | 00-03 | 2026-07-08 | Integration/e2e tests passing (24 tests) after fixing cross-module compilation/DI issues |
 | P-012 | 00-04 | 2026-07-08 | Updated spec documentation (specs/absences/spec.md and specs/README.md)                  |
 | P-012 | 00-05 | 2026-07-08 | Fixed unit test failures in Projects and Timesheets modules                              |
+| P-012 | 00-06 | 2026-07-08 | Fixed all pre-existing backend lint errors and warnings                                  |
 
 ## Decisions
 
@@ -42,3 +43,4 @@
 - P-012: dotenv runtime dependency added to satisfy existing imports
 - P-012: Spec documentation updated (`specs/absences/spec.md` and `specs/README.md`)
 - P-012: Unit test failures fixed in previous modules (`projects.service.spec.ts` / `projects.service.ts`, `timesheets.service.spec.ts`)
+- P-012: All pre-existing backend lint errors/warnings fixed; `pnpm run lint` now green across shared, backend and frontend

@@ -6,11 +6,9 @@ import { KeycloakService } from './keycloak.service';
 import { KeycloakStrategy } from './keycloak.strategy';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([User]),
-    PassportModule.register({ defaultStrategy: 'jwt' }),
-  ],
+  imports: [TypeOrmModule.forFeature([User]), PassportModule.register({ defaultStrategy: 'jwt' })],
   providers: [KeycloakService, KeycloakStrategy],
   exports: [KeycloakService],
 })
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class KeycloakModule {}

@@ -6,4 +6,5 @@ import { CacheService } from './cache.service';
   providers: [CacheService],
   exports: [CacheService],
 })
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class CacheModule {}
