@@ -12,6 +12,8 @@
 | T-016 | Módulo de Contratos (backend)     | Concluido |
 | T-017 | Configurar MinIO (armazenamento)  | Concluido |
 | T-018 | Gestão Documental (backend)       | Concluido |
+| T-019 | Módulo de Projetos (backend)      | Concluido |
+| T-020 | Módulo de Alocações (backend)     | Concluido |
 
 ## Riscos
 
@@ -21,7 +23,9 @@
 
 ## Ambiguidades
 
-| ID      | Descrição                                                    | Decisão                                                     |
-| ------- | ------------------------------------------------------------ | ----------------------------------------------------------- |
-| P008-01 | Equipa pode ter colaboradores de departamentos diferentes?   | Sim, sem restrição                                          |
-| P009-01 | Contratos expirados: arquivamento automático ou ação manual? | Arquivamento automático no dia seguinte + alerta preventivo |
+| ID      | Descrição                                                                 | Decisão                                                     |
+| ------- | ------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| P008-01 | Equipa pode ter colaboradores de departamentos diferentes?                | Sim, sem restrição                                          |
+| P009-01 | Contratos expirados: arquivamento automático ou ação manual?              | Arquivamento automático no dia seguinte + alerta preventivo |
+| P010-01 | Sobrealocação (>100%): bloquear, permitir com aviso ou notificar manager? | Permitir com aviso (warning) + notificar manager            |
+| P010-02 | Projeto closed pode ser reativado?                                        | Sim, admin pode reativar                                    |
