@@ -1,6 +1,6 @@
 # Project State
 
-**Current Phase:** P-012 Absences (80% complete)
+**Current Phase:** P-012 Absences (90% complete)
 **Last Updated:** 2026-07-08
 
 ## Phase History
@@ -9,6 +9,7 @@
 | ----- | ----- | ---------- | ------------------------------------------------------------------- |
 | P-011 | 00-09 | 2026-07-08 | Timesheets module (entities, service, controller, tests, migration) |
 | P-012 | 00-01 | 2026-07-08 | Absences module foundation                                          |
+| P-012 | 00-02 | 2026-07-08 | Unit tests for approve(), reject(), cancel(), getLeaveBalance()     |
 
 ## Decisions
 
@@ -27,11 +28,11 @@
 - P-012: Absences module registered in AppModule
 - P-012: Migration with all absence tables (absence_types, absence_requests, absence_approvals, leave_balances)
 - P-012: 9 unit tests passing for create() covering all validation scenarios
+- P-012: 16 unit tests passing for approve(), reject(), cancel(), getLeaveBalance() covering success, validation, and balance update scenarios
 - P-012: Lint clean on all absences files
 - P-012: TypeScript compilation clean on absences files
 
 ### Remaining
 
-- P-012: Write unit tests for approve(), reject(), cancel(), getLeaveBalance()
-- P-012: Integration/e2e tests
+- P-012: Integration/e2e tests (ficheiro `test/absences.e2e-spec.ts` criado com 16 cenários; necessita PostgreSQL a correr em localhost:5432)
 - P-012: Update spec documentation

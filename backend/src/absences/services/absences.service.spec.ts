@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AbsencesService } from './absences.service';
 import { AbsenceType } from '../entities/absence-type.entity';
@@ -269,6 +269,352 @@ describe('AbsencesService', () => {
         'absence.requested',
         expect.objectContaining({ absenceId: 'req-1' }),
       );
+    });
+  });
+
+  describe('approve', () => {
+    const mockManager = {
+      id: 'manager-1',
+      userId: 'manager-user',
+      firstName: 'Manager',
+      lastName: 'Test',
+      email: 'manager@example.com',
+      status: EmployeeStatus.ACTIVE,
+      managerId: null,
+    };
+
+    let mockPendingRequest: Record<string, unknown>;
+
+    beforeEach(() => {
+      mockPendingRequest = {
+        id: 'req-1',
+        employeeId: 'emp-1',
+        absenceTypeId: 'type-1',
+        startDate: '2026-08-01',
+        endDate: '2026-08-03',
+        totalDays: 3,
+        totalHours: 24,
+        status: AbsenceStatus.PENDING,
+        reason: 'Férias',
+        rejectionReason: null,
+        documentUrl: null,
+        absenceType: mockVacationType,
+      };
+    });
+
+    it('deve lançar erro se pedido não existir', async () => {
+      mockRequestRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.approve('req-1', 'manager-1')).rejects.toThrow(NotFoundException);
+    });
+
+    it('deve lançar erro se pedido não estiver pendente', async () => {
+      mockRequestRepo.findOne.mockResolvedValue({
+        ...mockPendingRequest,
+        status: AbsenceStatus.APPROVED,
+      });
+
+      await expect(service.approve('req-1', 'manager-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('deve lançar erro se aprovador não for o manager', async () => {
+      mockRequestRepo.findOne.mockResolvedValue(mockPendingRequest);
+      mockEmployeeRepo.findOne
+        .mockResolvedValueOnce(mockManager)
+        .mockResolvedValueOnce(mockEmployee);
+
+      await expect(service.approve('req-1', 'wrong-approver')).rejects.toThrow(ForbiddenException);
+    });
+
+    it('deve aprovar com sucesso e atualizar saldo', async () => {
+      const savedRequest = { ...mockPendingRequest, status: AbsenceStatus.APPROVED };
+      const approval = {
+        id: 'appr-1',
+        absenceId: 'req-1',
+        approverId: 'manager-1',
+        decision: 'approved',
+      };
+
+      mockRequestRepo.findOne.mockResolvedValue(mockPendingRequest);
+      mockEmployeeRepo.findOne
+        .mockResolvedValueOnce(mockManager)
+        .mockResolvedValueOnce(mockEmployee);
+      mockRequestRepo.save.mockResolvedValue(savedRequest);
+      mockApprovalRepo.create.mockReturnValue(approval);
+      mockApprovalRepo.save.mockResolvedValue(approval);
+      mockBalanceRepo.findOne.mockResolvedValue(mockBalance);
+
+      const result = await service.approve('req-1', 'manager-1');
+
+      expect(result).toEqual(savedRequest);
+      expect(mockRequestRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ status: AbsenceStatus.APPROVED }),
+      );
+      expect(mockApprovalRepo.create).toHaveBeenCalledWith({
+        absenceId: 'req-1',
+        approverId: 'manager-1',
+        decision: 'approved',
+      });
+      expect(mockBalanceRepo.update).toHaveBeenCalledWith('bal-1', {
+        usedDays: 8,
+        pendingDays: 0,
+        remainingDays: 14,
+      });
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        'absence.approved',
+        expect.objectContaining({ absenceId: 'req-1' }),
+      );
+    });
+
+    it('deve aprovar sem atualizar saldo se tipo não afetar saldo', async () => {
+      const noBalanceType = Object.assign({}, mockVacationType, {
+        affectsBalance: false,
+      });
+      const requestNoBalance = Object.assign({}, mockPendingRequest, {
+        absenceType: noBalanceType,
+      });
+      const savedRequest = Object.assign({}, requestNoBalance, {
+        status: AbsenceStatus.APPROVED,
+      });
+      const approval = {
+        id: 'appr-2',
+        absenceId: 'req-1',
+        approverId: 'manager-1',
+        decision: 'approved',
+      };
+
+      mockRequestRepo.findOne.mockResolvedValue(requestNoBalance);
+      mockEmployeeRepo.findOne
+        .mockResolvedValueOnce(mockManager)
+        .mockResolvedValueOnce(mockEmployee);
+      mockRequestRepo.save.mockResolvedValue(savedRequest);
+      mockApprovalRepo.create.mockReturnValue(approval);
+      mockApprovalRepo.save.mockResolvedValue(approval);
+
+      const result = await service.approve('req-1', 'manager-1');
+
+      expect(result).toEqual(savedRequest);
+      expect(mockBalanceRepo.findOne).not.toHaveBeenCalled();
+      expect(mockBalanceRepo.update).not.toHaveBeenCalled();
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        'absence.approved',
+        expect.objectContaining({ absenceId: 'req-1' }),
+      );
+    });
+  });
+
+  describe('reject', () => {
+    const mockManager = {
+      id: 'manager-1',
+      userId: 'manager-user',
+      firstName: 'Manager',
+      lastName: 'Test',
+      email: 'manager@example.com',
+      status: EmployeeStatus.ACTIVE,
+      managerId: null,
+    };
+
+    const mockPendingRequest = {
+      id: 'req-1',
+      employeeId: 'emp-1',
+      absenceTypeId: 'type-1',
+      startDate: '2026-08-01',
+      endDate: '2026-08-03',
+      totalDays: 3,
+      totalHours: 24,
+      status: AbsenceStatus.PENDING,
+      reason: 'Férias',
+      rejectionReason: null,
+      documentUrl: null,
+    };
+
+    it('deve lançar erro se pedido não existir', async () => {
+      mockRequestRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.reject('req-1', 'manager-1', 'Motivo')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('deve lançar erro se pedido não estiver pendente', async () => {
+      mockRequestRepo.findOne.mockResolvedValue({
+        ...mockPendingRequest,
+        status: AbsenceStatus.APPROVED,
+      });
+
+      await expect(service.reject('req-1', 'manager-1', 'Motivo')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('deve lançar erro se aprovador não for o manager', async () => {
+      mockRequestRepo.findOne.mockResolvedValue(mockPendingRequest);
+      mockEmployeeRepo.findOne
+        .mockResolvedValueOnce(mockManager)
+        .mockResolvedValueOnce(mockEmployee);
+
+      await expect(service.reject('req-1', 'wrong-approver', 'Motivo')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('deve rejeitar com sucesso e atualizar pendingDays', async () => {
+      const savedRequest = {
+        ...mockPendingRequest,
+        status: AbsenceStatus.REJECTED,
+        rejectionReason: 'Motivo',
+      };
+      const approval = {
+        id: 'appr-1',
+        absenceId: 'req-1',
+        approverId: 'manager-1',
+        decision: 'rejected',
+        comments: 'Motivo',
+      };
+
+      mockRequestRepo.findOne.mockResolvedValue(mockPendingRequest);
+      mockEmployeeRepo.findOne
+        .mockResolvedValueOnce(mockManager)
+        .mockResolvedValueOnce(mockEmployee);
+      mockBalanceRepo.findOne.mockResolvedValue(mockBalance);
+      mockRequestRepo.save.mockResolvedValue(savedRequest);
+      mockApprovalRepo.create.mockReturnValue(approval);
+      mockApprovalRepo.save.mockResolvedValue(approval);
+
+      const result = await service.reject('req-1', 'manager-1', 'Motivo');
+
+      expect(result).toEqual(savedRequest);
+      expect(mockRequestRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: AbsenceStatus.REJECTED,
+          rejectionReason: 'Motivo',
+        }),
+      );
+      expect(mockBalanceRepo.update).toHaveBeenCalledWith('bal-1', {
+        pendingDays: 0,
+      });
+      expect(mockApprovalRepo.create).toHaveBeenCalledWith({
+        absenceId: 'req-1',
+        approverId: 'manager-1',
+        decision: 'rejected',
+        comments: 'Motivo',
+      });
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        'absence.rejected',
+        expect.objectContaining({ absenceId: 'req-1' }),
+      );
+    });
+  });
+
+  describe('cancel', () => {
+    const mockPendingRequest = {
+      id: 'req-1',
+      employeeId: 'emp-1',
+      absenceTypeId: 'type-1',
+      startDate: '2026-08-01',
+      endDate: '2026-08-03',
+      totalDays: 3,
+      totalHours: 24,
+      status: AbsenceStatus.PENDING,
+      reason: 'Férias',
+      rejectionReason: null,
+      documentUrl: null,
+    };
+
+    const mockApprovedFutureRequest = Object.assign({}, mockPendingRequest, {
+      status: AbsenceStatus.APPROVED,
+    });
+
+    const mockApprovedPastRequest = Object.assign({}, mockPendingRequest, {
+      startDate: '2026-07-01',
+      endDate: '2026-07-03',
+      status: AbsenceStatus.APPROVED,
+    });
+
+    it('deve lançar erro se pedido não existir', async () => {
+      mockRequestRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.cancel('req-1', 'emp-1')).rejects.toThrow(NotFoundException);
+    });
+
+    it('deve lançar erro se não for o próprio', async () => {
+      mockRequestRepo.findOne.mockResolvedValue(mockPendingRequest);
+
+      await expect(service.cancel('req-1', 'other-user')).rejects.toThrow(ForbiddenException);
+    });
+
+    it('deve lançar erro se aprovado e já começou', async () => {
+      mockRequestRepo.findOne.mockResolvedValue(mockApprovedPastRequest);
+
+      await expect(service.cancel('req-1', 'emp-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('deve lançar erro se já cancelado ou rejeitado', async () => {
+      const mockCancelledRequest = Object.assign({}, mockPendingRequest, {
+        status: AbsenceStatus.CANCELLED,
+      });
+      mockRequestRepo.findOne.mockResolvedValue(mockCancelledRequest);
+
+      await expect(service.cancel('req-1', 'emp-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('deve cancelar pedido pendente e atualizar pendingDays', async () => {
+      const savedRequest = Object.assign({}, mockPendingRequest, {
+        status: AbsenceStatus.CANCELLED,
+      });
+
+      mockRequestRepo.findOne.mockResolvedValue(mockPendingRequest);
+      mockBalanceRepo.findOne.mockResolvedValue(mockBalance);
+      mockRequestRepo.save.mockResolvedValue(savedRequest);
+
+      const result = await service.cancel('req-1', 'emp-1');
+
+      expect(result).toEqual(savedRequest);
+      expect(mockBalanceRepo.update).toHaveBeenCalledWith('bal-1', {
+        pendingDays: 0,
+      });
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        'absence.cancelled',
+        expect.objectContaining({ absenceId: 'req-1' }),
+      );
+    });
+
+    it('deve cancelar pedido aprovado futuro e restaurar saldo', async () => {
+      const savedRequest = Object.assign({}, mockApprovedFutureRequest, {
+        status: AbsenceStatus.CANCELLED,
+      });
+
+      mockRequestRepo.findOne.mockResolvedValue(mockApprovedFutureRequest);
+      mockBalanceRepo.findOne.mockResolvedValue(mockBalance);
+      mockRequestRepo.save.mockResolvedValue(savedRequest);
+
+      const result = await service.cancel('req-1', 'emp-1');
+
+      expect(result).toEqual(savedRequest);
+      expect(mockBalanceRepo.update).toHaveBeenCalledWith('bal-1', {
+        usedDays: 2,
+        remainingDays: 20,
+      });
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        'absence.cancelled',
+        expect.objectContaining({ absenceId: 'req-1' }),
+      );
+    });
+  });
+
+  describe('getLeaveBalance', () => {
+    it('deve retornar saldos do colaborador para o ano', async () => {
+      const balances = [mockBalance];
+      mockBalanceRepo.find.mockResolvedValue(balances);
+
+      const result = await service.getLeaveBalance('emp-1', 2026);
+
+      expect(result).toEqual(balances);
+      expect(mockBalanceRepo.find).toHaveBeenCalledWith({
+        where: { employeeId: 'emp-1', year: 2026 },
+        relations: ['absenceType'],
+        order: { absenceTypeId: 'ASC' },
+      });
     });
   });
 });
