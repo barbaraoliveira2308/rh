@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { getRepositoryToken, getEntityManagerToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TimesheetsService } from './timesheets.service';
@@ -7,7 +7,6 @@ import { TimesheetPeriod } from '../entities/timesheet-period.entity';
 import { TimesheetEntry } from '../entities/timesheet-entry.entity';
 import { TimesheetApproval } from '../entities/timesheet-approval.entity';
 import { HolidayCalendar } from '../entities/holiday-calendar.entity';
-import { AbsenceRequest, AbsenceStatus } from '../entities/absence-request.entity';
 import { TimesheetStatus } from '../entities/timesheet-status.enum';
 import { EntryType } from '../entities/entry-type.enum';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
@@ -18,7 +17,7 @@ describe('TimesheetsService', () => {
   let mockEntryRepo: Record<string, jest.Mock>;
   let mockApprovalRepo: Record<string, jest.Mock>;
   let mockHolidayRepo: Record<string, jest.Mock>;
-  let mockAbsenceRepo: Record<string, jest.Mock>;
+  let mockEntityManager: Record<string, jest.Mock>;
   let mockEmployeeRepo: Record<string, jest.Mock>;
   let mockEventEmitter: Record<string, jest.Mock>;
 
@@ -96,8 +95,8 @@ describe('TimesheetsService', () => {
       find: jest.fn(),
     };
 
-    mockAbsenceRepo = {
-      find: jest.fn(),
+    mockEntityManager = {
+      query: jest.fn(),
     };
 
     mockEmployeeRepo = {
@@ -116,7 +115,7 @@ describe('TimesheetsService', () => {
         { provide: getRepositoryToken(TimesheetEntry), useValue: mockEntryRepo },
         { provide: getRepositoryToken(TimesheetApproval), useValue: mockApprovalRepo },
         { provide: getRepositoryToken(HolidayCalendar), useValue: mockHolidayRepo },
-        { provide: getRepositoryToken(AbsenceRequest), useValue: mockAbsenceRepo },
+        { provide: getEntityManagerToken(), useValue: mockEntityManager },
         { provide: getRepositoryToken(Employee), useValue: mockEmployeeRepo },
         { provide: EventEmitter2, useValue: mockEventEmitter },
       ],
@@ -138,16 +137,16 @@ describe('TimesheetsService', () => {
       const approvedAbsences = [
         {
           id: 'abs-1',
-          employeeId: 'emp-1',
-          startDate: '2026-07-03',
-          endDate: '2026-07-03',
+          employee_id: 'emp-1',
+          start_date: '2026-07-03',
+          end_date: '2026-07-03',
           type: 'sick',
-          status: AbsenceStatus.APPROVED,
+          status: 'approved',
           hours: 8,
         },
       ];
 
-      mockAbsenceRepo.find.mockResolvedValue(approvedAbsences);
+      mockEntityManager.query.mockResolvedValue(approvedAbsences);
       mockEntryRepo.findOne.mockResolvedValue(null);
       mockEntryRepo.create.mockReturnValue({});
       mockEntryRepo.save.mockResolvedValue({});
@@ -172,16 +171,16 @@ describe('TimesheetsService', () => {
       const approvedAbsences = [
         {
           id: 'abs-2',
-          employeeId: 'emp-1',
-          startDate: '2026-07-01',
-          endDate: '2026-07-01',
+          employee_id: 'emp-1',
+          start_date: '2026-07-01',
+          end_date: '2026-07-01',
           type: 'vacation',
-          status: AbsenceStatus.APPROVED,
+          status: 'approved',
           hours: 8,
         },
       ];
 
-      mockAbsenceRepo.find.mockResolvedValue(approvedAbsences);
+      mockEntityManager.query.mockResolvedValue(approvedAbsences);
       mockEntryRepo.findOne.mockResolvedValue({
         id: 'entry-1',
         timesheetId: 'period-1',

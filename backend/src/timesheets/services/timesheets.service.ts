@@ -4,15 +4,14 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { InjectRepository, InjectEntityManager } from '@nestjs/typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { Cron } from '@nestjs/schedule';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TimesheetPeriod } from '../entities/timesheet-period.entity';
 import { TimesheetEntry } from '../entities/timesheet-entry.entity';
 import { TimesheetApproval } from '../entities/timesheet-approval.entity';
 import { HolidayCalendar } from '../entities/holiday-calendar.entity';
-import { AbsenceRequest, AbsenceStatus } from '../entities/absence-request.entity';
 import { TimesheetStatus } from '../entities/timesheet-status.enum';
 import { EntryType } from '../entities/entry-type.enum';
 import { CreateTimesheetEntryDto } from '../dto/create-timesheet-entry.dto';
@@ -20,6 +19,15 @@ import { TimesheetSubmittedEvent } from '../events/timesheet-submitted.event';
 import { TimesheetApprovedEvent } from '../events/timesheet-approved.event';
 import { TimesheetRejectedEvent } from '../events/timesheet-rejected.event';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
+
+interface AbsenceRow {
+  id: string;
+  employee_id: string;
+  start_date: string;
+  end_date: string;
+  total_days: number;
+  total_hours: number | null;
+}
 
 @Injectable()
 export class TimesheetsService {
@@ -32,8 +40,8 @@ export class TimesheetsService {
     private readonly approvalRepository: Repository<TimesheetApproval>,
     @InjectRepository(HolidayCalendar)
     private readonly holidayRepository: Repository<HolidayCalendar>,
-    @InjectRepository(AbsenceRequest)
-    private readonly absenceRepository: Repository<AbsenceRequest>,
+    @InjectEntityManager()
+    private readonly entityManager: EntityManager,
     @InjectRepository(Employee)
     private readonly employeeRepository: Repository<Employee>,
     private readonly eventEmitter: EventEmitter2,
@@ -386,19 +394,16 @@ export class TimesheetsService {
     const monthEnd =
       String(year) + '-' + String(month).padStart(2, '0') + '-' + String(lastDay).padStart(2, '0');
 
-    const absences = await this.absenceRepository.find({
-      where: {
-        employeeId: period.employeeId,
-        status: AbsenceStatus.APPROVED,
-        startDate: Between(monthStart, monthEnd),
-      },
-    });
+    const absences: AbsenceRow[] = await this.entityManager.query(
+      `SELECT * FROM hr.absence_requests WHERE employee_id = $1 AND status = 'approved' AND start_date BETWEEN $2 AND $3`,
+      [period.employeeId, monthStart, monthEnd],
+    );
 
     let syncedCount = 0;
 
     for (const absence of absences) {
-      const absStart = new Date(absence.startDate);
-      const absEnd = new Date(absence.endDate);
+      const absStart = new Date(absence.start_date);
+      const absEnd = new Date(absence.end_date);
 
       for (let d = new Date(absStart); d <= absEnd; d.setDate(d.getDate() + 1)) {
         const dateStr = this.formatDate(d);
@@ -413,7 +418,7 @@ export class TimesheetsService {
           if (existingEntry.entryType !== EntryType.ABSENCE && !existingEntry.isLocked) {
             await this.entryRepository.update(existingEntry.id, {
               entryType: EntryType.ABSENCE,
-              workedHours: absence.hours ?? existingEntry.workedHours,
+              workedHours: absence.total_hours ?? existingEntry.workedHours,
             });
             syncedCount++;
           }
@@ -422,7 +427,7 @@ export class TimesheetsService {
             timesheetId: periodId,
             entryDate: dateStr,
             plannedHours: 0,
-            workedHours: absence.hours ?? 0,
+            workedHours: absence.total_hours ?? 0,
             overtimeHours: 0,
             entryType: EntryType.ABSENCE,
             absenceId: absence.id,
