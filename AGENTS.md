@@ -25,5 +25,8 @@
 9. Antes de propor o commit, corre o lint (`pnpm run lint`) e corrige **todos** os erros nos ficheiros que criaste ou modificaste. Verifica especificamente:
    - Imports não utilizados
    - `restrict-template-expressions` (converte números para string com `String()`)
+   - `no-misused-spread` (usa `Object.assign()` em vez de spread operator em instâncias de classes DTO/entity)
+   - `prefer-nullish-coalescing` (usa `??=` em vez de `if (!x) { x = ... }`)
+   - `no-unnecessary-type-conversion` (remove `Number()` redundante em valores já numéricos)
    - Dependências de tipos em falta (ex: `@types/*`) e instala se necessário
    - Unsafe member access em tipos que o TypeScript não consegue resolver
