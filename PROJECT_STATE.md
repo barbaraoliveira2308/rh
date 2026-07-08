@@ -5,15 +5,16 @@
 
 ## Phase History
 
-| Fase  | Passo | Data       | Descrição                                                                                |
-| ----- | ----- | ---------- | ---------------------------------------------------------------------------------------- |
-| P-011 | 00-09 | 2026-07-08 | Timesheets module (entities, service, controller, tests, migration)                      |
-| P-012 | 00-01 | 2026-07-08 | Absences module foundation                                                               |
-| P-012 | 00-02 | 2026-07-08 | Unit tests for approve(), reject(), cancel(), getLeaveBalance()                          |
-| P-012 | 00-03 | 2026-07-08 | Integration/e2e tests passing (24 tests) after fixing cross-module compilation/DI issues |
-| P-012 | 00-04 | 2026-07-08 | Updated spec documentation (specs/absences/spec.md and specs/README.md)                  |
-| P-012 | 00-05 | 2026-07-08 | Fixed unit test failures in Projects and Timesheets modules                              |
-| P-012 | 00-06 | 2026-07-08 | Fixed all pre-existing backend lint errors and warnings                                  |
+| Fase  | Passo | Data       | Descrição                                                                                                                                    |
+| ----- | ----- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| P-011 | 00-09 | 2026-07-08 | Timesheets module (entities, service, controller, tests, migration)                                                                          |
+| P-012 | 00-01 | 2026-07-08 | Absences module foundation                                                                                                                   |
+| P-012 | 00-02 | 2026-07-08 | Unit tests for approve(), reject(), cancel(), getLeaveBalance()                                                                              |
+| P-012 | 00-03 | 2026-07-08 | Integration/e2e tests passing (24 tests) after fixing cross-module compilation/DI issues                                                     |
+| P-012 | 00-04 | 2026-07-08 | Updated spec documentation (specs/absences/spec.md and specs/README.md)                                                                      |
+| P-012 | 00-05 | 2026-07-08 | Fixed unit test failures in Projects and Timesheets modules                                                                                  |
+| P-012 | 00-06 | 2026-07-08 | Fixed all pre-existing backend lint errors and warnings                                                                                      |
+| P-012 | 00-07 | 2026-07-08 | Updated specs of all implemented previous modules (auth, audit, users, teams, clients, contracts, documents, projects, timesheets, absences) |
 
 ## Decisions
 
@@ -44,3 +45,4 @@
 - P-012: Spec documentation updated (`specs/absences/spec.md` and `specs/README.md`)
 - P-012: Unit test failures fixed in previous modules (`projects.service.spec.ts` / `projects.service.ts`, `timesheets.service.spec.ts`)
 - P-012: All pre-existing backend lint errors/warnings fixed; `pnpm run lint` now green across shared, backend and frontend
+- P-012: Specs of all implemented previous modules updated with implementation notes (`specs/auth/spec.md`, `specs/audit/spec.md`, `specs/users/spec.md`, `specs/teams/spec.md`, `specs/clients/spec.md`, `specs/contracts/spec.md`, `specs/documents/spec.md`, `specs/projects/spec.md`, `specs/timesheets/spec.md`, `specs/absences/spec.md`)
