@@ -1,7 +1,22 @@
-import { DataSource, DataSourceOptions } from 'typeorm';
+import {
+  DataSource,
+  DataSourceOptions,
+  DefaultNamingStrategy,
+  NamingStrategyInterface,
+} from 'typeorm';
 import { config } from 'dotenv';
 
 config();
+
+class CamelToSnakeNamingStrategy extends DefaultNamingStrategy implements NamingStrategyInterface {
+  columnName(propertyName: string, customName: string, embeddedPrefixes: string[]): string {
+    if (customName) return customName;
+    return (
+      embeddedPrefixes.join('_') +
+      propertyName.replace(/([A-Z])/g, (match) => `_${match.toLowerCase()}`)
+    ).toLowerCase();
+  }
+}
 
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
@@ -15,6 +30,7 @@ export const dataSourceOptions: DataSourceOptions = {
   migrationsTableName: 'migrations',
   schema: 'hr',
   synchronize: false,
+  namingStrategy: new CamelToSnakeNamingStrategy(),
   logging: process.env.NODE_ENV === 'development',
 };
 
