@@ -6,7 +6,7 @@ services:
     container_name: srh-postgres-dev
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - '5432:5432'
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-srh}
       POSTGRES_USER: ${POSTGRES_USER:-srh_user}
@@ -15,7 +15,7 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-srh_user} -d ${POSTGRES_DB:-srh}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-srh_user} -d ${POSTGRES_DB:-srh}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -25,11 +25,11 @@ services:
     container_name: srh-redis-dev
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - '6379:6379'
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -39,7 +39,7 @@ services:
     container_name: srh-keycloak-dev
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - '8080:8080'
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin123}
@@ -49,8 +49,8 @@ services:
       KC_DB_USERNAME: ${POSTGRES_USER:-srh_user}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-srh_dev_pass}
       KC_DB_SCHEMA: keycloak
-      KC_HOSTNAME_STRICT: "false"
-      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: 'false'
+      KC_HTTP_ENABLED: 'true'
       KC_PROXY: edge
     volumes:
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
@@ -64,8 +64,8 @@ services:
     container_name: srh-minio-dev
     restart: unless-stopped
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - '9000:9000'
+      - '9001:9001'
     environment:
       MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY:-minioadmin}
       MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_KEY:-minioadmin}
@@ -73,7 +73,7 @@ services:
       - minio-data:/data
     command: server /data --console-address ":9001"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -83,15 +83,15 @@ services:
     container_name: srh-rabbitmq-dev
     restart: unless-stopped
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - '5672:5672'
+      - '15672:15672'
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-srh_rabbit}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-srh_rabbit_pass}
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      test: ['CMD', 'rabbitmq-diagnostics', 'ping']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -101,17 +101,17 @@ services:
     container_name: srh-mailpit-dev
     restart: unless-stopped
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - '1025:1025'
+      - '8025:8025'
 
   backend:
     build:
-      context: ../backend
-      dockerfile: Dockerfile.dev
+      context: ..
+      dockerfile: backend/Dockerfile.dev
     container_name: srh-backend-dev
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - '3000:3000'
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
@@ -125,7 +125,7 @@ services:
       STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:-minioadmin}
       STORAGE_BUCKET: ${STORAGE_BUCKET:-srh-documents}
       STORAGE_REGION: ${STORAGE_REGION:-eu-west-1}
-      STORAGE_USE_SSL: "false"
+      STORAGE_USE_SSL: 'false'
       JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_in_prod}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
@@ -140,8 +140,8 @@ services:
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-srh_rabbit_pass}
       NODE_ENV: development
     volumes:
-      - ../backend/src:/app/src
-      - ../backend/test:/app/test
+      - ../backend/src:/app/backend/src
+      - ../backend/test:/app/backend/test
     depends_on:
       postgres:
         condition: service_healthy
@@ -154,20 +154,20 @@ services:
 
   frontend:
     build:
-      context: ../frontend
-      dockerfile: Dockerfile.dev
+      context: ..
+      dockerfile: frontend/Dockerfile.dev
     container_name: srh-frontend-dev
     restart: unless-stopped
     ports:
-      - "5173:5173"
+      - '5173:5173'
     environment:
       VITE_API_BASE_URL: http://localhost:3000/api
       VITE_KEYCLOAK_URL: http://localhost:8080
       VITE_KEYCLOAK_REALM: hr-suite
       VITE_KEYCLOAK_CLIENT_ID: srh-frontend
     volumes:
-      - ../frontend/src:/app/src
-      - ../frontend/index.html:/app/index.html
+      - ../frontend/src:/app/frontend/src
+      - ../frontend/index.html:/app/frontend/index.html
     depends_on:
       - backend
 

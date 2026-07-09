@@ -30,16 +30,19 @@ O HR Suite é uma plataforma completa de RH que cobre:
 # 1. Instalar dependências (monorepo)
 pnpm install
 
-# 2. Iniciar serviços de infraestrutura
-docker compose -f infra/docker-compose.dev.yml up -d
+# 2. Criar .env (ver secção Variáveis de Ambiente)
+cp .env.example .env
 
-# 3. Executar migrações da base de dados
+# 3. Iniciar serviços de infraestrutura
+docker compose -f infra/docker-compose.dev.yml --env-file .env up -d
+
+# 4. Executar migrações da base de dados
 pnpm --filter @bridge351/srh-backend run migration:run
 
-# 4. Popular dados de base (roles, permissões, admin)
+# 5. Popular dados de base (roles, permissões, admin)
 pnpm --filter @bridge351/srh-backend run seed
 
-# 5. Iniciar desenvolvimento
+# 6. Iniciar desenvolvimento
 pnpm dev
 ```
 
@@ -49,6 +52,25 @@ Após iniciar:
 - **Backend**: http://localhost:3000/api
 - **Swagger** (dev/staging): http://localhost:3000/api/docs
 - **Keycloak**: http://localhost:8080
+
+## Produção
+
+```bash
+# 1. Instalar dependências e fazer build
+pnpm install
+
+# 2. Criar e preencher .env
+cp .env.example .env
+
+# 3. Subir infraestrutura + backend + frontend via Docker
+docker compose -f infra/docker-compose.prod.yml --env-file .env up -d
+
+# 4. Executar migrações e seed
+pnpm --filter @bridge351/srh-backend run migration:run
+pnpm --filter @bridge351/srh-backend run seed
+```
+
+O Docker Compose espera encontrar o ficheiro `.env` através de `--env-file .env` (executado a partir da raiz do projecto).
 
 ## Variáveis de Ambiente
 
