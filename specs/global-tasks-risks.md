@@ -41,6 +41,8 @@
 | T-051 | Gestão de Cursos e Formações                    | Concluido |
 | T-052 | Avaliações de Desempenho                        | Concluido |
 | T-053 | Gestão de Competências e 9-Box                  | Concluido |
+| T-050 | Políticas Internas (backend)                    | Concluido |
+| T-054 | Helpdesk Interno (backend)                      | Concluido |
 
 ## Riscos
 
