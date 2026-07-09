@@ -1,6 +1,6 @@
 # Project State
 
-**Current Phase:** P-016 Calendar (100% complete)
+**Current Phase:** P-017 Reports (100% complete)
 **Last Updated:** 2026-07-09
 
 ## Phase History
@@ -20,27 +20,30 @@
 | P-014 | 00-01 | 2026-07-08 | Analytics module: resource and financial dashboards, Redis cache decorator, monthly_cost field on Contract, ioredis dependency, basic unit tests                                                         |
 | P-015 | 00-01 | 2026-07-08 | Notifications & Workflow modules: entities, @OnEvent handlers, email/in-app notifications, Handlebars templates, inbox/proxy endpoints, nodemailer/handlebars dependencies, basic unit tests             |
 | P-016 | 00-01 | 2026-07-09 | Calendar module: PublicHoliday, CompanyEvent, BlockedPeriod entities, PT holiday import via date.nager.at, monthly view, cron job, integration with Timesheets/Absences for blocked periods, basic tests |
+| P-017 | 00-01 | 2026-07-09 | Reports module: ScheduledReport/ReportJob entities, 8 operational reports, JSON/XLSX/PDF export, scheduled reports with cron, async RabbitMQ processing for large reports, endpoints, migration, tests   |
 
 ## Decisions
 
-| ID      | Valor                                                 | Impacto                                                                        |
-| ------- | ----------------------------------------------------- | ------------------------------------------------------------------------------ |
-| P011-01 | 0h completed entry is valid                           | Allows zero-hour entries in timesheets                                         |
-| P012-01 | Leave balance in business days                        | Balance calculation excludes weekends/holidays                                 |
-| P012-02 | AuthModule and RbacModule are @Global                 | Guards (JwtAuthGuard/RolesGuard) resolve in all feature modules                |
-| P012-03 | Decimal columns use numeric transformer               | LeaveBalance/AbsenceRequest decimal fields return JS numbers                   |
-| P012-04 | e2e tests run with --runInBand and MFA key            | Sequential execution and required env var for EncryptionService                |
-| P012-05 | dotenv added as runtime dependency                    | Existing data-source/runner imports now satisfied; tests can bootstrap         |
-| P012-06 | Numeric transformer on TimesheetPeriod/TimesheetEntry | Decimal fields return JS numbers instead of strings; avoids concatenation bugs |
-| P012-07 | Timesheets export route before :id route              | Prevents `/timesheets/export` being matched as a period id                     |
-| P012-08 | Allow allocation in draft projects                    | Enables natural draft → allocate → activate workflow                           |
-| P013-01 | Expense category limit applies per report             | BR-EXP-002 validates each item against category limit within the same report   |
-| P014-01 | Consultant margin uses active contract in period      | getConsultantMargin() selects the active Contract at the calculation period    |
-| P014-02 | Add monthly_cost field to Contract entity             | New nullable decimal column supports hourly cost calculation                   |
-| P014-03 | Use Redis for AnalyticsService cache                  | RedisCacheService + @CacheResult decorator with 5-minute TTL                   |
-| P015-01 | In-app notifications use polling (60s)                | Frontend polls GET /notifications instead of WebSocket/SSE                     |
-| P016-01 | BlockedPeriod blocks absences and timesheets          | Validation applied in both AbsencesService and TimesheetsService               |
-| P016-02 | Skip Bridge351/NIVVOS anniversary in this phase       | Treated as generic CompanyEvent created manually by admin                      |
+| ID      | Valor                                                  | Impacto                                                                        |
+| ------- | ------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| P011-01 | 0h completed entry is valid                            | Allows zero-hour entries in timesheets                                         |
+| P012-01 | Leave balance in business days                         | Balance calculation excludes weekends/holidays                                 |
+| P012-02 | AuthModule and RbacModule are @Global                  | Guards (JwtAuthGuard/RolesGuard) resolve in all feature modules                |
+| P012-03 | Decimal columns use numeric transformer                | LeaveBalance/AbsenceRequest decimal fields return JS numbers                   |
+| P012-04 | e2e tests run with --runInBand and MFA key             | Sequential execution and required env var for EncryptionService                |
+| P012-05 | dotenv added as runtime dependency                     | Existing data-source/runner imports now satisfied; tests can bootstrap         |
+| P012-06 | Numeric transformer on TimesheetPeriod/TimesheetEntry  | Decimal fields return JS numbers instead of strings; avoids concatenation bugs |
+| P012-07 | Timesheets export route before :id route               | Prevents `/timesheets/export` being matched as a period id                     |
+| P012-08 | Allow allocation in draft projects                     | Enables natural draft → allocate → activate workflow                           |
+| P013-01 | Expense category limit applies per report              | BR-EXP-002 validates each item against category limit within the same report   |
+| P014-01 | Consultant margin uses active contract in period       | getConsultantMargin() selects the active Contract at the calculation period    |
+| P014-02 | Add monthly_cost field to Contract entity              | New nullable decimal column supports hourly cost calculation                   |
+| P014-03 | Use Redis for AnalyticsService cache                   | RedisCacheService + @CacheResult decorator with 5-minute TTL                   |
+| P015-01 | In-app notifications use polling (60s)                 | Frontend polls GET /notifications instead of WebSocket/SSE                     |
+| P016-01 | BlockedPeriod blocks absences and timesheets           | Validation applied in both AbsencesService and TimesheetsService               |
+| P016-02 | Skip Bridge351/NIVVOS anniversary in this phase        | Treated as generic CompanyEvent created manually by admin                      |
+| P017-01 | Async report processing uses RabbitMQ                  | Reports >1000 rows return 202 and are processed via report_jobs queue          |
+| P017-02 | PDF generation uses pdfmake server-side with VFS fonts | Roboto fonts extracted to /tmp on first PDF generation; no extra system deps   |
 
 ## Current State
 
@@ -80,3 +83,15 @@
 - P-014: `ioredis` added as runtime dependency and `@types/ioredis` as dev dependency
 - P-014: Basic unit tests for `AnalyticsService` (unallocated employees and null margin when contract has no monthly cost)
 - P-014: `specs/README.md` updated with P-014 entry; `specs/global-tasks-risks.md` and `global-tasks-risks.md` mark T-034 and T-035 as completed
+- P-017: Reports module entities (`ScheduledReport`, `ReportJob`) with TypeORM decorators
+- P-017: `ReportsService` with 8 operational reports (timesheets, absences, expenses, project hours, team occupancy, margins, contracts expiring, audit)
+- P-017: `ReportExportersService` generating XLSX with bold headers and zebra striping, and PDF with pdfmake
+- P-017: `ScheduledReportsService` with CRUD of scheduled reports and cron job to run due schedules
+- P-017: `ReportsRabbitmqService` and `ReportsConsumerService` for async report processing via RabbitMQ
+- P-017: `ReportsController` with all endpoints (`/reports/*`, `/reports/jobs/:jobId`, `/reports/schedules`) and `Content-Disposition: attachment` for downloads
+- P-017: Async threshold (>1000 rows) returns 202 Accepted with `jobId`; `GET /reports/jobs/:jobId` for status
+- P-017: Migration `CreateReportsTables1825000000000` creating `scheduled_reports` and `report_jobs` with enums and indexes
+- P-017: Dependencies `amqplib`, `pdfmake` and `@types/amqplib`, `@types/pdfmake` added
+- P-017: Basic unit tests for `ReportsService` (createJob, columns, async threshold) and `ReportExportersService` (xlsx, pdf)
+- P-017: `specs/README.md` updated with P-017 entry; `specs/global-tasks-risks.md` and `global-tasks-risks.md` mark T-043 and T-044 as completed
+- P-017: Backend lint clean and all 92 unit tests passing

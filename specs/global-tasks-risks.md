@@ -31,6 +31,8 @@
 | T-040 | Fluxos configuráveis multi-etapa                | Concluido |
 | T-021 | Calendário organizacional (visualização mensal) | Concluido |
 | T-041 | Importação automática de feriados               | Concluido |
+| T-043 | Motor de relatórios (PDF + Excel)               | Concluido |
+| T-044 | Filtros avançados em relatórios                 | Concluido |
 
 ## Riscos
 

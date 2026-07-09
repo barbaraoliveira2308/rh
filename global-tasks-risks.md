@@ -59,15 +59,17 @@
 
 ### FASE 5 — Comunicação e Workflow
 
-| ID    | Tarefa                            | Módulo        | Dependências | Prioridade | Estimativa | Critério de Conclusão                   | Estado       |
-| ----- | --------------------------------- | ------------- | ------------ | ---------- | ---------- | --------------------------------------- | ------------ |
-| T-036 | Configurar RabbitMQ/Kafka         | Notifications | T-001        | Alta       | 1d         | Fila de mensagens funcional             | ✅ Concluído |
-| T-037 | Serviço de notificações por email | Notifications | T-036        | Alta       | 2d         | Templates de email enviados             | ✅ Concluído |
-| T-038 | Notificações in-app               | Notifications | T-036        | Alta       | 2d         | Centro de notificações funcional        | ✅ Concluído |
-| T-039 | Caixa de Entrada (Workflow Inbox) | Workflow      | T-037, T-038 | Alta       | 3d         | Centro unificado de aprovações          | ✅ Concluído |
-| T-040 | Fluxos configuráveis multi-etapa  | Workflow      | T-039        | Média      | 3d         | Admin configura fluxos                  | ✅ Concluído |
-| T-041 | Calendário Organizacional         | Calendar      | T-028, T-021 | Alta       | 3d         | Visão mensal com ausências e feriados   | ✅ Concluído |
-| T-042 | Alertas agendados (cron jobs)     | Notifications | T-037        | Alta       | 2d         | Alertas de contrato, projeto, timesheet | ⬜ Pendente  |
+| ID    | Tarefa                            | Módulo        | Dependências | Prioridade | Estimativa | Critério de Conclusão                    | Estado       |
+| ----- | --------------------------------- | ------------- | ------------ | ---------- | ---------- | ---------------------------------------- | ------------ |
+| T-036 | Configurar RabbitMQ/Kafka         | Notifications | T-001        | Alta       | 1d         | Fila de mensagens funcional              | ✅ Concluído |
+| T-037 | Serviço de notificações por email | Notifications | T-036        | Alta       | 2d         | Templates de email enviados              | ✅ Concluído |
+| T-038 | Notificações in-app               | Notifications | T-036        | Alta       | 2d         | Centro de notificações funcional         | ✅ Concluído |
+| T-039 | Caixa de Entrada (Workflow Inbox) | Workflow      | T-037, T-038 | Alta       | 3d         | Centro unificado de aprovações           | ✅ Concluído |
+| T-040 | Fluxos configuráveis multi-etapa  | Workflow      | T-039        | Média      | 3d         | Admin configura fluxos                   | ✅ Concluído |
+| T-041 | Calendário Organizacional         | Calendar      | T-028, T-021 | Alta       | 3d         | Visão mensal com ausências e feriados    | ✅ Concluído |
+| T-042 | Alertas agendados (cron jobs)     | Notifications | T-037        | Alta       | 2d         | Alertas de contrato, projeto, timesheet  | ⬜ Pendente  |
+| T-043 | Motor de relatórios (PDF + Excel) | Reports       | T-034        | Alta       | 4d         | 8 relatórios operacionais funcionais     | ✅ Concluído |
+| T-044 | Filtros avançados em relatórios   | Reports       | T-043        | Média      | 2d         | Filtros por período, equipa, colaborador | ✅ Concluído |
 
 ### FASE 6 — Relatórios e GDPR
 

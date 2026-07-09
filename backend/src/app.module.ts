@@ -22,6 +22,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { WorkflowModule } from './workflow/workflow.module';
 import { CalendarModule } from './calendar/calendar.module';
+import { ReportsModule } from './reports/reports.module';
 import { StorageModule } from './storage/storage.module';
 import { dataSourceOptions } from './database/data-source';
 
@@ -52,6 +53,7 @@ import { dataSourceOptions } from './database/data-source';
     NotificationsModule,
     WorkflowModule,
     CalendarModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
