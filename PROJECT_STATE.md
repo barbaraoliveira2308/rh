@@ -121,3 +121,4 @@
 - P-019: Unit tests for `TrainingService` (create course, enroll, reject completed course, 9-box calculation)
 - P-019: `specs/README.md` updated with P-019 entry; `specs/global-tasks-risks.md` and `global-tasks-risks.md` mark T-051, T-052, T-053 as completed
 - P-019: Backend lint clean and all 99 unit tests passing
+- P-019-DOC: Updated `specs/README.md` index (9 modules promoted to "Implemented") and root `README.md` history (v1.3) and state ("Implementado")

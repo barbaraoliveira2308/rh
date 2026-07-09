@@ -14,20 +14,20 @@ Este directório contém as especificações técnicas (SDD) de cada módulo do 
 | 06  | Capacidade & Alocação       | `capacity/spec.md`      | Draft       |
 | 07  | Assiduidade & Timesheets    | `timesheets/spec.md`    | Implemented |
 | 08  | Ausências                   | `absences/spec.md`      | Implemented |
-| 09  | Despesas & Reembolsos       | `expenses/spec.md`      | Draft       |
+| 09  | Despesas & Reembolsos       | `expenses/spec.md`      | Implemented |
 | 10  | Gestão Documental           | `documents/spec.md`     | Implemented |
 | 11  | Contratos                   | `contracts/spec.md`     | Implemented |
-| 12  | Workflow & Caixa de Entrada | `workflow/spec.md`      | Draft       |
-| 13  | Calendário Organizacional   | `calendar/spec.md`      | Draft       |
-| 14  | Relatórios                  | `reports/spec.md`       | Draft       |
-| 15  | Dashboard de Recursos       | `dashboard/spec.md`     | Draft       |
-| 16  | Dashboard Financeiro        | `financials/spec.md`    | Draft       |
+| 12  | Workflow & Caixa de Entrada | `workflow/spec.md`      | Implemented |
+| 13  | Calendário Organizacional   | `calendar/spec.md`      | Implemented |
+| 14  | Relatórios                  | `reports/spec.md`       | Implemented |
+| 15  | Dashboard de Recursos       | `dashboard/spec.md`     | Implemented |
+| 16  | Dashboard Financeiro        | `financials/spec.md`    | Implemented |
 | 17  | Políticas Internas          | `policies/spec.md`      | Draft       |
-| 18  | Formação & Talento          | `training/spec.md`      | Draft       |
+| 18  | Formação & Talento          | `training/spec.md`      | Implemented |
 | 19  | Helpdesk Interno            | `helpdesk/spec.md`      | Draft       |
-| 20  | Notificações & Alertas      | `notifications/spec.md` | Draft       |
+| 20  | Notificações & Alertas      | `notifications/spec.md` | Implemented |
 | 21  | Auditoria                   | `audit/spec.md`         | Implemented |
-| 22  | GDPR & Conformidade         | `gdpr/spec.md`          | Draft       |
+| 22  | GDPR & Conformidade         | `gdpr/spec.md`          | Implemented |
 | 23  | Administração do Sistema    | `admin/spec.md`         | Draft       |
 
 ## Histórico de Alterações
@@ -55,3 +55,4 @@ Este directório contém as especificações técnicas (SDD) de cada módulo do 
 | P-017     | 2026-07-09 | Módulo Reports: entidades ScheduledReport e ReportJob; ReportsService com 8 relatórios operacionais (timesheets, absences, expenses, project hours, team occupancy, margins, contracts expiring, audit); exportação JSON/XLSX/PDF; ScheduledReportsService com CRUD de agendamentos e cron; processamento assíncrono via RabbitMQ para relatórios >1000 linhas; endpoints /reports/*; migration CreateReportsTables; dependências amqplib e pdfmake; testes unitários básicos                                                                                   |
 | P-018     | 2026-07-09 | Módulo GDPR: entidades ConsentRecord, DataSubjectRequest, RetentionPolicy, SecurityIncident; GdprService com registo/revogação de consentimentos, pedidos de titular (ACCESS/ERASURE/PORTABILITY/RECTIFICATION), anonimização de colaboradores, políticas de retenção com cron mensal, incidentes de segurança e relatório de conformidade; AuditInterceptor actualizado para excluir campos @GdprSensitive; endpoints /gdpr/*; migration CreateGdprTables; testes unitários para anonymizeEmployee                                                             |
 | P-019     | 2026-07-09 | Módulo Training: entidades Course, CourseEnrollment, TrainingRecord, PerformanceReview, Competency, EmployeeCompetency; TrainingService com inscrição (validação de pré-requisitos), conclusão, matriz de competências, matriz 9-box calculada automaticamente a partir de PerformanceReview; endpoints /training/*; migration CreateTrainingTables; testes unitários básicos                                                                                                                                                                                   |
+| P-019-DOC | 2026-07-09 | Atualização do índice `specs/README.md` — módulos #09 (Expenses), #12 (Workflow), #13 (Calendar), #14 (Reports), #15 (Dashboard Recursos), #16 (Dashboard Financeiro), #18 (Training), #20 (Notifications), #22 (GDPR) promovidos a "Implemented"                                                                                                                                                                                                                                                                                                               |

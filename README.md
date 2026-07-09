@@ -1,10 +1,10 @@
 # Sistema de Gestão de Recursos Humanos — Especificações Técnicas (SDD)
 
-> **Versão:** 1.0  
+> **Versão:** 1.3  
 > **Produzido por:** Software Architect / Technical Product Manager  
 > **Metodologia:** Spec-Driven Development (SDD)  
 > **Data:** 2026  
-> **Estado:** Baseline
+> **Estado:** Implementado
 
 ---
 
@@ -133,8 +133,9 @@ Dashboard Financeiro ← Projetos, Timesheets, Despesas, Contratos
 
 ## Histórico de Alterações
 
-| Versão | Data       | Alteração                                                                                                                                                                    |
-| ------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1.0    | 2026       | Versão inicial — 23 módulos, 54 tasks, 10 questões em aberto                                                                                                                 |
-| 1.1    | 2026-06-29 | Caminhos de specs actualizados para `specs/[módulo]/spec.md`; data corrigida para 2026; adicionada secção de Ambiente Docker; criado Roteiro OpenCode (OPENCODE-PLAYBOOK.md) |
-| 1.2    | 2026-07-07 | Baseline após P-000 a P-006: Bootstrap, Docker, Auth (JWT + MFA TOTP + Keycloak SSO), RBAC, Auditoria; todos os módulos promovidos a Aprovado; questões em aberto fechadas   |
+| Versão | Data       | Alteração                                                                                                                                                                                                                               |
+| ------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0    | 2026       | Versão inicial — 23 módulos, 54 tasks, 10 questões em aberto                                                                                                                                                                            |
+| 1.1    | 2026-06-29 | Caminhos de specs actualizados para `specs/[módulo]/spec.md`; data corrigida para 2026; adicionada secção de Ambiente Docker; criado Roteiro OpenCode (OPENCODE-PLAYBOOK.md)                                                            |
+| 1.2    | 2026-07-07 | Baseline após P-000 a P-006: Bootstrap, Docker, Auth (JWT + MFA TOTP + Keycloak SSO), RBAC, Auditoria; todos os módulos promovidos a Aprovado; questões em aberto fechadas                                                              |
+| 1.3    | 2026-07-09 | Implementação P-007 a P-019: Users/Departments, Teams, Clients, Contracts, Documents, Projects, Timesheets, Absences, Expenses, Analytics, Notifications & Workflow, Calendar, Reports, GDPR, Training; 99 testes unitários; lint green |
