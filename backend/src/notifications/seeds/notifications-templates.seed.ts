@@ -64,7 +64,7 @@ const templates: TemplateDefinition[] = [
 
 export async function run(dataSource: DataSource): Promise<void> {
   const templateRepo = dataSource.getRepository(NotificationTemplate);
-  const templatesDir = path.join(__dirname, '..', '..', 'templates');
+  const templatesDir = path.join(__dirname, '..', 'templates');
 
   for (const template of templates) {
     const existing = await templateRepo.findOne({ where: { code: template.code } });
