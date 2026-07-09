@@ -17,8 +17,47 @@ const queryClient = new QueryClient({
 const LoginPage = React.lazy(() =>
   import('@/pages/LoginPage').then((m) => ({ default: m.LoginPage })),
 );
+const ResetPasswordPage = React.lazy(() =>
+  import('@/pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })),
+);
 const DashboardPage = React.lazy(() =>
   import('@/pages/DashboardPage').then((m) => ({ default: m.DashboardPage })),
+);
+const UsersListPage = React.lazy(() =>
+  import('@/pages/UsersListPage').then((m) => ({ default: m.UsersListPage })),
+);
+const UserDetailPage = React.lazy(() =>
+  import('@/pages/UserDetailPage').then((m) => ({ default: m.UserDetailPage })),
+);
+const UserNewPage = React.lazy(() =>
+  import('@/pages/UserNewPage').then((m) => ({ default: m.UserNewPage })),
+);
+const OrgChartPage = React.lazy(() =>
+  import('@/pages/OrgChartPage').then((m) => ({ default: m.OrgChartPage })),
+);
+const ProjectsListPage = React.lazy(() =>
+  import('@/pages/ProjectsListPage').then((m) => ({ default: m.ProjectsListPage })),
+);
+const ProjectDetailPage = React.lazy(() =>
+  import('@/pages/ProjectDetailPage').then((m) => ({ default: m.ProjectDetailPage })),
+);
+const ProjectAllocationsPage = React.lazy(() =>
+  import('@/pages/ProjectAllocationsPage').then((m) => ({ default: m.ProjectAllocationsPage })),
+);
+const TimesheetsListPage = React.lazy(() =>
+  import('@/pages/TimesheetsListPage').then((m) => ({ default: m.TimesheetsListPage })),
+);
+const TimesheetDetailPage = React.lazy(() =>
+  import('@/pages/TimesheetDetailPage').then((m) => ({ default: m.TimesheetDetailPage })),
+);
+const AbsencesListPage = React.lazy(() =>
+  import('@/pages/AbsencesListPage').then((m) => ({ default: m.AbsencesListPage })),
+);
+const AbsenceNewPage = React.lazy(() =>
+  import('@/pages/AbsenceNewPage').then((m) => ({ default: m.AbsenceNewPage })),
+);
+const AbsencesTeamPage = React.lazy(() =>
+  import('@/pages/AbsencesTeamPage').then((m) => ({ default: m.AbsencesTeamPage })),
 );
 const NotFoundPage = React.lazy(() =>
   import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
@@ -63,6 +102,7 @@ export function App(): React.JSX.Element {
                 }
               >
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
               </Route>
 
               <Route
@@ -73,6 +113,18 @@ export function App(): React.JSX.Element {
                 }
               >
                 <Route path="/" element={<DashboardPage />} />
+                <Route path="/users" element={<UsersListPage />} />
+                <Route path="/users/new" element={<UserNewPage />} />
+                <Route path="/users/:id" element={<UserDetailPage />} />
+                <Route path="/org-chart" element={<OrgChartPage />} />
+                <Route path="/projects" element={<ProjectsListPage />} />
+                <Route path="/projects/:id" element={<ProjectDetailPage />} />
+                <Route path="/projects/:id/allocations" element={<ProjectAllocationsPage />} />
+                <Route path="/timesheets" element={<TimesheetsListPage />} />
+                <Route path="/timesheets/:id" element={<TimesheetDetailPage />} />
+                <Route path="/absences" element={<AbsencesListPage />} />
+                <Route path="/absences/new" element={<AbsenceNewPage />} />
+                <Route path="/absences/team" element={<AbsencesTeamPage />} />
               </Route>
 
               <Route path="*" element={<NotFoundPage />} />

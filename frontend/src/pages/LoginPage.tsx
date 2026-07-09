@@ -2,13 +2,14 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { FormProvider } from 'react-hook-form';
 import { Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FormField } from '@/components/FormField';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { getSsoRedirectUrl } from '@/api/auth.api';
 import { useAuthStore } from '@/stores/auth.store';
 
 const loginSchema = z.object({
@@ -89,9 +90,24 @@ export function LoginPage(): React.JSX.Element {
                 type="password"
                 placeholder="••••••••"
               />
+              <div className="flex justify-end">
+                <Link to="/auth/reset-password" className="text-sm text-brand-800 hover:underline">
+                  Esqueci a palavra-passe
+                </Link>
+              </div>
               {error && <p className="text-sm text-red-600">{error}</p>}
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? <LoadingSpinner size={16} /> : 'Iniciar sessão'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  window.location.href = getSsoRedirectUrl();
+                }}
+              >
+                Entrar com SSO
               </Button>
             </form>
           </FormProvider>

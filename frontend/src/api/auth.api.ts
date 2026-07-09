@@ -1,5 +1,11 @@
 import axios from 'axios';
-import type { LoginCredentials, MfaCredentials, AuthTokens, LoginResponse } from '@/types/auth';
+import type {
+  LoginCredentials,
+  MfaCredentials,
+  AuthTokens,
+  LoginResponse,
+  ResetPasswordRequest,
+} from '@/types/auth';
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api';
 
@@ -35,4 +41,16 @@ export async function logout(accessToken: string): Promise<void> {
       },
     },
   );
+}
+
+export async function requestPasswordReset(
+  data: ResetPasswordRequest,
+): Promise<{ message: string }> {
+  const response = await publicClient.post<{ message: string }>('/auth/password/reset', data);
+  return response.data;
+}
+
+export function getSsoRedirectUrl(): string {
+  const baseUrl = API_URL;
+  return `${baseUrl}/auth/sso/redirect`;
 }

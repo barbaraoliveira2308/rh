@@ -26,3 +26,7 @@ export interface LoginResponse {
   tokens: AuthTokens;
   requiresMfa?: boolean;
 }
+
+export interface ResetPasswordRequest {
+  email: string;
+}
