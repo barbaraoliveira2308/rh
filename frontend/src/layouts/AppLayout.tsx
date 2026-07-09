@@ -1,4 +1,5 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   LogOut,
   Menu,
@@ -9,11 +10,15 @@ import {
   CalendarDays,
   Network,
   Bell,
+  Inbox,
+  Wallet,
+  BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUiStore } from '@/stores/ui.store';
+import { fetchWorkflowInboxCount } from '@/api/workflow.api';
 
 interface NavItem {
   label: string;
@@ -28,12 +33,23 @@ const navItems: NavItem[] = [
   { label: 'Projetos', href: '/projects', icon: <FolderKanban className="h-4 w-4" /> },
   { label: 'Timesheets', href: '/timesheets', icon: <Clock className="h-4 w-4" /> },
   { label: 'Ausências', href: '/absences', icon: <CalendarDays className="h-4 w-4" /> },
+  { label: 'Caixa de Entrada', href: '/workflow/inbox', icon: <Inbox className="h-4 w-4" /> },
+  { label: 'Despesas', href: '/expenses', icon: <Wallet className="h-4 w-4" /> },
+  { label: 'Financeiro', href: '/analytics/financials', icon: <BarChart3 className="h-4 w-4" /> },
 ];
 
 export function AppLayout(): React.JSX.Element {
   const { sidebarOpen, toggleSidebar } = useUiStore();
-  const { logout, user } = useAuthStore();
+  const { logout, user, permissions } = useAuthStore();
   const navigate = useNavigate();
+
+  const isAdmin = permissions.includes('admin:*') || permissions.some((p) => p.startsWith('admin'));
+
+  const { data: inboxCount } = useQuery({
+    queryKey: ['workflow-count'],
+    queryFn: () => fetchWorkflowInboxCount(),
+    refetchInterval: 60000,
+  });
 
   const handleLogout = async (): Promise<void> => {
     await logout();
@@ -54,16 +70,23 @@ export function AppLayout(): React.JSX.Element {
           </Link>
         </div>
         <nav className="space-y-1 p-4">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              to={item.href}
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              {item.icon}
-              {item.label}
-            </Link>
-          ))}
+          {navItems
+            .filter((item) => item.href !== '/analytics/financials' || isAdmin)
+            .map((item) => (
+              <Link
+                key={item.href}
+                to={item.href}
+                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                {item.icon}
+                {item.label}
+                {item.href === '/workflow/inbox' && (inboxCount?.count ?? 0) > 0 && (
+                  <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-brand-800 text-xs text-white">
+                    {String(inboxCount?.count ?? 0)}
+                  </span>
+                )}
+              </Link>
+            ))}
         </nav>
       </aside>
 

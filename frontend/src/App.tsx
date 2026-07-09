@@ -59,6 +59,18 @@ const AbsenceNewPage = React.lazy(() =>
 const AbsencesTeamPage = React.lazy(() =>
   import('@/pages/AbsencesTeamPage').then((m) => ({ default: m.AbsencesTeamPage })),
 );
+const WorkflowInboxPage = React.lazy(() =>
+  import('@/pages/WorkflowInboxPage').then((m) => ({ default: m.WorkflowInboxPage })),
+);
+const FinancialDashboardPage = React.lazy(() =>
+  import('@/pages/FinancialDashboardPage').then((m) => ({ default: m.FinancialDashboardPage })),
+);
+const ExpensesListPage = React.lazy(() =>
+  import('@/pages/ExpensesListPage').then((m) => ({ default: m.ExpensesListPage })),
+);
+const ExpenseNewPage = React.lazy(() =>
+  import('@/pages/ExpenseNewPage').then((m) => ({ default: m.ExpenseNewPage })),
+);
 const NotFoundPage = React.lazy(() =>
   import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 );
@@ -125,6 +137,10 @@ export function App(): React.JSX.Element {
                 <Route path="/absences" element={<AbsencesListPage />} />
                 <Route path="/absences/new" element={<AbsenceNewPage />} />
                 <Route path="/absences/team" element={<AbsencesTeamPage />} />
+                <Route path="/workflow/inbox" element={<WorkflowInboxPage />} />
+                <Route path="/analytics/financials" element={<FinancialDashboardPage />} />
+                <Route path="/expenses" element={<ExpensesListPage />} />
+                <Route path="/expenses/new" element={<ExpenseNewPage />} />
               </Route>
 
               <Route path="*" element={<NotFoundPage />} />
