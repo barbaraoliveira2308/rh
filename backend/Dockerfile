@@ -33,4 +33,4 @@ COPY --from=builder /app/backend/node_modules ./backend/node_modules
 COPY --from=builder /app/frontend/node_modules ./frontend/node_modules
 
 EXPOSE 3000
-CMD ["sh", "-c", "pnpm --filter @bridge351/srh-backend run migration:run:prod && pnpm --filter @bridge351/srh-backend run seed:prod && node backend/dist/main"]
+CMD ["sh", "-c", "pnpm --filter @bridge351/srh-backend run schema:create && pnpm --filter @bridge351/srh-backend run migration:run:prod && pnpm --filter @bridge351/srh-backend run seed:prod && node backend/dist/main"]
