@@ -1,6 +1,6 @@
 # Project State
 
-**Current Phase:** P-024 Quality & DevOps — Integration and E2E Tests (100% complete)
+**Current Phase:** P-025 Documentação OpenAPI e README (100% complete)
 **Last Updated:** 2026-07-09
 
 ## Phase History
@@ -30,6 +30,7 @@
 | P-023     | 00-01 | 2026-07-09 | Frontend UI for financeiro e dashboards: Dashboard with KPI cards, occupancy stacked bar chart (recharts), pending approvals (max 5), alerts; Workflow Inbox with unified list, type filter, inline approve/reject actions; Financial Dashboard (admin only) with consultant margins table, project profitability horizontal bar chart, monthly revenue line chart; Expenses list with status badges and new expense form with dynamic items, receipt upload per item, duplicate detection warning; sidebar badge with 60s polling; recharts dependency added; fixed layout per user decision P023-01; lint and build green |
 | P-024     | 00-01 | 2026-07-09 | Backend integration/e2e tests: Fluxo 1 — timesheets full workflow (create collaborator, project, allocation, period, fill, submit, approve, verify notification); Fluxo 2 — absences flow (submit leave request, verify balance decremented, verify absence reflected in timesheet); Fluxo 3 — GDPR erasure (create collaborator with full data, submit erasure request, verify anonymization, verify statistical data preserved); all using manual DataSource with synchronize/dropSchema + rbacSeed + supertest                                                                                                           |
 | P-024     | 00-02 | 2026-07-09 | Frontend Playwright e2e tests: login (valid/invalid/redirect), timesheet (submit/bulk-approve), absence (create), upload (file input); playwright.config.ts with headless:true (per user decision P024-01); CI workflow with postgres/redis services, lint/build, backend e2e, frontend e2e; backend .env.test; lint and build green                                                                                                                                                                                                                                                                                        |
+| P-025     | 00-01 | 2026-07-09 | Swagger/OpenAPI completo: tags por módulo (21 tags), Bearer Auth configurado, @ApiProperty() em todos os DTOs (26 ficheiros atualizados), export openapi.json para /docs/openapi.json, endpoint GET /api/docs condicional (dev/staging apenas, per P025-01); README.md (visão geral, pré-requisitos, quickstart, variáveis de ambiente documentadas, estrutura monorepo, troubleshooting); CONTRIBUTING.md (branches, commits convencionais, checklist novo módulo, testes); docs/ARCHITECTURE.md (diagramas Mermaid de componentes, sequência auth, ER simplificado, 15 ADRs); specs atualizadas; lint e build green       |
 
 ## Decisions
 
@@ -62,6 +63,7 @@
 | P022-01 | Org-chart supports employee search with highlight           | Search input filters/highlight nodes in react-organizational-chart tree        |
 | P023-01 | Fixed layout for dashboard v1 (no draggable widgets)        | Lower complexity, no persistence required                                      |
 | P024-01 | Playwright always headless in CI and local                  | Ensures reliable headless Chrome runs on any environment                       |
+| P025-01 | Swagger apenas em dev e staging (não em produção)           | Rota /api/docs indisponível em produção por segurança                          |
 
 ## Current State
 
@@ -139,6 +141,8 @@
 - P-023: Frontend UI for financeiro e dashboards — Dashboard (KPIs, occupancy chart, pending items, alerts); Workflow Inbox (unified list, type filter, inline actions); Financial Dashboard (admin guard, margins, profitability, revenue charts); Expenses (list, new form with dynamic items, receipt upload, duplicate warning); sidebar badge polling 60s; recharts installed; build and lint green
 - P-024: Backend integration/e2e tests — `test/timesheets-flow.e2e-spec.ts` (timesheet full CRUD), `test/absences-flow.e2e-spec.ts` (absence request + balance + timesheet reflection), `test/gdpr-erasure.e2e-spec.ts` (erasure with anonymization + statistical preservation); all using manual DataSource + rbacSeed + supertest; lint and backend build green
 - P-024: Frontend Playwright e2e tests — `login.spec.ts`, `timesheet.spec.ts`, `absence.spec.ts`, `upload.spec.ts`; `playwright.config.ts` with headless:true; `backend/.env.test` with test DB config; `.github/workflows/ci.yml` with lint, backend e2e, frontend e2e jobs; `@playwright/test` installed, Chromium downloaded; lint and frontend build green
+- P-025: Swagger/OpenAPI — `main.ts` with conditional docs (dev/staging only), 21 module tags, bearer auth, description with link to specs, version 1.0, export to `docs/openapi.json`; `@ApiProperty()`/`@ApiPropertyOptional()` added to 26 DTO files across training, helpdesk, gdpr, calendar, policies, reports, analytics modules; analytics response DTOs converted from interfaces to classes; lint and both builds green
+- P-025: Documentation files — `README.md` (overview, prerequisites, quickstart, env vars table, monorepo structure, useful links, troubleshooting); `CONTRIBUTING.md` (branch flow, conventional commits, new module checklist, test commands, CI); `docs/ARCHITECTURE.md` (Mermaid component/sequence/ER diagrams, 15 ADRs); `specs/README.md` and `specs/global-tasks-risks.md` updated; lint and builds green
 
 ### In Progress
 

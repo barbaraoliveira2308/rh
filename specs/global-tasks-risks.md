@@ -49,6 +49,7 @@
 | —     | Backend e2e tests (timesheets flow, absences flow, GDPR erasure)   | Concluido |
 | —     | Frontend Playwright e2e tests (login, timesheet, absence, upload)  | Concluido |
 | —     | CI workflow (lint, build, backend e2e, frontend e2e)               | Concluido |
+| —     | Documentação final (Swagger, README, CONTRIBUTING, ARCHITECTURE)   | Concluido |
 
 ## Riscos
 

@@ -1,141 +1,178 @@
-# Sistema de Gestão de Recursos Humanos — Especificações Técnicas (SDD)
+# HR Suite — Bridge351
 
-> **Versão:** 1.3  
-> **Produzido por:** Software Architect / Technical Product Manager  
-> **Metodologia:** Spec-Driven Development (SDD)  
-> **Data:** 2026  
-> **Estado:** Implementado
+Sistema de Gestão de Recursos Humanos desenvolvido com **NestJS + React + TypeORM + PostgreSQL**.
 
----
+## Visão Geral
 
-## Ambiente de Execução
+O HR Suite é uma plataforma completa de RH que cobre:
 
-> ⚠️ **Todo o ambiente deve ser executado em Docker.**  
-> Não instalar dependências directamente no sistema operativo anfitrião.  
-> Utilizar `docker compose up` para iniciar todos os serviços (base de dados, cache, storage, backend, frontend).  
-> Consultar `infra/docker-compose.dev.yml` para o ambiente de desenvolvimento e `infra/docker-compose.prod.yml` para produção.
+- **Autenticação**: JWT com refresh token, MFA TOTP, SSO via Keycloak
+- **Organização**: Colaboradores, departamentos, cargos, equipas e organograma
+- **Operações**: Projetos, alocações, timesheets, ausências, despesas
+- **Processos**: Workflow de aprovações, notificações in-app e email
+- **Financeiro**: Dashboards de margens, rentabilidade, receitas
+- **Suporte**: Helpdesk interno, políticas internas, FAQs
+- **Conformidade**: GDPR, consentimentos, pedidos de titular, auditoria
+- **Talento**: Formações, avaliações de desempenho, matriz 9-box
 
----
+## Pré-requisitos
 
-## Índice de Módulos
+| Ferramenta | Versão | Notas                 |
+| ---------- | ------ | --------------------- |
+| Node.js    | >= 20  | `nvm use 20`          |
+| pnpm       | >= 9   | `npm i -g pnpm`       |
+| Docker     | >= 24  | Com Docker Compose v2 |
+| PostgreSQL | 16     | Fornecido pelo Docker |
 
-| #   | Módulo                      | Pasta                         | Estado   |
-| --- | --------------------------- | ----------------------------- | -------- |
-| 01  | Autenticação & Segurança    | `specs/auth/spec.md`          | Aprovado |
-| 02  | Utilizadores & RBAC         | `specs/users/spec.md`         | Aprovado |
-| 03  | Equipas & Organograma       | `specs/teams/spec.md`         | Aprovado |
-| 04  | Clientes                    | `specs/clients/spec.md`       | Aprovado |
-| 05  | Projetos                    | `specs/projects/spec.md`      | Aprovado |
-| 06  | Capacidade & Alocação       | `specs/capacity/spec.md`      | Aprovado |
-| 07  | Assiduidade & Timesheets    | `specs/timesheets/spec.md`    | Aprovado |
-| 08  | Ausências                   | `specs/absences/spec.md`      | Aprovado |
-| 09  | Despesas & Reembolsos       | `specs/expenses/spec.md`      | Aprovado |
-| 10  | Gestão Documental           | `specs/documents/spec.md`     | Aprovado |
-| 11  | Contratos                   | `specs/contracts/spec.md`     | Aprovado |
-| 12  | Workflow & Caixa de Entrada | `specs/workflow/spec.md`      | Aprovado |
-| 13  | Calendário Organizacional   | `specs/calendar/spec.md`      | Aprovado |
-| 14  | Relatórios                  | `specs/reports/spec.md`       | Aprovado |
-| 15  | Dashboard de Recursos       | `specs/dashboard/spec.md`     | Aprovado |
-| 16  | Dashboard Financeiro        | `specs/financials/spec.md`    | Aprovado |
-| 17  | Políticas Internas          | `specs/policies/spec.md`      | Aprovado |
-| 18  | Formação & Talento          | `specs/training/spec.md`      | Aprovado |
-| 19  | Helpdesk Interno            | `specs/helpdesk/spec.md`      | Aprovado |
-| 20  | Notificações & Alertas      | `specs/notifications/spec.md` | Aprovado |
-| 21  | Auditoria                   | `specs/audit/spec.md`         | Aprovado |
-| 22  | GDPR & Conformidade         | `specs/gdpr/spec.md`          | Aprovado |
-| 23  | Administração do Sistema    | `specs/admin/spec.md`         | Aprovado |
+## Quickstart
 
----
+```bash
+# 1. Instalar dependências (monorepo)
+pnpm install
 
-## Roadmap Técnico de Implementação
+# 2. Iniciar serviços de infraestrutura
+docker compose -f infra/docker-compose.dev.yml up -d
 
-### Fase 1 — Fundação (Semanas 1–6)
+# 3. Executar migrações da base de dados
+pnpm --filter @bridge351/srh-backend run migration:run
 
-- Autenticação & Segurança
-- Utilizadores & RBAC
-- Administração do Sistema
-- Auditoria
+# 4. Popular dados de base (roles, permissões, admin)
+pnpm --filter @bridge351/srh-backend run seed
 
-### Fase 2 — Estrutura Organizacional (Semanas 7–10)
-
-- Equipas & Organograma
-- Clientes
-- Contratos
-
-### Fase 3 — Core Operacional (Semanas 11–18)
-
-- Projetos
-- Capacidade & Alocação
-- Assiduidade & Timesheets
-- Ausências
-
-### Fase 4 — Processos Financeiros (Semanas 19–24)
-
-- Despesas & Reembolsos
-- Dashboard Financeiro
-- Dashboard de Recursos
-
-### Fase 5 — Comunicação & Documentação (Semanas 25–28)
-
-- Gestão Documental
-- Workflow & Caixa de Entrada
-- Calendário Organizacional
-- Notificações & Alertas
-
-### Fase 6 — Reporting & Analytics (Semanas 29–32)
-
-- Relatórios
-- GDPR & Conformidade
-
-### Fase 7 — Conhecimento & Talento (Semanas 33–38)
-
-- Políticas Internas
-- Formação & Talento
-- Helpdesk Interno
-
----
-
-## Dependências entre Módulos
-
-```
-Autenticação ← Todos os módulos
-Utilizadores ← Equipas, Projetos, Contratos, Ausências, Timesheets, Despesas
-Equipas ← Projetos, Capacidade, Calendário
-Clientes ← Projetos
-Projetos ← Capacidade, Timesheets, Despesas, Documentos
-Contratos ← Utilizadores, Documentos
-Ausências ← Workflow, Calendário, Notificações
-Timesheets ← Projetos, Workflow, Notificações
-Despesas ← Projetos, Workflow
-Workflow ← Notificações, Auditoria
-GDPR ← Auditoria, Utilizadores, Documentos
-Dashboard Financeiro ← Projetos, Timesheets, Despesas, Contratos
+# 5. Iniciar desenvolvimento
+pnpm dev
 ```
 
+Após iniciar:
+
+- **Frontend**: http://localhost:5173
+- **Backend**: http://localhost:3000/api
+- **Swagger** (dev/staging): http://localhost:3000/api/docs
+- **Keycloak**: http://localhost:8080
+
+## Variáveis de Ambiente
+
+### Root (`.env`)
+
+| Variável                  | Descrição                          | Exemplo                      |
+| ------------------------- | ---------------------------------- | ---------------------------- |
+| `POSTGRES_HOST`           | Host da base de dados              | `localhost`                  |
+| `POSTGRES_PORT`           | Porta da base de dados             | `5432`                       |
+| `POSTGRES_DB`             | Nome da base de dados              | `srh`                        |
+| `POSTGRES_USER`           | Utilizador da base de dados        | `srh_user`                   |
+| `POSTGRES_PASSWORD`       | Password da base de dados          | `change_me`                  |
+| `BACKEND_PORT`            | Porta do servidor backend          | `3000`                       |
+| `BACKEND_CORS_ORIGIN`     | Origem permitida para CORS         | `http://localhost:5173`      |
+| `JWT_SECRET`              | Chave secreta para JWT             | `change_me`                  |
+| `JWT_REFRESH_SECRET`      | Chave secreta para refresh token   | `change_me_refresh`          |
+| `JWT_EXPIRES_IN`          | Expiração do access token          | `15m`                        |
+| `JWT_REFRESH_EXPIRES_IN`  | Expiração do refresh token         | `7d`                         |
+| `MFA_ENCRYPTION_KEY`      | Chave AES-256-GCM para MFA secrets | `change_me_mfa_key_32_bytes` |
+| `KEYCLOAK_URL`            | URL do Keycloak                    | `http://localhost:8080`      |
+| `KEYCLOAK_REALM`          | Realm do Keycloak                  | `srh`                        |
+| `KEYCLOAK_CLIENT_ID`      | Client ID do backend no Keycloak   | `srh-backend`                |
+| `VITE_API_BASE_URL`       | URL da API (frontend)              | `http://localhost:3000/api`  |
+| `VITE_KEYCLOAK_URL`       | URL do Keycloak (frontend)         | `http://localhost:8080`      |
+| `VITE_KEYCLOAK_REALM`     | Realm do Keycloak (frontend)       | `srh`                        |
+| `VITE_KEYCLOAK_CLIENT_ID` | Client ID do frontend no Keycloak  | `srh-frontend`               |
+| `STORAGE_ENDPOINT`        | Endpoint do MinIO/S3               | `localhost:9000`             |
+| `STORAGE_ACCESS_KEY`      | Access key do MinIO/S3             | `change_me`                  |
+| `STORAGE_SECRET_KEY`      | Secret key do MinIO/S3             | `change_me`                  |
+| `STORAGE_BUCKET`          | Bucket de documentos               | `srh-documents`              |
+| `STORAGE_REGION`          | Região S3                          | `eu-west-1`                  |
+| `STORAGE_USE_SSL`         | Usar SSL para storage              | `false`                      |
+| `REDIS_HOST`              | Host do Redis                      | `localhost`                  |
+| `REDIS_PORT`              | Porta do Redis                     | `6379`                       |
+| `SENTRY_DSN`              | DSN do Sentry (opcional)           | —                            |
+| `PROMETHEUS_ENABLED`      | Activar métricas Prometheus        | `false`                      |
+| `SMTP_HOST`               | Host SMTP                          | `localhost`                  |
+| `SMTP_PORT`               | Porta SMTP                         | `1025`                       |
+| `SMTP_USER`               | Utilizador SMTP                    | —                            |
+| `SMTP_PASS`               | Password SMTP                      | —                            |
+| `SMTP_FROM`               | Remetente de emails                | `noreply@srh.bridge351.com`  |
+
+## Estrutura do Monorepo
+
+```
+.
+├── backend/          # API NestJS (TypeScript)
+│   ├── src/          # Código fonte (25 módulos)
+│   └── test/         # Testes e2e (jest + supertest)
+├── frontend/         # SPA React 18 + Vite + Tailwind
+│   ├── src/          # Código fonte
+│   └── e2e/          # Testes e2e (Playwright)
+├── shared/           # Tipos e constantes partilhadas
+├── spec/             # Especificações técnicas (SDD)
+├── infra/            # Docker Compose (dev/prod)
+├── docs/             # Documentação gerada (openapi.json)
+├── images/           # Recursos visuais
+├── .github/          # CI/CD workflows
+├── PROJECT_STATE.md  # Estado actual do projecto
+└── AGENTS.md         # Instruções para agentes de IA
+```
+
+## Links Úteis
+
+- [Especificações Técnicas](./specs/README.md)
+- [Documentação OpenAPI](./docs/openapi.json)
+- [Estado do Projecto](./PROJECT_STATE.md)
+- [Arquitectura](./docs/ARCHITECTURE.md)
+
+## Troubleshooting
+
+### `ERESOLVE` ao instalar dependências
+
+```bash
+pnpm install --no-frozen-lockfile
+```
+
+### `relation "hr.user" does not exist`
+
+As migrações não foram executadas:
+
+```bash
+pnpm --filter @bridge351/srh-backend run migration:run
+```
+
+### `JWT_SECRET not configured`
+
+O ficheiro `.env` não existe ou está incompleto:
+
+```bash
+cp .env.example .env
+# editar .env com valores adequados
+```
+
+### Porta 3000 já ocupada
+
+Alterar `BACKEND_PORT` no `.env` ou parar o processo em conflito.
+
+### `docker compose` não encontrado
+
+Certificar que o Docker Compose v2 está instalado:
+
+```bash
+docker compose version
+```
+
+### Erro de permissões no MinIO
+
+Verificar se o bucket `srh-documents` foi criado:
+
+```bash
+docker compose -f infra/docker-compose.dev.yml exec minio mc mb data/srh-documents
+```
+
+### Playwright — browser not found
+
+```bash
+cd frontend && pnpm exec playwright install chromium
+```
+
+### Testes e2e falham — base de dados de teste
+
+O ficheiro `backend/.env.test` deve existir com as credenciais da base de dados de teste.
+
 ---
 
-## Questões Globais
-
-| ID      | Questão                                                           | Módulo      | Prioridade | Estado  |
-| ------- | ----------------------------------------------------------------- | ----------- | ---------- | ------- |
-| Q-G-001 | Qual o número esperado de utilizadores simultâneos?               | Infra       | Alta       | Fechada |
-| Q-G-002 | Existe multi-tenant (múltiplas empresas na mesma instância)?      | Arch        | Alta       | Fechada |
-| Q-G-003 | Que idiomas devem ser suportados na v1?                           | i18n        | Alta       | Fechada |
-| Q-G-004 | Existe integração com payroll na v1 ou é futura?                  | Integrações | Alta       | Fechada |
-| Q-G-005 | "Bridge351" e "NIVVOS" são entidades legais distintas no sistema? | Admin       | Alta       | Fechada |
-| Q-G-006 | Qual a estratégia de migração de dados existentes?                | Dados       | Alta       | Fechada |
-| Q-G-007 | Existe SLA definido para fluxos de aprovação?                     | Workflow    | Média      | Fechada |
-| Q-G-008 | Os tarifários por cargo são visíveis a todos ou apenas a Admin?   | Financeiro  | Média      | Fechada |
-| Q-G-009 | A assinatura digital de contratos é na v1 ou futura?              | Contratos   | Média      | Fechada |
-| Q-G-010 | Qual o período legal de retenção de dados em Portugal?            | GDPR        | Alta       | Fechada |
-
----
-
-## Histórico de Alterações
-
-| Versão | Data       | Alteração                                                                                                                                                                                                                               |
-| ------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1.0    | 2026       | Versão inicial — 23 módulos, 54 tasks, 10 questões em aberto                                                                                                                                                                            |
-| 1.1    | 2026-06-29 | Caminhos de specs actualizados para `specs/[módulo]/spec.md`; data corrigida para 2026; adicionada secção de Ambiente Docker; criado Roteiro OpenCode (OPENCODE-PLAYBOOK.md)                                                            |
-| 1.2    | 2026-07-07 | Baseline após P-000 a P-006: Bootstrap, Docker, Auth (JWT + MFA TOTP + Keycloak SSO), RBAC, Auditoria; todos os módulos promovidos a Aprovado; questões em aberto fechadas                                                              |
-| 1.3    | 2026-07-09 | Implementação P-007 a P-019: Users/Departments, Teams, Clients, Contracts, Documents, Projects, Timesheets, Absences, Expenses, Analytics, Notifications & Workflow, Calendar, Reports, GDPR, Training; 99 testes unitários; lint green |
+_HR Suite — Bridge351 © 2026_
