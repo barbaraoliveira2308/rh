@@ -1,6 +1,6 @@
 # Project State
 
-**Current Phase:** P-018 GDPR (100% complete)
+**Current Phase:** P-019 Training (100% complete)
 **Last Updated:** 2026-07-09
 
 ## Phase History
@@ -22,31 +22,34 @@
 | P-016 | 00-01 | 2026-07-09 | Calendar module: PublicHoliday, CompanyEvent, BlockedPeriod entities, PT holiday import via date.nager.at, monthly view, cron job, integration with Timesheets/Absences for blocked periods, basic tests                                                                     |
 | P-017 | 00-01 | 2026-07-09 | Reports module: ScheduledReport/ReportJob entities, 8 operational reports, JSON/XLSX/PDF export, scheduled reports with cron, async RabbitMQ processing for large reports, endpoints, migration, tests                                                                       |
 | P-018 | 00-01 | 2026-07-09 | GDPR module: ConsentRecord/DataSubjectRequest/RetentionPolicy/SecurityIncident entities, consent management, data subject requests, anonymization, retention policies with monthly cron, incidents, compliance report, AuditInterceptor updated, endpoints, migration, tests |
+| P-019 | 00-01 | 2026-07-09 | Training module: Course/CourseEnrollment/TrainingRecord/PerformanceReview/Competency/EmployeeCompetency entities, enrollment with prerequisites, completion, competency matrix, automatic 9-box matrix from performance reviews, endpoints, migration, tests                 |
 
 ## Decisions
 
-| ID      | Valor                                                  | Impacto                                                                        |
-| ------- | ------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| P011-01 | 0h completed entry is valid                            | Allows zero-hour entries in timesheets                                         |
-| P012-01 | Leave balance in business days                         | Balance calculation excludes weekends/holidays                                 |
-| P012-02 | AuthModule and RbacModule are @Global                  | Guards (JwtAuthGuard/RolesGuard) resolve in all feature modules                |
-| P012-03 | Decimal columns use numeric transformer                | LeaveBalance/AbsenceRequest decimal fields return JS numbers                   |
-| P012-04 | e2e tests run with --runInBand and MFA key             | Sequential execution and required env var for EncryptionService                |
-| P012-05 | dotenv added as runtime dependency                     | Existing data-source/runner imports now satisfied; tests can bootstrap         |
-| P012-06 | Numeric transformer on TimesheetPeriod/TimesheetEntry  | Decimal fields return JS numbers instead of strings; avoids concatenation bugs |
-| P012-07 | Timesheets export route before :id route               | Prevents `/timesheets/export` being matched as a period id                     |
-| P012-08 | Allow allocation in draft projects                     | Enables natural draft → allocate → activate workflow                           |
-| P013-01 | Expense category limit applies per report              | BR-EXP-002 validates each item against category limit within the same report   |
-| P014-01 | Consultant margin uses active contract in period       | getConsultantMargin() selects the active Contract at the calculation period    |
-| P014-02 | Add monthly_cost field to Contract entity              | New nullable decimal column supports hourly cost calculation                   |
-| P014-03 | Use Redis for AnalyticsService cache                   | RedisCacheService + @CacheResult decorator with 5-minute TTL                   |
-| P015-01 | In-app notifications use polling (60s)                 | Frontend polls GET /notifications instead of WebSocket/SSE                     |
-| P016-01 | BlockedPeriod blocks absences and timesheets           | Validation applied in both AbsencesService and TimesheetsService               |
-| P016-02 | Skip Bridge351/NIVVOS anniversary in this phase        | Treated as generic CompanyEvent created manually by admin                      |
-| P017-01 | Async report processing uses RabbitMQ                  | Reports >1000 rows return 202 and are processed via report_jobs queue          |
-| P017-02 | PDF generation uses pdfmake server-side with VFS fonts | Roboto fonts extracted to /tmp on first PDF generation; no extra system deps   |
-| P018-01 | No default GDPR retention period                       | Retention policies are admin-configurable; cron skips if none active           |
-| P018-02 | AuditInterceptor masks @GdprSensitive fields           | old_values/new_values redact sensitive fields using reflect-metadata           |
+| ID      | Valor                                                       | Impacto                                                                        |
+| ------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| P011-01 | 0h completed entry is valid                                 | Allows zero-hour entries in timesheets                                         |
+| P012-01 | Leave balance in business days                              | Balance calculation excludes weekends/holidays                                 |
+| P012-02 | AuthModule and RbacModule are @Global                       | Guards (JwtAuthGuard/RolesGuard) resolve in all feature modules                |
+| P012-03 | Decimal columns use numeric transformer                     | LeaveBalance/AbsenceRequest decimal fields return JS numbers                   |
+| P012-04 | e2e tests run with --runInBand and MFA key                  | Sequential execution and required env var for EncryptionService                |
+| P012-05 | dotenv added as runtime dependency                          | Existing data-source/runner imports now satisfied; tests can bootstrap         |
+| P012-06 | Numeric transformer on TimesheetPeriod/TimesheetEntry       | Decimal fields return JS numbers instead of strings; avoids concatenation bugs |
+| P012-07 | Timesheets export route before :id route                    | Prevents `/timesheets/export` being matched as a period id                     |
+| P012-08 | Allow allocation in draft projects                          | Enables natural draft → allocate → activate workflow                           |
+| P013-01 | Expense category limit applies per report                   | BR-EXP-002 validates each item against category limit within the same report   |
+| P014-01 | Consultant margin uses active contract in period            | getConsultantMargin() selects the active Contract at the calculation period    |
+| P014-02 | Add monthly_cost field to Contract entity                   | New nullable decimal column supports hourly cost calculation                   |
+| P014-03 | Use Redis for AnalyticsService cache                        | RedisCacheService + @CacheResult decorator with 5-minute TTL                   |
+| P015-01 | In-app notifications use polling (60s)                      | Frontend polls GET /notifications instead of WebSocket/SSE                     |
+| P016-01 | BlockedPeriod blocks absences and timesheets                | Validation applied in both AbsencesService and TimesheetsService               |
+| P016-02 | Skip Bridge351/NIVVOS anniversary in this phase             | Treated as generic CompanyEvent created manually by admin                      |
+| P017-01 | Async report processing uses RabbitMQ                       | Reports >1000 rows return 202 and are processed via report_jobs queue          |
+| P017-02 | PDF generation uses pdfmake server-side with VFS fonts      | Roboto fonts extracted to /tmp on first PDF generation; no extra system deps   |
+| P018-01 | No default GDPR retention period                            | Retention policies are admin-configurable; cron skips if none active           |
+| P018-02 | AuditInterceptor masks @GdprSensitive fields                | old_values/new_values redact sensitive fields using reflect-metadata           |
+| P019-01 | 9-box matrix calculated automatically from reviews          | Performance = avg overall_rating; Potential = avg potential_rating             |
+| P019-02 | Course prerequisites implemented via prerequisite_course_id | Enrollment blocked until prerequisite course is completed                      |
 
 ## Current State
 
@@ -108,3 +111,13 @@
 - P-018: Unit tests for `GdprService.anonymizeEmployee()` verifying sensitive fields are cleared
 - P-018: `specs/README.md` updated with P-018 entry; `specs/global-tasks-risks.md` and `global-tasks-risks.md` mark T-045, T-046, T-047, T-048, T-049 as completed
 - P-018: Backend lint clean and all 95 unit tests passing
+- P-019: Training module entities (`Course`, `CourseEnrollment`, `TrainingRecord`, `PerformanceReview`, `Competency`, `EmployeeCompetency`) with TypeORM decorators and enums
+- P-019: `TrainingService` with `createCourse`, `findCourses`, `enroll`, `complete`, `findRecordsByEmployee`, `createReview`, `updateReview`, `submitReview`, `findReviews`, `getCompetencyMatrix`, `getNineBoxMatrix`, `createCompetency`, `findCompetencies`
+- P-019: Enrollment validates employee status, course status and prerequisite course completion
+- P-019: `complete()` creates a `TrainingRecord` and updates enrollment status
+- P-019: 9-box matrix calculated automatically from submitted `PerformanceReview` ratings (decision P019-01)
+- P-019: `TrainingController` with endpoints `/training/courses`, `/training/courses/:id/enroll`, `/training/enrollments/:id/complete`, `/training/records/:employeeId`, `/training/reviews`, `/training/nine-box`, `/training/competencies`
+- P-019: Migration `CreateTrainingTables1827000000000` creating `courses`, `course_enrollments`, `training_records`, `performance_reviews`, `competencies`, `employee_competencies` with enums, indexes and foreign keys
+- P-019: Unit tests for `TrainingService` (create course, enroll, reject completed course, 9-box calculation)
+- P-019: `specs/README.md` updated with P-019 entry; `specs/global-tasks-risks.md` and `global-tasks-risks.md` mark T-051, T-052, T-053 as completed
+- P-019: Backend lint clean and all 99 unit tests passing

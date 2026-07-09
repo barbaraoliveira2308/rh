@@ -38,6 +38,9 @@
 | T-047 | Políticas de retenção e anonimização            | Concluido |
 | T-048 | Incidentes de segurança                         | Concluido |
 | T-049 | Relatórios de conformidade GDPR                 | Concluido |
+| T-051 | Gestão de Cursos e Formações                    | Concluido |
+| T-052 | Avaliações de Desempenho                        | Concluido |
+| T-053 | Gestão de Competências e 9-Box                  | Concluido |
 
 ## Riscos
 

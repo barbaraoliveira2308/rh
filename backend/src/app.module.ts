@@ -24,6 +24,7 @@ import { WorkflowModule } from './workflow/workflow.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { ReportsModule } from './reports/reports.module';
 import { GdprModule } from './gdpr/gdpr.module';
+import { TrainingModule } from './training/training.module';
 import { StorageModule } from './storage/storage.module';
 import { dataSourceOptions } from './database/data-source';
 
@@ -56,6 +57,7 @@ import { dataSourceOptions } from './database/data-source';
     CalendarModule,
     ReportsModule,
     GdprModule,
+    TrainingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
