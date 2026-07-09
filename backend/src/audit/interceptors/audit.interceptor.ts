@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  NestInterceptor,
-  ExecutionContext,
-  CallHandler,
-  Scope,
-} from '@nestjs/common';
+import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Scope } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Observable, from, switchMap, tap } from 'rxjs';
 import { Request } from 'express';
@@ -13,6 +7,7 @@ import { AuditService } from '../services/audit.service';
 import { CreateAuditLogDto } from '../dto';
 import { AUDIT_KEY, AuditMetadata } from '../decorators/audit.decorator';
 import { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
+import { GDPR_SENSITIVE_KEY } from '../../users/decorators/gdpr-sensitive.decorator';
 
 interface RequestWithUser extends Request {
   user?: JwtPayload;
@@ -73,8 +68,8 @@ export class AuditInterceptor implements NestInterceptor {
               action,
               entityType,
               entityId: entityId ?? 'unknown',
-              oldValues: oldValues ?? undefined,
-              newValues,
+              oldValues: oldValues ? this.removeSensitiveFields(entityType, oldValues) : undefined,
+              newValues: newValues ? this.removeSensitiveFields(entityType, newValues) : undefined,
               ipAddress: request.ip,
               userAgent: request.headers['user-agent'],
               module: entityType.toLowerCase(),
@@ -111,5 +106,42 @@ export class AuditInterceptor implements NestInterceptor {
       // entity type not registered or query failed
     }
     return null;
+  }
+
+  private removeSensitiveFields(
+    entityType: string,
+    values: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const sensitiveFields = this.getGdprSensitiveFields(entityType);
+
+    if (sensitiveFields.length === 0) {
+      return values;
+    }
+
+    const filtered: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(values)) {
+      filtered[key] = sensitiveFields.includes(key) ? '***' : value;
+    }
+    return filtered;
+  }
+
+  private getGdprSensitiveFields(entityType: string): string[] {
+    try {
+      const repository = this.dataSource.getRepository(entityType);
+      const target = repository.target as { prototype: Record<string, unknown> };
+      const prototype = target.prototype;
+      const fields: string[] = [];
+
+      const propertyNames = Object.getOwnPropertyNames(prototype);
+      for (const key of propertyNames) {
+        if (Reflect.getMetadata(GDPR_SENSITIVE_KEY, prototype, key)) {
+          fields.push(key);
+        }
+      }
+
+      return fields;
+    } catch {
+      return [];
+    }
   }
 }

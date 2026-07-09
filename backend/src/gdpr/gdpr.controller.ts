@@ -1,0 +1,158 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Param,
+  Body,
+  UseGuards,
+  Req,
+  ForbiddenException,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Request } from 'express';
+import { GdprService } from './services/gdpr.service';
+import { RecordConsentDto } from './dto/record-consent.dto';
+import { RevokeConsentDto } from './dto/revoke-consent.dto';
+import { CreateDataRequestDto } from './dto/create-data-request.dto';
+import { CompleteRequestDto } from './dto/complete-request.dto';
+import { CreateRetentionPolicyDto } from './dto/create-retention-policy.dto';
+import { ReportIncidentDto } from './dto/report-incident.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../rbac/guards/roles.guard';
+import { Roles } from '../rbac/decorators/roles.decorator';
+import { RoleEnum } from '../rbac/enums/role.enum';
+import { ConsentRecord } from './entities/consent-record.entity';
+import { DataSubjectRequest } from './entities/data-subject-request.entity';
+import { RetentionPolicy } from './entities/retention-policy.entity';
+import { SecurityIncident } from './entities/security-incident.entity';
+
+interface RequestWithUser extends Request {
+  user?: { sub: string; role: RoleEnum };
+}
+
+@ApiTags('GDPR')
+@Controller('gdpr')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@ApiBearerAuth()
+export class GdprController {
+  constructor(private readonly gdprService: GdprService) {}
+
+  @Get('consents/:employeeId')
+  @ApiOperation({ summary: 'Listar consentimentos de um colaborador' })
+  async getConsents(
+    @Param('employeeId') employeeId: string,
+    @Req() req: RequestWithUser,
+  ): Promise<ConsentRecord[]> {
+    this.ensureSelfOrAdmin(employeeId, req);
+    return this.gdprService.findConsents(employeeId);
+  }
+
+  @Post('consents/:employeeId/revoke')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Revogar consentimento de um colaborador' })
+  async revokeConsent(
+    @Param('employeeId') employeeId: string,
+    @Body() dto: RevokeConsentDto,
+    @Req() req: RequestWithUser,
+  ): Promise<ConsentRecord> {
+    this.ensureSelfOrAdmin(employeeId, req);
+    return this.gdprService.revokeConsent(employeeId, dto.purpose);
+  }
+
+  @Post('consents')
+  @Roles(RoleEnum.ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Registar consentimento (admin)' })
+  async recordConsent(
+    @Body() dto: RecordConsentDto,
+    @Req() req: RequestWithUser,
+  ): Promise<ConsentRecord> {
+    return this.gdprService.recordConsent(dto, req.ip ?? undefined);
+  }
+
+  @Get('requests')
+  @Roles(RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Listar pedidos de titular' })
+  async getRequests(): Promise<DataSubjectRequest[]> {
+    return this.gdprService.findRequests();
+  }
+
+  @Post('requests')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Submeter pedido de titular' })
+  async createRequest(
+    @Body() dto: CreateDataRequestDto,
+    @Req() req: RequestWithUser,
+  ): Promise<DataSubjectRequest> {
+    this.ensureSelfOrAdmin(dto.subjectId, req);
+    return this.gdprService.createDataRequest(dto);
+  }
+
+  @Patch('requests/:id/complete')
+  @Roles(RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Completar pedido de titular' })
+  async completeRequest(
+    @Param('id') id: string,
+    @Body() dto: CompleteRequestDto,
+  ): Promise<DataSubjectRequest> {
+    return this.gdprService.completeRequest(id, dto.notes);
+  }
+
+  @Get('retention-policies')
+  @Roles(RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Listar políticas de retenção' })
+  async getRetentionPolicies(): Promise<RetentionPolicy[]> {
+    return this.gdprService.findRetentionPolicies();
+  }
+
+  @Post('retention-policies')
+  @Roles(RoleEnum.ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Criar política de retenção' })
+  async createRetentionPolicy(@Body() dto: CreateRetentionPolicyDto): Promise<RetentionPolicy> {
+    return this.gdprService.createRetentionPolicy(dto);
+  }
+
+  @Get('incidents')
+  @Roles(RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Listar incidentes de segurança' })
+  async getIncidents(): Promise<SecurityIncident[]> {
+    return this.gdprService.findIncidents();
+  }
+
+  @Post('incidents')
+  @Roles(RoleEnum.ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Registar incidente de segurança' })
+  async reportIncident(@Body() dto: ReportIncidentDto): Promise<SecurityIncident> {
+    return this.gdprService.reportIncident(dto);
+  }
+
+  @Get('reports/compliance')
+  @Roles(RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Relatório de conformidade GDPR' })
+  async getComplianceReport(): Promise<Record<string, unknown>> {
+    return this.gdprService.getComplianceReport();
+  }
+
+  private ensureSelfOrAdmin(employeeId: string, req: RequestWithUser): void {
+    const user = req.user;
+
+    if (!user) {
+      throw new ForbiddenException('Utilizador não autenticado');
+    }
+
+    if (user.role === RoleEnum.ADMIN) {
+      return;
+    }
+
+    if (user.sub === employeeId) {
+      return;
+    }
+
+    throw new ForbiddenException('Acesso negado');
+  }
+}

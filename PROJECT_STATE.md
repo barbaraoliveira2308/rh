@@ -1,26 +1,27 @@
 # Project State
 
-**Current Phase:** P-017 Reports (100% complete)
+**Current Phase:** P-018 GDPR (100% complete)
 **Last Updated:** 2026-07-09
 
 ## Phase History
 
-| Fase  | Passo | Data       | Descrição                                                                                                                                                                                                |
-| ----- | ----- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P-011 | 00-09 | 2026-07-08 | Timesheets module (entities, service, controller, tests, migration)                                                                                                                                      |
-| P-012 | 00-01 | 2026-07-08 | Absences module foundation                                                                                                                                                                               |
-| P-012 | 00-02 | 2026-07-08 | Unit tests for approve(), reject(), cancel(), getLeaveBalance()                                                                                                                                          |
-| P-012 | 00-03 | 2026-07-08 | Integration/e2e tests passing (24 tests) after fixing cross-module compilation/DI issues                                                                                                                 |
-| P-012 | 00-04 | 2026-07-08 | Updated spec documentation (specs/absences/spec.md and specs/README.md)                                                                                                                                  |
-| P-012 | 00-05 | 2026-07-08 | Fixed unit test failures in Projects and Timesheets modules                                                                                                                                              |
-| P-012 | 00-06 | 2026-07-08 | Fixed all pre-existing backend lint errors and warnings                                                                                                                                                  |
-| P-012 | 00-07 | 2026-07-08 | Updated specs of all implemented previous modules (auth, audit, users, teams, clients, contracts, documents, projects, timesheets, absences)                                                             |
-| P-012 | 00-08 | 2026-07-08 | Added e2e tests for Projects and Timesheets; fixed decimal transformer and route order issues uncovered by tests                                                                                         |
-| P-013 | 00-01 | 2026-07-08 | Expenses module: entities, service, controller, DTOs, events, seed, migration, unit tests for detectDuplicates, exceljs dependency                                                                       |
-| P-014 | 00-01 | 2026-07-08 | Analytics module: resource and financial dashboards, Redis cache decorator, monthly_cost field on Contract, ioredis dependency, basic unit tests                                                         |
-| P-015 | 00-01 | 2026-07-08 | Notifications & Workflow modules: entities, @OnEvent handlers, email/in-app notifications, Handlebars templates, inbox/proxy endpoints, nodemailer/handlebars dependencies, basic unit tests             |
-| P-016 | 00-01 | 2026-07-09 | Calendar module: PublicHoliday, CompanyEvent, BlockedPeriod entities, PT holiday import via date.nager.at, monthly view, cron job, integration with Timesheets/Absences for blocked periods, basic tests |
-| P-017 | 00-01 | 2026-07-09 | Reports module: ScheduledReport/ReportJob entities, 8 operational reports, JSON/XLSX/PDF export, scheduled reports with cron, async RabbitMQ processing for large reports, endpoints, migration, tests   |
+| Fase  | Passo | Data       | Descrição                                                                                                                                                                                                                                                                    |
+| ----- | ----- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P-011 | 00-09 | 2026-07-08 | Timesheets module (entities, service, controller, tests, migration)                                                                                                                                                                                                          |
+| P-012 | 00-01 | 2026-07-08 | Absences module foundation                                                                                                                                                                                                                                                   |
+| P-012 | 00-02 | 2026-07-08 | Unit tests for approve(), reject(), cancel(), getLeaveBalance()                                                                                                                                                                                                              |
+| P-012 | 00-03 | 2026-07-08 | Integration/e2e tests passing (24 tests) after fixing cross-module compilation/DI issues                                                                                                                                                                                     |
+| P-012 | 00-04 | 2026-07-08 | Updated spec documentation (specs/absences/spec.md and specs/README.md)                                                                                                                                                                                                      |
+| P-012 | 00-05 | 2026-07-08 | Fixed unit test failures in Projects and Timesheets modules                                                                                                                                                                                                                  |
+| P-012 | 00-06 | 2026-07-08 | Fixed all pre-existing backend lint errors and warnings                                                                                                                                                                                                                      |
+| P-012 | 00-07 | 2026-07-08 | Updated specs of all implemented previous modules (auth, audit, users, teams, clients, contracts, documents, projects, timesheets, absences)                                                                                                                                 |
+| P-012 | 00-08 | 2026-07-08 | Added e2e tests for Projects and Timesheets; fixed decimal transformer and route order issues uncovered by tests                                                                                                                                                             |
+| P-013 | 00-01 | 2026-07-08 | Expenses module: entities, service, controller, DTOs, events, seed, migration, unit tests for detectDuplicates, exceljs dependency                                                                                                                                           |
+| P-014 | 00-01 | 2026-07-08 | Analytics module: resource and financial dashboards, Redis cache decorator, monthly_cost field on Contract, ioredis dependency, basic unit tests                                                                                                                             |
+| P-015 | 00-01 | 2026-07-08 | Notifications & Workflow modules: entities, @OnEvent handlers, email/in-app notifications, Handlebars templates, inbox/proxy endpoints, nodemailer/handlebars dependencies, basic unit tests                                                                                 |
+| P-016 | 00-01 | 2026-07-09 | Calendar module: PublicHoliday, CompanyEvent, BlockedPeriod entities, PT holiday import via date.nager.at, monthly view, cron job, integration with Timesheets/Absences for blocked periods, basic tests                                                                     |
+| P-017 | 00-01 | 2026-07-09 | Reports module: ScheduledReport/ReportJob entities, 8 operational reports, JSON/XLSX/PDF export, scheduled reports with cron, async RabbitMQ processing for large reports, endpoints, migration, tests                                                                       |
+| P-018 | 00-01 | 2026-07-09 | GDPR module: ConsentRecord/DataSubjectRequest/RetentionPolicy/SecurityIncident entities, consent management, data subject requests, anonymization, retention policies with monthly cron, incidents, compliance report, AuditInterceptor updated, endpoints, migration, tests |
 
 ## Decisions
 
@@ -44,6 +45,8 @@
 | P016-02 | Skip Bridge351/NIVVOS anniversary in this phase        | Treated as generic CompanyEvent created manually by admin                      |
 | P017-01 | Async report processing uses RabbitMQ                  | Reports >1000 rows return 202 and are processed via report_jobs queue          |
 | P017-02 | PDF generation uses pdfmake server-side with VFS fonts | Roboto fonts extracted to /tmp on first PDF generation; no extra system deps   |
+| P018-01 | No default GDPR retention period                       | Retention policies are admin-configurable; cron skips if none active           |
+| P018-02 | AuditInterceptor masks @GdprSensitive fields           | old_values/new_values redact sensitive fields using reflect-metadata           |
 
 ## Current State
 
@@ -95,3 +98,13 @@
 - P-017: Basic unit tests for `ReportsService` (createJob, columns, async threshold) and `ReportExportersService` (xlsx, pdf)
 - P-017: `specs/README.md` updated with P-017 entry; `specs/global-tasks-risks.md` and `global-tasks-risks.md` mark T-043 and T-044 as completed
 - P-017: Backend lint clean and all 92 unit tests passing
+- P-018: GDPR module entities (`ConsentRecord`, `DataSubjectRequest`, `RetentionPolicy`, `SecurityIncident`) with TypeORM decorators and enums
+- P-018: `GdprService` with `recordConsent`, `revokeConsent`, `findConsents`, `createDataRequest`, `completeRequest`, `findRequests`, `anonymizeEmployee`, `runRetentionPolicies`, `reportIncident`, `findIncidents`, `createRetentionPolicy`, `findRetentionPolicies`, `getComplianceReport`
+- P-018: Data subject request handling: ACCESS/PORTABILITY generate structured JSON payload, ERASURE triggers anonymization, RECTIFICATION opens pending ticket
+- P-018: Monthly cron `@Cron('0 3 1 * *')` for retention policy execution; skips when no active policies (decision P018-01)
+- P-018: `AuditInterceptor` updated to mask fields marked with `@GdprSensitive` in audit logs
+- P-018: `GdprController` with endpoints `/gdpr/consents/*`, `/gdpr/requests`, `/gdpr/retention-policies`, `/gdpr/incidents`, `/gdpr/reports/compliance`
+- P-018: Migration `CreateGdprTables1826000000000` creating `consent_records`, `data_subject_requests`, `retention_policies`, `security_incidents` with enums, indexes and foreign keys
+- P-018: Unit tests for `GdprService.anonymizeEmployee()` verifying sensitive fields are cleared
+- P-018: `specs/README.md` updated with P-018 entry; `specs/global-tasks-risks.md` and `global-tasks-risks.md` mark T-045, T-046, T-047, T-048, T-049 as completed
+- P-018: Backend lint clean and all 95 unit tests passing

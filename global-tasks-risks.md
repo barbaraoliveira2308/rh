@@ -73,15 +73,15 @@
 
 ### FASE 6 — Relatórios e GDPR
 
-| ID    | Tarefa                               | Módulo  | Dependências | Prioridade | Estimativa | Critério de Conclusão                    | Estado      |
-| ----- | ------------------------------------ | ------- | ------------ | ---------- | ---------- | ---------------------------------------- | ----------- |
-| T-043 | Motor de relatórios (PDF + Excel)    | Reports | T-034        | Alta       | 4d         | 8 relatórios operacionais funcionais     | ⬜ Pendente |
-| T-044 | Filtros avançados em relatórios      | Reports | T-043        | Média      | 2d         | Filtros por período, equipa, colaborador | ⬜ Pendente |
-| T-045 | Módulo GDPR — consentimentos         | GDPR    | T-007        | Alta       | 3d         | Registo e revogação de consentimentos    | ⬜ Pendente |
-| T-046 | Pedidos de titulares (direitos RGPD) | GDPR    | T-045        | Alta       | 3d         | Acesso, apagamento, portabilidade        | ⬜ Pendente |
-| T-047 | Políticas de retenção e anonimização | GDPR    | T-045        | Alta       | 3d         | Anonimização automática                  | ⬜ Pendente |
-| T-048 | Incidentes de segurança              | GDPR    | T-008        | Alta       | 2d         | Registo e alertas de incidentes          | ⬜ Pendente |
-| T-049 | Relatórios de conformidade GDPR      | GDPR    | T-047        | Média      | 2d         | 6 relatórios GDPR                        | ⬜ Pendente |
+| ID    | Tarefa                               | Módulo  | Dependências | Prioridade | Estimativa | Critério de Conclusão                    | Estado       |
+| ----- | ------------------------------------ | ------- | ------------ | ---------- | ---------- | ---------------------------------------- | ------------ |
+| T-043 | Motor de relatórios (PDF + Excel)    | Reports | T-034        | Alta       | 4d         | 8 relatórios operacionais funcionais     | ✅ Concluído |
+| T-044 | Filtros avançados em relatórios      | Reports | T-043        | Média      | 2d         | Filtros por período, equipa, colaborador | ✅ Concluído |
+| T-045 | Módulo GDPR — consentimentos         | GDPR    | T-007        | Alta       | 3d         | Registo e revogação de consentimentos    | ✅ Concluído |
+| T-046 | Pedidos de titulares (direitos RGPD) | GDPR    | T-045        | Alta       | 3d         | Acesso, apagamento, portabilidade        | ✅ Concluído |
+| T-047 | Políticas de retenção e anonimização | GDPR    | T-045        | Alta       | 3d         | Anonimização automática                  | ✅ Concluído |
+| T-048 | Incidentes de segurança              | GDPR    | T-008        | Alta       | 2d         | Registo e alertas de incidentes          | ✅ Concluído |
+| T-049 | Relatórios de conformidade GDPR      | GDPR    | T-047        | Média      | 2d         | 6 relatórios GDPR                        | ✅ Concluído |
 
 ### FASE 7 — Conhecimento e Talento
 

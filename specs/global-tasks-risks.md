@@ -33,6 +33,11 @@
 | T-041 | Importação automática de feriados               | Concluido |
 | T-043 | Motor de relatórios (PDF + Excel)               | Concluido |
 | T-044 | Filtros avançados em relatórios                 | Concluido |
+| T-045 | Módulo GDPR — consentimentos                    | Concluido |
+| T-046 | Pedidos de titulares (direitos RGPD)            | Concluido |
+| T-047 | Políticas de retenção e anonimização            | Concluido |
+| T-048 | Incidentes de segurança                         | Concluido |
+| T-049 | Relatórios de conformidade GDPR                 | Concluido |
 
 ## Riscos
 
