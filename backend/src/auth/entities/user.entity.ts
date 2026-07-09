@@ -23,35 +23,40 @@ export class User {
   @Column({ type: 'varchar', length: 100, unique: true, nullable: false })
   username: string;
 
-  @Column({ type: 'varchar', length: 512, nullable: false, select: false })
+  @Column({ name: 'password_hash', type: 'varchar', length: 512, nullable: false, select: false })
   passwordHash: string;
 
   @Index('idx_users_is_active')
-  @Column({ type: 'boolean', default: true })
+  @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
 
-  @Column({ type: 'boolean', default: false })
+  @Column({ name: 'mfa_enabled', type: 'boolean', default: false })
   mfaEnabled: boolean;
 
-  @Column({ type: 'varchar', length: 512, nullable: true, select: false })
+  @Column({ name: 'mfa_secret', type: 'varchar', length: 512, nullable: true, select: false })
   mfaSecret: string | null;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ name: 'last_login_at', type: 'timestamp', nullable: true })
   lastLoginAt: Date | null;
 
-  @Column({ type: 'int', default: 0 })
+  @Column({ name: 'failed_login_count', type: 'int', default: 0 })
   failedLoginCount: number;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ name: 'locked_until', type: 'timestamp', nullable: true })
   lockedUntil: Date | null;
 
-  @Column({ type: 'timestamp', nullable: false, default: () => 'NOW()' })
+  @Column({
+    name: 'password_changed_at',
+    type: 'timestamp',
+    nullable: false,
+    default: () => 'NOW()',
+  })
   passwordChangedAt: Date;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'timestamp' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
   updatedAt: Date;
 
   @OneToMany(() => Session, (session) => session.user)

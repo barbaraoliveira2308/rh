@@ -1,10 +1,4 @@
-import {
-  Entity,
-  PrimaryColumn,
-  Column,
-  ManyToOne,
-  JoinColumn,
-} from 'typeorm';
+import { Entity, PrimaryColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { User } from './user.entity';
 import { Role } from './role.entity';
 
@@ -16,7 +10,7 @@ export class UserRole {
   @PrimaryColumn({ name: 'role_id', type: 'uuid' })
   roleId: string;
 
-  @Column({ type: 'timestamp', default: () => 'NOW()' })
+  @Column({ name: 'assigned_at', type: 'timestamp', default: () => 'NOW()' })
   assignedAt: Date;
 
   @Column({ name: 'assigned_by', type: 'uuid', nullable: false })
