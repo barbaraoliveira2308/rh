@@ -1,6 +1,6 @@
 # Project State
 
-**Current Phase:** P-023 UI Financeiro e Dashboards (100% complete)
+**Current Phase:** P-024 Quality & DevOps — Integration and E2E Tests (100% complete)
 **Last Updated:** 2026-07-09
 
 ## Phase History
@@ -28,6 +28,8 @@
 | P-021-FIX | 00-01 | 2026-07-09 | Updated root `eslint.config.mjs` to ignore frontend config files (`vite.config.ts`, `tailwind.config.js`, `postcss.config.js`) so that pre-commit hooks pass                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | P-022     | 00-01 | 2026-07-09 | Frontend UI for core modules: auth (reset-password), users (list, detail, new, org-chart with search/highlight), projects (list, detail, allocations with overlap detection), timesheets (list, detail with weekly grid), absences (list, new with balance validation, team view); routing and navigation updated; build and lint green                                                                                                                                                                                                                                                                                     |
 | P-023     | 00-01 | 2026-07-09 | Frontend UI for financeiro e dashboards: Dashboard with KPI cards, occupancy stacked bar chart (recharts), pending approvals (max 5), alerts; Workflow Inbox with unified list, type filter, inline approve/reject actions; Financial Dashboard (admin only) with consultant margins table, project profitability horizontal bar chart, monthly revenue line chart; Expenses list with status badges and new expense form with dynamic items, receipt upload per item, duplicate detection warning; sidebar badge with 60s polling; recharts dependency added; fixed layout per user decision P023-01; lint and build green |
+| P-024     | 00-01 | 2026-07-09 | Backend integration/e2e tests: Fluxo 1 — timesheets full workflow (create collaborator, project, allocation, period, fill, submit, approve, verify notification); Fluxo 2 — absences flow (submit leave request, verify balance decremented, verify absence reflected in timesheet); Fluxo 3 — GDPR erasure (create collaborator with full data, submit erasure request, verify anonymization, verify statistical data preserved); all using manual DataSource with synchronize/dropSchema + rbacSeed + supertest                                                                                                           |
+| P-024     | 00-02 | 2026-07-09 | Frontend Playwright e2e tests: login (valid/invalid/redirect), timesheet (submit/bulk-approve), absence (create), upload (file input); playwright.config.ts with headless:true (per user decision P024-01); CI workflow with postgres/redis services, lint/build, backend e2e, frontend e2e; backend .env.test; lint and build green                                                                                                                                                                                                                                                                                        |
 
 ## Decisions
 
@@ -59,6 +61,7 @@
 | P021-02 | Portuguese (PT) as default UI language                      | Interface copy in Portuguese; no i18n library added in this phase              |
 | P022-01 | Org-chart supports employee search with highlight           | Search input filters/highlight nodes in react-organizational-chart tree        |
 | P023-01 | Fixed layout for dashboard v1 (no draggable widgets)        | Lower complexity, no persistence required                                      |
+| P024-01 | Playwright always headless in CI and local                  | Ensures reliable headless Chrome runs on any environment                       |
 
 ## Current State
 
@@ -134,6 +137,8 @@
 - P-021-FIX: Updated root `eslint.config.mjs` to ignore frontend config files (`vite.config.ts`, `tailwind.config.js`, `postcss.config.js`) so that pre-commit hooks pass
 - P-022: Frontend UI for core modules — auth reset-password page; users list/detail/new/org-chart pages; projects list/detail/allocations pages; timesheets list/detail pages; absences list/new/team pages; React Router routes and AppLayout navigation updated; all pages lazy-loaded; build and lint green
 - P-023: Frontend UI for financeiro e dashboards — Dashboard (KPIs, occupancy chart, pending items, alerts); Workflow Inbox (unified list, type filter, inline actions); Financial Dashboard (admin guard, margins, profitability, revenue charts); Expenses (list, new form with dynamic items, receipt upload, duplicate warning); sidebar badge polling 60s; recharts installed; build and lint green
+- P-024: Backend integration/e2e tests — `test/timesheets-flow.e2e-spec.ts` (timesheet full CRUD), `test/absences-flow.e2e-spec.ts` (absence request + balance + timesheet reflection), `test/gdpr-erasure.e2e-spec.ts` (erasure with anonymization + statistical preservation); all using manual DataSource + rbacSeed + supertest; lint and backend build green
+- P-024: Frontend Playwright e2e tests — `login.spec.ts`, `timesheet.spec.ts`, `absence.spec.ts`, `upload.spec.ts`; `playwright.config.ts` with headless:true; `backend/.env.test` with test DB config; `.github/workflows/ci.yml` with lint, backend e2e, frontend e2e jobs; `@playwright/test` installed, Chromium downloaded; lint and frontend build green
 
 ### In Progress
 

@@ -33,6 +33,8 @@ export default tseslint.config(
       '**/vite.config.ts',
       '**/tailwind.config.js',
       '**/postcss.config.js',
+      '**/playwright.config.ts',
+      '**/e2e/**',
     ],
   },
 );
