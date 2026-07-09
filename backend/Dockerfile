@@ -28,11 +28,9 @@ COPY --from=builder /app/backend/package.json ./backend/
 COPY --from=builder /app/backend/dist ./backend/dist
 COPY --from=builder /app/frontend/package.json ./frontend/
 COPY --from=builder /app/shared/package.json ./shared/
-COPY --from=builder /app/shared/dist ./shared/dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/backend/node_modules ./backend/node_modules
 COPY --from=builder /app/frontend/node_modules ./frontend/node_modules
-COPY --from=builder /app/shared/node_modules ./shared/node_modules
 
 EXPOSE 3000
 CMD ["node", "backend/dist/main"]
