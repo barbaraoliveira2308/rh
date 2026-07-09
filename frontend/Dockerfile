@@ -4,11 +4,13 @@ RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY shared/package.json ./shared/
+COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
+COPY shared/package.json ./shared/
 
 RUN pnpm install --frozen-lockfile
 
+COPY backend/. ./backend/
 COPY frontend/. ./frontend/
 COPY shared/. ./shared/
 
