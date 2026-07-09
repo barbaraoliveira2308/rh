@@ -33,49 +33,41 @@ export class CreateAbsencesTables1810000000000 implements MigrationInterface {
       true,
     );
 
-    await queryRunner.createTable(
-      new Table({
-        schema: 'hr',
-        name: 'absence_requests',
-        columns: [
-          { name: 'id', type: 'uuid', isPrimary: true, default: 'uuid_generate_v4()' },
-          { name: 'employee_id', type: 'uuid', isNullable: false },
-          { name: 'absence_type_id', type: 'uuid', isNullable: false },
-          { name: 'start_date', type: 'date', isNullable: false },
-          { name: 'end_date', type: 'date', isNullable: false },
-          { name: 'start_half', type: 'boolean', default: false, isNullable: false },
-          { name: 'end_half', type: 'boolean', default: false, isNullable: false },
-          {
-            name: 'total_days',
-            type: 'decimal',
-            precision: 5,
-            scale: 2,
-            default: 0,
-            isNullable: false,
-          },
-          {
-            name: 'total_hours',
-            type: 'decimal',
-            precision: 6,
-            scale: 2,
-            default: 0,
-            isNullable: false,
-          },
-          {
-            name: 'status',
-            type: 'varchar',
-            length: '20',
-            default: "'pending'",
-            isNullable: false,
-          },
-          { name: 'reason', type: 'text', isNullable: true },
-          { name: 'rejection_reason', type: 'text', isNullable: true },
-          { name: 'document_url', type: 'varchar', length: '512', isNullable: true },
-          { name: 'created_at', type: 'timestamp', default: 'NOW()' },
-          { name: 'updated_at', type: 'timestamp', default: 'NOW()' },
-        ],
-      }),
-      true,
+    // absence_requests was already created by CreateTimesheetsTables1800000000000
+    // with old columns (type, hours). ALTER it to the new schema.
+    await queryRunner.query(
+      `ALTER TABLE "hr"."absence_requests" ADD COLUMN "absence_type_id" uuid`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "hr"."absence_requests" ADD COLUMN "start_half" boolean NOT NULL DEFAULT false`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "hr"."absence_requests" ADD COLUMN "end_half" boolean NOT NULL DEFAULT false`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "hr"."absence_requests" ADD COLUMN "total_days" decimal(5,2) NOT NULL DEFAULT 0`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "hr"."absence_requests" ADD COLUMN "total_hours" decimal(6,2) NOT NULL DEFAULT 0`,
+    );
+    await queryRunner.query(`ALTER TABLE "hr"."absence_requests" ADD COLUMN "reason" text`);
+    await queryRunner.query(
+      `ALTER TABLE "hr"."absence_requests" ADD COLUMN "rejection_reason" text`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "hr"."absence_requests" ADD COLUMN "document_url" varchar(512)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "hr"."absence_requests" ADD COLUMN "created_at" timestamp NOT NULL DEFAULT NOW()`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "hr"."absence_requests" ADD COLUMN "updated_at" timestamp NOT NULL DEFAULT NOW()`,
+    );
+    await queryRunner.query(`ALTER TABLE "hr"."absence_requests" DROP COLUMN "type"`);
+    await queryRunner.query(`ALTER TABLE "hr"."absence_requests" DROP COLUMN "hours"`);
+    // Set absence_type_id NOT NULL after data migration (none in dev)
+    await queryRunner.query(
+      `ALTER TABLE "hr"."absence_requests" ALTER COLUMN "absence_type_id" SET NOT NULL`,
     );
 
     await queryRunner.createTable(
@@ -237,7 +229,37 @@ export class CreateAbsencesTables1810000000000 implements MigrationInterface {
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TABLE IF EXISTS hr.leave_balances`);
     await queryRunner.query(`DROP TABLE IF EXISTS hr.absence_approvals`);
-    await queryRunner.query(`DROP TABLE IF EXISTS hr.absence_requests`);
     await queryRunner.query(`DROP TABLE IF EXISTS hr.absence_types`);
+    // Revert absence_requests to the old schema from CreateTimesheetsTables1800000000000
+    await queryRunner.query(
+      `ALTER TABLE "hr"."absence_requests" DROP COLUMN IF EXISTS "updated_at"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "hr"."absence_requests" DROP COLUMN IF EXISTS "created_at"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "hr"."absence_requests" DROP COLUMN IF EXISTS "document_url"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "hr"."absence_requests" DROP COLUMN IF EXISTS "rejection_reason"`,
+    );
+    await queryRunner.query(`ALTER TABLE "hr"."absence_requests" DROP COLUMN IF EXISTS "reason"`);
+    await queryRunner.query(
+      `ALTER TABLE "hr"."absence_requests" DROP COLUMN IF EXISTS "total_hours"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "hr"."absence_requests" DROP COLUMN IF EXISTS "total_days"`,
+    );
+    await queryRunner.query(`ALTER TABLE "hr"."absence_requests" DROP COLUMN IF EXISTS "end_half"`);
+    await queryRunner.query(
+      `ALTER TABLE "hr"."absence_requests" DROP COLUMN IF EXISTS "start_half"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "hr"."absence_requests" DROP COLUMN IF EXISTS "absence_type_id"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "hr"."absence_requests" ADD COLUMN "type" varchar(50) NOT NULL`,
+    );
+    await queryRunner.query(`ALTER TABLE "hr"."absence_requests" ADD COLUMN "hours" decimal(4,2)`);
   }
 }
