@@ -19,10 +19,10 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "paths": {
+      "@/*": ["./src/*"],
       "@bridge351/srh-shared": ["../shared/src"],
       "@bridge351/srh-shared/*": ["../shared/src/*"]
     }
   },
-  "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["src"]
 }

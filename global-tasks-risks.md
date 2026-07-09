@@ -88,13 +88,14 @@
 
 ### FASE 7 — Conhecimento e Talento
 
-| ID    | Tarefa                                 | Módulo   | Dependências | Prioridade | Estimativa | Critério de Conclusão           | Estado       |
-| ----- | -------------------------------------- | -------- | ------------ | ---------- | ---------- | ------------------------------- | ------------ |
-| T-050 | Políticas Internas (editor e pesquisa) | Policies | T-018        | Média      | 3d         | Publicação e pesquisa funcional | ✅ Concluído |
-| T-051 | Gestão de Cursos e Formações           | Training | T-013        | Média      | 4d         | CRUD cursos + estados inscrição | ⬜ Pendente  |
-| T-052 | Avaliações de Desempenho               | Training | T-013        | Média      | 3d         | Ciclos de avaliação             | ⬜ Pendente  |
-| T-053 | Gestão de Competências e 9-Box         | Training | T-052        | Baixa      | 3d         | Matriz 9-box funcional          | ⬜ Pendente  |
-| T-054 | Helpdesk Interno (tickets)             | Helpdesk | T-037        | Baixa      | 4d         | CRUD tickets com SLA            | ✅ Concluído |
+| ID    | Tarefa                                 | Módulo   | Dependências | Prioridade | Estimativa | Critério de Conclusão             | Estado       |
+| ----- | -------------------------------------- | -------- | ------------ | ---------- | ---------- | --------------------------------- | ------------ |
+| T-050 | Políticas Internas (editor e pesquisa) | Policies | T-018        | Média      | 3d         | Publicação e pesquisa funcional   | ✅ Concluído |
+| T-051 | Gestão de Cursos e Formações           | Training | T-013        | Média      | 4d         | CRUD cursos + estados inscrição   | ⬜ Pendente  |
+| T-052 | Avaliações de Desempenho               | Training | T-013        | Média      | 3d         | Ciclos de avaliação               | ⬜ Pendente  |
+| T-053 | Gestão de Competências e 9-Box         | Training | T-052        | Baixa      | 3d         | Matriz 9-box funcional            | ⬜ Pendente  |
+| T-054 | Helpdesk Interno (tickets)             | Helpdesk | T-037        | Baixa      | 4d         | CRUD tickets com SLA              | ✅ Concluído |
+| —     | Setup Frontend React                   | Frontend | —            | Crítica    | 3d         | Stack, design system, auth, rotas | ✅ Concluído |
 
 ---
 

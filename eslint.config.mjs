@@ -30,6 +30,9 @@ export default tseslint.config(
       '**/.turbo/**',
       '**/coverage/**',
       '**/test/**',
+      '**/vite.config.ts',
+      '**/tailwind.config.js',
+      '**/postcss.config.js',
     ],
   },
 );

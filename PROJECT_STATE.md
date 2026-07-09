@@ -1,6 +1,6 @@
 # Project State
 
-**Current Phase:** P-020 Policies & Helpdesk (100% complete)
+**Current Phase:** P-021 Frontend Setup (100% complete)
 **Last Updated:** 2026-07-09
 
 ## Phase History
@@ -24,6 +24,7 @@
 | P-018 | 00-01 | 2026-07-09 | GDPR module: ConsentRecord/DataSubjectRequest/RetentionPolicy/SecurityIncident entities, consent management, data subject requests, anonymization, retention policies with monthly cron, incidents, compliance report, AuditInterceptor updated, endpoints, migration, tests                     |
 | P-019 | 00-01 | 2026-07-09 | Training module: Course/CourseEnrollment/TrainingRecord/PerformanceReview/Competency/EmployeeCompetency entities, enrollment with prerequisites, completion, competency matrix, automatic 9-box matrix from performance reviews, endpoints, migration, tests                                     |
 | P-020 | 00-01 | 2026-07-09 | Policies module (Policy entity, tsvector GIN full-text search, versioning, CRUD + publish/archive, migration) and Helpdesk module (Ticket, TicketCategory, TicketComment, TicketSla entities, SLA calculation, escalation, cron 30min for SLA breaches, migration); both registered in AppModule |
+| P-021 | 00-01 | 2026-07-09 | Frontend React setup: Tailwind v3, shadcn/ui, TanStack Query, Zustand, React Router v6 lazy, Axios interceptors, componentes base, layouts, /login com MFA; build e lint green                                                                                                                   |
 
 ## Decisions
 
@@ -51,6 +52,8 @@
 | P018-02 | AuditInterceptor masks @GdprSensitive fields                | old_values/new_values redact sensitive fields using reflect-metadata           |
 | P019-01 | 9-box matrix calculated automatically from reviews          | Performance = avg overall_rating; Potential = avg potential_rating             |
 | P019-02 | Course prerequisites implemented via prerequisite_course_id | Enrollment blocked until prerequisite course is completed                      |
+| P021-01 | No dark mode in v1                                          | Frontend uses light mode only; Tailwind darkMode config kept as 'class'        |
+| P021-02 | Portuguese (PT) as default UI language                      | Interface copy in Portuguese; no i18n library added in this phase              |
 
 ## Current State
 
@@ -124,3 +127,5 @@
 - P-019: Backend lint clean and all 99 unit tests passing
 - P-019-DOC: Updated `specs/README.md` index (9 modules promoted to "Implemented") and root `README.md` history (v1.3) and state ("Implementado")
 - P-020: Policies module (Policy entity, tsvector GIN full-text search, versioning, CRUD + publish/archive, migration) and Helpdesk module (Ticket, TicketCategory, TicketComment, TicketSla entities; HelpdeskService with create/assign/addComment/escalate/close/checkSlaBreaches cron; endpoints /helpdesk/*; migration); both modules registered in AppModule; lint green
+- P-021: Frontend React setup — Tailwind CSS v3 with brand theme #1E3A5F, shadcn/ui base components, TanStack Query, Zustand stores (auth + ui), React Router v6 lazy loading, Axios client with JWT/refresh interceptors, base components (DataTable, PageHeader, StatusBadge, ConfirmDialog, LoadingSpinner, ErrorBoundary, FormField), AppLayout/AuthLayout, /login page with MFA; build and lint green; PT language, no dark mode in v1
+- P-021-FIX: Updated root `eslint.config.mjs` to ignore frontend config files (`vite.config.ts`, `tailwind.config.js`, `postcss.config.js`) so that pre-commit hooks pass
