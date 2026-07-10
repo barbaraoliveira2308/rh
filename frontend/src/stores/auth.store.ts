@@ -1,12 +1,6 @@
 import { create } from 'zustand';
-import type {
-  User,
-  LoginCredentials,
-  MfaCredentials,
-  AuthTokens,
-  LoginResponse,
-} from '@/types/auth';
-import { login, verifyMfa, refreshAccessToken, logout as apiLogout } from '@/api/auth.api';
+import type { User, LoginCredentials, AuthTokens, LoginResponse } from '@/types/auth';
+import { login, refreshAccessToken, logout as apiLogout } from '@/api/auth.api';
 import { setAccessToken, setRefreshTokenFn } from '@/api/client';
 
 const STORAGE_KEY = 'srh-auth';
@@ -99,8 +93,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       const newState: PersistedAuth = {
         user: response.user,
-        accessToken: response.tokens.accessToken,
-        refreshTokenValue: response.tokens.refreshToken,
+        accessToken: response.accessToken,
+        refreshTokenValue: response.refreshToken,
         isAuthenticated: true,
         permissions: response.user.roles,
       };
@@ -132,17 +126,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     set({ isLoading: true, error: null });
     try {
-      const credentials: MfaCredentials = {
+      const response: LoginResponse = await login({
         email: pendingMfaEmail,
         password: pendingMfaPassword,
         mfaCode: code,
-      };
-      const response: LoginResponse = await verifyMfa(credentials);
+      });
 
       const newState: PersistedAuth = {
         user: response.user,
-        accessToken: response.tokens.accessToken,
-        refreshTokenValue: response.tokens.refreshToken,
+        accessToken: response.accessToken,
+        refreshTokenValue: response.refreshToken,
         isAuthenticated: true,
         permissions: response.user.roles,
       };

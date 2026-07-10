@@ -8,6 +8,7 @@ export interface User {
 export interface LoginCredentials {
   email: string;
   password: string;
+  mfaCode?: string;
 }
 
 export interface MfaCredentials {
@@ -22,8 +23,9 @@ export interface AuthTokens {
 }
 
 export interface LoginResponse {
+  accessToken: string;
+  refreshToken: string;
   user: User;
-  tokens: AuthTokens;
   requiresMfa?: boolean;
 }
 
