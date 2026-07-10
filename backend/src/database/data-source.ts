@@ -5,8 +5,9 @@ import {
   NamingStrategyInterface,
 } from 'typeorm';
 import { config } from 'dotenv';
+import { resolve } from 'path';
 
-config();
+config({ path: resolve(__dirname, '../../../.env') });
 
 class CamelToSnakeNamingStrategy extends DefaultNamingStrategy implements NamingStrategyInterface {
   columnName(propertyName: string, customName: string, embeddedPrefixes: string[]): string {

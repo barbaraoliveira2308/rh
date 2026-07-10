@@ -16,9 +16,11 @@
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts",
     "schema:create": "node -e \"const { Client } = require('pg'); const c = new Client({ host: process.env.POSTGRES_HOST || 'localhost', port: Number(process.env.POSTGRES_PORT) || 5432, database: process.env.POSTGRES_DB || 'srh', user: process.env.POSTGRES_USER || 'srh_user', password: process.env.POSTGRES_PASSWORD || 'srh_dev_pass' }); c.connect().then(() => c.query('CREATE SCHEMA IF NOT EXISTS hr')).then(() => { console.log('Schema hr created'); process.exit(0); }).catch(e => { console.error(e.message); process.exit(1); })\"",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
+    "migration:run:host": "POSTGRES_HOST=localhost typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
     "migration:run:prod": "pnpm exec typeorm migration:run -d dist/database/data-source.js",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts",
     "seed": "ts-node src/database/seeds/runner.ts",
+    "seed:host": "POSTGRES_HOST=localhost ts-node src/database/seeds/runner.ts",
     "seed:prod": "node dist/database/seeds/runner.js",
     "start:prod": "node dist/main"
   },

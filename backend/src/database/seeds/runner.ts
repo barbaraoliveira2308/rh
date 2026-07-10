@@ -1,11 +1,12 @@
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
+import { resolve } from 'path';
 import { dataSourceOptions } from '../data-source';
 import { rbacSeed } from './index';
 import { run as expenseCategoriesSeed } from '../../expenses/seeds/expense-categories.seed';
 import { run as notificationTemplatesSeed } from '../../notifications/seeds/notifications-templates.seed';
 
-config();
+config({ path: resolve(__dirname, '../../../../.env') });
 
 async function main(): Promise<void> {
   const dataSource = new DataSource(dataSourceOptions);
