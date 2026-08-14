@@ -5,6 +5,7 @@ import { Permission } from '../../auth/entities/permission.entity';
 import { RolePermission } from '../../auth/entities/role-permission.entity';
 import { User } from '../../auth/entities/user.entity';
 import { UserRole } from '../../auth/entities/user-role.entity';
+import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
 
 const RESOURCES = ['users', 'teams', 'projects', 'timesheets', 'absences', 'expenses'] as const;
 const ACTIONS = ['create', 'read', 'update', 'delete', 'approve'] as const;
@@ -69,6 +70,7 @@ export async function run(dataSource: DataSource): Promise<void> {
   const rolePermissionRepo = dataSource.getRepository(RolePermission);
   const userRepo = dataSource.getRepository(User);
   const userRoleRepo = dataSource.getRepository(UserRole);
+  const employeeRepo = dataSource.getRepository(Employee);
 
   const existingRoles = await roleRepo.find();
   if (existingRoles.length > 0) {
@@ -159,5 +161,21 @@ export async function run(dataSource: DataSource): Promise<void> {
         }),
       );
     }
+  }
+
+  const existingAdminEmployee = await employeeRepo.findOneBy({ id: adminUser.id });
+  if (!existingAdminEmployee) {
+    await employeeRepo.save(
+      employeeRepo.create({
+        id: adminUser.id,
+        userId: adminUser.id,
+        employeeNumber: 'ADM-001',
+        firstName: 'Admin',
+        lastName: 'System',
+        email: 'admin@hr-suite.local',
+        status: EmployeeStatus.ACTIVE,
+        employmentStartDate: '2020-01-01',
+      }),
+    );
   }
 }
