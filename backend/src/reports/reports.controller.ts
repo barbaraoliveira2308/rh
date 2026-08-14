@@ -233,6 +233,17 @@ export class ReportsController {
     return this.reportsService.findJob(jobId);
   }
 
+  @Get('jobs/:jobId/download')
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
+  @ApiOperation({ summary: 'Download do relatório de um job concluído (transmitido pelo backend)' })
+  @HttpCode(HttpStatus.OK)
+  async downloadJob(@Param('jobId') jobId: string, @Res() res: Response): Promise<void> {
+    const file = await this.reportsService.getJobFile(jobId);
+    res.setHeader('Content-Disposition', 'attachment; filename="' + file.filename + '"');
+    res.setHeader('Content-Type', file.contentType);
+    file.stream.pipe(res);
+  }
+
   @Get('schedules')
   @Roles(RoleEnum.ADMIN)
   @ApiOperation({ summary: 'Listar relatórios agendados' })

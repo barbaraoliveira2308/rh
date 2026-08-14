@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { Readable } from 'stream';
 import {
   S3Client,
   PutObjectCommand,
@@ -7,6 +8,11 @@ import {
   GetObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+
+export interface StorageObjectStream {
+  body: Readable;
+  contentType?: string;
+}
 
 @Injectable()
 export class StorageService {
@@ -47,6 +53,20 @@ export class StorageService {
       }),
       { expiresIn },
     );
+  }
+
+  async getObjectStream(key: string): Promise<StorageObjectStream> {
+    const response = await this.s3.send(
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+      }),
+    );
+
+    return {
+      body: response.Body as Readable,
+      contentType: response.ContentType,
+    };
   }
 
   async delete(key: string): Promise<void> {

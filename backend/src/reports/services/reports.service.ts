@@ -20,6 +20,8 @@ import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
 import { Contract, ContractStatus } from '../../contracts/entities/contract.entity';
 import { AuditLog } from '../../audit/entities/audit-log.entity';
 import { ReportsRabbitmqService } from './reports-rabbitmq.service';
+import { StorageService } from '../../storage/services/storage.service';
+import type { Readable } from 'stream';
 
 const WORKING_HOURS_PER_MONTH = 168;
 const ASYNC_THRESHOLD = 1000;
@@ -38,6 +40,7 @@ export class ReportsService {
     private readonly dataSource: DataSource,
     private readonly exporters: ReportExportersService,
     private readonly rabbitmq: ReportsRabbitmqService,
+    private readonly storage: StorageService,
   ) {}
 
   async generateReport(
@@ -67,10 +70,54 @@ export class ReportsService {
     reportType: ReportType,
     filters: Record<string, unknown>,
     format: ReportFormat,
-  ): Promise<Buffer> {
+  ): Promise<{ buffer: Buffer; rowCount: number }> {
     const rows = await this.fetchRows(reportType, filters);
     const columns = this.getColumns(reportType);
-    return this.exportBuffer(rows, columns, reportType, format);
+    const buffer = await this.exportBuffer(rows, columns, reportType, format);
+    return { buffer, rowCount: rows.length };
+  }
+
+  async persistJobResult(
+    jobId: string,
+    reportType: ReportType,
+    format: ReportFormat,
+    buffer: Buffer,
+  ): Promise<string> {
+    const filename = this.buildFilename(reportType, format);
+    const key = 'reports/' + jobId + '/' + filename;
+    await this.storage.upload(key, buffer, this.contentTypeForFormat(format));
+    return key;
+  }
+
+  async getJobFile(
+    jobId: string,
+  ): Promise<{ stream: Readable; contentType: string; filename: string }> {
+    const job = await this.findJob(jobId);
+
+    if (job.status !== ReportJobStatus.COMPLETED || !job.resultUrl) {
+      throw new BadRequestException('Relatório ainda não está pronto para download');
+    }
+
+    const object = await this.storage.getObjectStream(job.resultUrl);
+    const filename = job.resultUrl.split('/').pop() ?? jobId + '.' + job.format;
+
+    return {
+      stream: object.body,
+      contentType: object.contentType ?? this.contentTypeForFormat(job.format as ReportFormat),
+      filename,
+    };
+  }
+
+  contentTypeForFormat(format: ReportFormat): string {
+    if (format === ReportFormat.XLSX) {
+      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    }
+
+    if (format === ReportFormat.PDF) {
+      return 'application/pdf';
+    }
+
+    return 'application/json';
   }
 
   async fetchRows(

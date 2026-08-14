@@ -19,6 +19,7 @@ import {
   Calendar,
   BookOpen,
   GraduationCap,
+  FileBarChart,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -47,11 +48,12 @@ const navItems: NavItem[] = [
   { label: 'Helpdesk', href: '/helpdesk', icon: <LifeBuoy className="h-4 w-4" /> },
   { label: 'Políticas', href: '/policies', icon: <BookOpen className="h-4 w-4" /> },
   { label: 'Formação', href: '/training', icon: <GraduationCap className="h-4 w-4" /> },
+  { label: 'Relatórios', href: '/reports', icon: <FileBarChart className="h-4 w-4" /> },
   { label: 'Administração', href: '/admin/settings', icon: <Settings className="h-4 w-4" /> },
 ];
 
 const adminOnlyRoutes = ['/analytics/financials', '/admin/settings'];
-const managerOrAdminRoutes = ['/capacity'];
+const managerOrAdminRoutes = ['/capacity', '/reports'];
 
 export function AppLayout(): React.JSX.Element {
   const { sidebarOpen, toggleSidebar } = useUiStore();

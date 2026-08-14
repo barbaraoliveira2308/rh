@@ -1,9 +1,11 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ReportsService } from './reports.service';
 import { ReportExportersService } from './report-exporters.service';
 import { ReportsRabbitmqService } from './reports-rabbitmq.service';
+import { StorageService } from '../../storage/services/storage.service';
 import { ReportJob } from '../entities/report-job.entity';
 import { ReportType } from '../entities/report-type.enum';
 import { ReportFormat } from '../entities/report-format.enum';
@@ -53,6 +55,13 @@ const mockRabbitmq = {
   publishReportJob: jest.fn().mockResolvedValue(undefined),
 };
 
+const mockStorage = {
+  upload: jest.fn().mockResolvedValue('reports/job-1/audit-123.json'),
+  getObjectStream: jest
+    .fn()
+    .mockResolvedValue({ body: 'fake-stream', contentType: 'application/pdf' }),
+};
+
 describe('ReportsService', () => {
   let service: ReportsService;
 
@@ -64,6 +73,7 @@ describe('ReportsService', () => {
         { provide: DataSource, useValue: mockDataSource },
         { provide: ReportExportersService, useValue: mockExporter },
         { provide: ReportsRabbitmqService, useValue: mockRabbitmq },
+        { provide: StorageService, useValue: mockStorage },
       ],
     }).compile();
 
@@ -95,5 +105,61 @@ describe('ReportsService', () => {
 
     expect(result.jobId).toBe('job-1');
     expect(mockRabbitmq.publishReportJob).toHaveBeenCalled();
+  });
+
+  it('should return buffer and row count from generateBuffer', async () => {
+    const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+    jest.spyOn(service, 'fetchRows').mockResolvedValue(rows);
+
+    const result = await service.generateBuffer(ReportType.AUDIT, {}, ReportFormat.XLSX);
+
+    expect(result.buffer).toEqual(Buffer.from('xlsx'));
+    expect(result.rowCount).toBe(3);
+  });
+
+  it('should upload the buffer to storage and return the storage key', async () => {
+    const key = await service.persistJobResult(
+      'job-1',
+      ReportType.AUDIT,
+      ReportFormat.PDF,
+      Buffer.from('pdf'),
+    );
+
+    expect(mockStorage.upload).toHaveBeenCalledWith(
+      expect.stringContaining('reports/job-1/'),
+      Buffer.from('pdf'),
+      'application/pdf',
+    );
+    expect(key).toContain('reports/job-1/');
+  });
+
+  it('should return a file stream for a completed job', async () => {
+    mockRepository.findOne.mockResolvedValue(
+      Object.assign(new ReportJob(), {
+        id: 'job-1',
+        status: ReportJobStatus.COMPLETED,
+        format: ReportFormat.PDF,
+        resultUrl: 'reports/job-1/audit-123.pdf',
+      }),
+    );
+
+    const file = await service.getJobFile('job-1');
+
+    expect(file.filename).toBe('audit-123.pdf');
+    expect(file.contentType).toBe('application/pdf');
+    expect(file.stream).toBe('fake-stream');
+    expect(mockStorage.getObjectStream).toHaveBeenCalledWith('reports/job-1/audit-123.pdf');
+  });
+
+  it('should reject download for a job that is not completed', async () => {
+    mockRepository.findOne.mockResolvedValue(
+      Object.assign(new ReportJob(), {
+        id: 'job-1',
+        status: ReportJobStatus.PENDING,
+        resultUrl: null,
+      }),
+    );
+
+    await expect(service.getJobFile('job-1')).rejects.toThrow(BadRequestException);
   });
 });

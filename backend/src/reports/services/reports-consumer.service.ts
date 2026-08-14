@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { ReportsRabbitmqService, ReportJobMessage } from './reports-rabbitmq.service';
 import { ReportsService } from './reports.service';
 import { ScheduledReportsService } from './scheduled-reports.service';
@@ -9,7 +9,7 @@ import { ScheduledReport } from '../entities/scheduled-report.entity';
 import { ReportJobStatus } from '../entities/report-job-status.enum';
 
 @Injectable()
-export class ReportsConsumerService implements OnModuleInit {
+export class ReportsConsumerService implements OnApplicationBootstrap {
   private readonly logger = new Logger(ReportsConsumerService.name);
 
   constructor(
@@ -22,7 +22,7 @@ export class ReportsConsumerService implements OnModuleInit {
     private readonly scheduledRepository: Repository<ScheduledReport>,
   ) {}
 
-  onModuleInit(): void {
+  onApplicationBootstrap(): void {
     void this.rabbitmq.consume(async (message) => this.handleMessage(message));
   }
 
@@ -32,10 +32,17 @@ export class ReportsConsumerService implements OnModuleInit {
     await this.reportsService.updateJobStatus(message.jobId, ReportJobStatus.PROCESSING);
 
     try {
-      const buffer = await this.reportsService.generateBuffer(
+      const { buffer, rowCount } = await this.reportsService.generateBuffer(
         message.reportType,
         message.filters,
         message.format,
+      );
+
+      const resultUrl = await this.reportsService.persistJobResult(
+        message.jobId,
+        message.reportType,
+        message.format,
+        buffer,
       );
 
       const job = await this.jobRepository.findOne({ where: { id: message.jobId } });
@@ -57,7 +64,8 @@ export class ReportsConsumerService implements OnModuleInit {
       }
 
       await this.reportsService.updateJobStatus(message.jobId, ReportJobStatus.COMPLETED, {
-        rowCount: 0,
+        resultUrl,
+        rowCount,
       });
     } catch (error) {
       this.logger.error(
