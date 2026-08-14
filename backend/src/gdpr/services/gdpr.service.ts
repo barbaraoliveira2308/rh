@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, LessThan } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Cron } from '@nestjs/schedule';
 import * as nodemailer from 'nodemailer';
 import { ConsentRecord } from '../entities/consent-record.entity';
 import { DataSubjectRequest } from '../entities/data-subject-request.entity';
@@ -20,6 +21,8 @@ import { RecordConsentDto } from '../dto/record-consent.dto';
 import { CreateDataRequestDto } from '../dto/create-data-request.dto';
 import { CreateRetentionPolicyDto } from '../dto/create-retention-policy.dto';
 import { ReportIncidentDto } from '../dto/report-incident.dto';
+import { UpdateIncidentDto } from '../dto/update-incident.dto';
+import { UpdateRetentionPolicyDto } from '../dto/update-retention-policy.dto';
 import { ConsentGrantedEvent } from '../events/consent-granted.event';
 import { ConsentRevokedEvent } from '../events/consent-revoked.event';
 import { DataSubjectRequestCreatedEvent } from '../events/data-subject-request-created.event';
@@ -217,6 +220,20 @@ export class GdprService {
     });
   }
 
+  async rejectRequest(requestId: string, notes: string): Promise<DataSubjectRequest> {
+    const request = await this.requestRepository.findOne({ where: { id: requestId } });
+
+    if (!request) {
+      throw new NotFoundException('Pedido não encontrado');
+    }
+
+    request.status = DataSubjectRequestStatus.REJECTED;
+    request.completedAt = new Date();
+    request.responseNotes = notes;
+
+    return this.requestRepository.save(request);
+  }
+
   async anonymizeEmployee(
     employeeId: string,
     triggeredBy: 'request' | 'retention' | 'admin' = 'admin',
@@ -274,6 +291,7 @@ export class GdprService {
     return saved;
   }
 
+  @Cron('0 3 1 * *')
   async runRetentionPolicies(): Promise<number> {
     const policies = await this.retentionRepository.find({
       where: { isActive: true },
@@ -354,6 +372,28 @@ export class GdprService {
     return this.incidentRepository.find({ order: { detectedAt: 'DESC' } });
   }
 
+  async updateIncident(id: string, dto: UpdateIncidentDto): Promise<SecurityIncident> {
+    const incident = await this.incidentRepository.findOne({ where: { id } });
+
+    if (!incident) {
+      throw new NotFoundException('Incidente não encontrado');
+    }
+
+    if (dto.status !== undefined) {
+      incident.status = dto.status;
+    }
+
+    if (dto.resolutionNotes !== undefined) {
+      incident.resolutionNotes = dto.resolutionNotes;
+    }
+
+    if (dto.reportedToAuthorityAt !== undefined) {
+      incident.reportedToAuthorityAt = new Date(dto.reportedToAuthorityAt);
+    }
+
+    return this.incidentRepository.save(incident);
+  }
+
   async createRetentionPolicy(dto: CreateRetentionPolicyDto): Promise<RetentionPolicy> {
     const policy = this.retentionRepository.create({
       dataCategory: dto.dataCategory,
@@ -368,6 +408,18 @@ export class GdprService {
 
   async findRetentionPolicies(): Promise<RetentionPolicy[]> {
     return this.retentionRepository.find({ order: { createdAt: 'DESC' } });
+  }
+
+  async updateRetentionPolicy(id: string, dto: UpdateRetentionPolicyDto): Promise<RetentionPolicy> {
+    const policy = await this.retentionRepository.findOne({ where: { id } });
+
+    if (!policy) {
+      throw new NotFoundException('Política de retenção não encontrada');
+    }
+
+    policy.isActive = dto.isActive;
+
+    return this.retentionRepository.save(policy);
   }
 
   async getComplianceReport(): Promise<Record<string, unknown>> {

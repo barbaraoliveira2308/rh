@@ -20,6 +20,7 @@ import {
   BookOpen,
   GraduationCap,
   FileBarChart,
+  ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,7 @@ const navItems: NavItem[] = [
   { label: 'Políticas', href: '/policies', icon: <BookOpen className="h-4 w-4" /> },
   { label: 'Formação', href: '/training', icon: <GraduationCap className="h-4 w-4" /> },
   { label: 'Relatórios', href: '/reports', icon: <FileBarChart className="h-4 w-4" /> },
+  { label: 'Privacidade', href: '/gdpr', icon: <ShieldCheck className="h-4 w-4" /> },
   { label: 'Administração', href: '/admin/settings', icon: <Settings className="h-4 w-4" /> },
 ];
 

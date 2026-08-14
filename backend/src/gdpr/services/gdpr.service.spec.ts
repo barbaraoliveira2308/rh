@@ -5,8 +5,10 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { GdprService } from './gdpr.service';
 import { ConsentRecord } from '../entities/consent-record.entity';
 import { DataSubjectRequest } from '../entities/data-subject-request.entity';
+import { DataSubjectRequestStatus } from '../entities/data-subject-request-status.enum';
 import { RetentionPolicy } from '../entities/retention-policy.entity';
 import { SecurityIncident } from '../entities/security-incident.entity';
+import { SecurityIncidentStatus } from '../entities/security-incident-status.enum';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
 import { User } from '../../auth/entities/user.entity';
 import { AuditLog } from '../../audit/entities/audit-log.entity';
@@ -41,6 +43,9 @@ describe('GdprService', () => {
   let employeeRepository: ReturnType<typeof createMockRepository>;
   let userRepository: ReturnType<typeof createMockRepository>;
   let auditLogRepository: ReturnType<typeof createMockRepository>;
+  let requestRepository: ReturnType<typeof createMockRepository>;
+  let incidentRepository: ReturnType<typeof createMockRepository>;
+  let retentionRepository: ReturnType<typeof createMockRepository>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -62,6 +67,9 @@ describe('GdprService', () => {
     employeeRepository = module.get(getRepositoryToken(Employee));
     userRepository = module.get(getRepositoryToken(User));
     auditLogRepository = module.get(getRepositoryToken(AuditLog));
+    requestRepository = module.get(getRepositoryToken(DataSubjectRequest));
+    incidentRepository = module.get(getRepositoryToken(SecurityIncident));
+    retentionRepository = module.get(getRepositoryToken(RetentionPolicy));
 
     jest.clearAllMocks();
   });
@@ -145,5 +153,71 @@ describe('GdprService', () => {
     const count = await testService.runRetentionPolicies();
 
     expect(count).toBe(0);
+  });
+
+  it('should reject a pending request with notes', async () => {
+    const request = new DataSubjectRequest();
+    request.id = 'req-1';
+    request.status = DataSubjectRequestStatus.PENDING;
+
+    requestRepository.findOne.mockResolvedValue(request);
+
+    const result = await service.rejectRequest('req-1', 'Sem fundamento legal');
+
+    expect(result.status).toBe(DataSubjectRequestStatus.REJECTED);
+    expect(result.responseNotes).toBe('Sem fundamento legal');
+    expect(result.completedAt).toBeInstanceOf(Date);
+  });
+
+  it('should throw when rejecting an unknown request', async () => {
+    requestRepository.findOne.mockResolvedValue(null);
+
+    await expect(service.rejectRequest('unknown', 'notes')).rejects.toThrow(
+      'Pedido não encontrado',
+    );
+  });
+
+  it('should update a security incident status and resolution notes', async () => {
+    const incident = new SecurityIncident();
+    incident.id = 'inc-1';
+    incident.status = SecurityIncidentStatus.OPEN;
+
+    incidentRepository.findOne.mockResolvedValue(incident);
+
+    const result = await service.updateIncident('inc-1', {
+      status: SecurityIncidentStatus.RESOLVED,
+      resolutionNotes: 'Corrigido',
+    });
+
+    expect(result.status).toBe(SecurityIncidentStatus.RESOLVED);
+    expect(result.resolutionNotes).toBe('Corrigido');
+  });
+
+  it('should throw when updating an unknown incident', async () => {
+    incidentRepository.findOne.mockResolvedValue(null);
+
+    await expect(service.updateIncident('unknown', { resolutionNotes: 'x' })).rejects.toThrow(
+      'Incidente não encontrado',
+    );
+  });
+
+  it('should toggle a retention policy active flag', async () => {
+    const policy = new RetentionPolicy();
+    policy.id = 'pol-1';
+    policy.isActive = true;
+
+    retentionRepository.findOne.mockResolvedValue(policy);
+
+    const result = await service.updateRetentionPolicy('pol-1', { isActive: false });
+
+    expect(result.isActive).toBe(false);
+  });
+
+  it('should throw when updating an unknown retention policy', async () => {
+    retentionRepository.findOne.mockResolvedValue(null);
+
+    await expect(service.updateRetentionPolicy('unknown', { isActive: false })).rejects.toThrow(
+      'Política de retenção não encontrada',
+    );
   });
 });

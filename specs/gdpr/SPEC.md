@@ -252,6 +252,28 @@ Feature: Conformidade GDPR
 
 ---
 
+## Notas de Implementação (P-018 backend, P-040 backend fixes + frontend)
+
+**Desvios face a este documento confirmados em P-040 (implementação real desde P-018):**
+
+- Prefixo de rota real é `/api/gdpr/...`, consistente com o resto do backend.
+- O relatório de conformidade (`GET /gdpr/reports/compliance`) não devolve os 6 relatórios detalhados descritos na secção "Relatórios de Conformidade" acima — devolve um objeto plano com 6 contadores agregados (`activeConsents`, `pendingRequests`, `overdueRequests`, `openIncidents`, `criticalIncidentsPendingAuthority`, `activeRetentionPolicies`). O frontend (P-040) foi construído como um dashboard sobre estes contadores, não como um seletor dos 6 relatórios da spec (decisão do utilizador P040-03).
+- 3 dos 8 eventos listados na secção "Eventos do Sistema" nunca são emitidos: `DataSubjectRequestCompleted`, `SecurityIncidentEscalated`, `PersonalDataExported`. Não corrigido nesta fase — não há nenhuma funcionalidade de UI que dependa deles.
+- A matriz de permissões acima mostra Gestor/Aprovador como ❌ para todas as ações; a implementação real usa uma verificação `ensureSelfOrAdmin` nas 3 rotas de self-service (consentimentos e submissão de pedidos), pelo que Gestor/Aprovador têm o mesmo acesso "aos próprios dados" que um Colaborador, não um ❌ absoluto. Comportamento considerado razoável e mantido tal como está.
+
+**Correções de backend em P-040 (aprovadas pelo utilizador, exceto a última):**
+
+- **Bug corrigido sem pedir aprovação separada** (confirmado por inspeção de código, mesmo padrão exato de `TrainingController.ensureSelfOrAdmin()` corrigido em P038-01): `GdprController`'s `RequestWithUser` interface declarava `user?: { sub: string; role: RoleEnum }` (singular), mas o `JwtPayload` real usa `roles: string[]` (array) — `user.role` era sempre `undefined`, pelo que nenhum admin conseguia consultar/gerir consentimentos de outro colaborador nem submeter um pedido de titular em nome de outro através das 3 rotas self-service (`GET /gdpr/consents/:employeeId`, `POST /gdpr/consents/:employeeId/revoke`, `POST /gdpr/requests`) — só o auto-serviço funcionava. Corrigido para `user.roles.includes(RoleEnum.ADMIN)`. Confirmado por teste manual (admin a consultar/gerir dados de outro colaborador via `curl`, antes 403, depois 200/201).
+- **RF-GDPR-005/BR-GDPR-007 (decisão P040-01, "corrigir agora")**: `GdprService.runRetentionPolicies()` existia desde P-018 mas nunca estava ligado a nenhum agendador (`@Cron`) — o `PROJECT_STATE.md` afirmava incorretamente que existia um cron mensal. Adicionado `@Cron('0 3 1 * *')` (dia 1 de cada mês, 3h) ao método, mesmo padrão de outros crons do projeto (Contracts, Timesheets, Calendar).
+- **Endpoints em falta (decisão P040-02, "adicionar agora")**: adicionados `PATCH /gdpr/incidents/:id` (`UpdateIncidentDto`: `status`, `resolutionNotes`, `reportedToAuthorityAt`), `PATCH /gdpr/retention-policies/:id` (`UpdateRetentionPolicyDto`: `isActive`) e `PATCH /gdpr/requests/:id/reject` (`RejectRequestDto`: `notes`, obrigatório) — sem estes, a UI de admin não tinha forma de fechar o ciclo de vida de incidentes (UC-GDPR-004: "após resolução: registar notas e arquivar"), desativar uma política de retenção, ou rejeitar um pedido de titular que não seja processado automaticamente (retificação/limitação/oposição).
+- 6 novos testes unitários em `gdpr.service.spec.ts` (194/194 total, antes 188/188).
+
+## Frontend (P-040)
+
+Nova `frontend/src/pages/GdprPage.tsx` na rota `/gdpr`, item "Privacidade" na sidebar sem restrição de papel (mesmo padrão de Helpdesk/Calendar/Políticas/Formação — self-service para todos, gestão restrita a admin dentro da página) — escolhido pelo utilizador entre os módulos com backend pronto e frontend em falta (GDPR/Notificações, decisão P040-00). Seis abas: "Os Meus Dados" (todos — consentimentos próprios com revogação, submissão de pedido de titular com os 6 tipos, resultado mostrado de imediato incl. dados exportados para acesso/portabilidade) e, só admin, "Consentimentos" (por colaborador selecionado, registar/revogar), "Pedidos de Titulares" (lista global, completar/rejeitar), "Retenção" (criar política, ativar/desativar), "Incidentes" (registar, geridos via diálogo com estado/notas/reporte à CNPD) e "Conformidade" (dashboard de cards sobre os 6 contadores de `GET /gdpr/reports/compliance`).
+
+Novos `frontend/src/types/gdpr.ts` e `frontend/src/api/gdpr.api.ts`. `pnpm run lint` (0 erros) e `pnpm run build` (raiz) green; 194/194 testes unitários do backend. **Verificação em browser real completa via Playwright contra a stack Docker completa**: submissão de pedido de retificação próprio, admin a consultar e registar consentimento para outro colaborador (Bruno Costa, confirmando a correção do bug `user.role`→`user.roles`), criação e desativação de política de retenção, criação e resolução de incidente (com notas), conclusão de pedido de titular pendente, dashboard de conformidade a refletir corretamente todas as ações — 0 erros de consola em todos os passos.
+
 ## Questões em Aberto
 
 | ID         | Questão                                                                               | Prioridade |

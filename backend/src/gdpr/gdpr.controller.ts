@@ -20,6 +20,9 @@ import { CreateDataRequestDto } from './dto/create-data-request.dto';
 import { CompleteRequestDto } from './dto/complete-request.dto';
 import { CreateRetentionPolicyDto } from './dto/create-retention-policy.dto';
 import { ReportIncidentDto } from './dto/report-incident.dto';
+import { UpdateIncidentDto } from './dto/update-incident.dto';
+import { UpdateRetentionPolicyDto } from './dto/update-retention-policy.dto';
+import { RejectRequestDto } from './dto/reject-request.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../rbac/guards/roles.guard';
 import { Roles } from '../rbac/decorators/roles.decorator';
@@ -30,7 +33,7 @@ import { RetentionPolicy } from './entities/retention-policy.entity';
 import { SecurityIncident } from './entities/security-incident.entity';
 
 interface RequestWithUser extends Request {
-  user?: { sub: string; role: RoleEnum };
+  user?: { sub: string; roles: string[] };
 }
 
 @ApiTags('GDPR')
@@ -101,6 +104,16 @@ export class GdprController {
     return this.gdprService.completeRequest(id, dto.notes);
   }
 
+  @Patch('requests/:id/reject')
+  @Roles(RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Rejeitar pedido de titular' })
+  async rejectRequest(
+    @Param('id') id: string,
+    @Body() dto: RejectRequestDto,
+  ): Promise<DataSubjectRequest> {
+    return this.gdprService.rejectRequest(id, dto.notes);
+  }
+
   @Get('retention-policies')
   @Roles(RoleEnum.ADMIN)
   @ApiOperation({ summary: 'Listar políticas de retenção' })
@@ -114,6 +127,16 @@ export class GdprController {
   @ApiOperation({ summary: 'Criar política de retenção' })
   async createRetentionPolicy(@Body() dto: CreateRetentionPolicyDto): Promise<RetentionPolicy> {
     return this.gdprService.createRetentionPolicy(dto);
+  }
+
+  @Patch('retention-policies/:id')
+  @Roles(RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Ativar/desativar política de retenção' })
+  async updateRetentionPolicy(
+    @Param('id') id: string,
+    @Body() dto: UpdateRetentionPolicyDto,
+  ): Promise<RetentionPolicy> {
+    return this.gdprService.updateRetentionPolicy(id, dto);
   }
 
   @Get('incidents')
@@ -131,6 +154,16 @@ export class GdprController {
     return this.gdprService.reportIncident(dto);
   }
 
+  @Patch('incidents/:id')
+  @Roles(RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Atualizar incidente de segurança (estado, notas de resolução)' })
+  async updateIncident(
+    @Param('id') id: string,
+    @Body() dto: UpdateIncidentDto,
+  ): Promise<SecurityIncident> {
+    return this.gdprService.updateIncident(id, dto);
+  }
+
   @Get('reports/compliance')
   @Roles(RoleEnum.ADMIN)
   @ApiOperation({ summary: 'Relatório de conformidade GDPR' })
@@ -145,7 +178,7 @@ export class GdprController {
       throw new ForbiddenException('Utilizador não autenticado');
     }
 
-    if (user.role === RoleEnum.ADMIN) {
+    if (user.roles.includes(RoleEnum.ADMIN)) {
       return;
     }
 
