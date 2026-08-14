@@ -30,3 +30,5 @@
    - `no-unnecessary-type-conversion` (remove `Number()` redundante em valores já numéricos)
    - Dependências de tipos em falta (ex: `@types/*`) e instala se necessário
    - Unsafe member access em tipos que o TypeScript não consegue resolver
+
+10. Mantém o ficheiro `RESUME_PROMPT.md` atualizado sempre que o estado do projeto mudar (nova fase concluída, spec promovida de Draft a Implemented, novo gap ou falha conhecida descoberta) — não apenas quando pedido explicitamente. Atualiza a secção 2 (última fase concluída, contagem de módulos, falhas pré-existentes conhecidas), a secção 3 (lista de candidatos à próxima fase — remove itens resolvidos, acrescenta gaps novos) e o número de fase sugerido na secção 4. Isto faz parte das Ações de Fecho de cada sessão, tal como a atualização do `PROJECT_STATE.md` (regra 6).
