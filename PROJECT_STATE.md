@@ -1,7 +1,7 @@
 # Project State
 
-**Current Phase:** P-025 Documentação OpenAPI e README (100% complete)
-**Last Updated:** 2026-07-09
+**Current Phase:** P-026 Processo de Auditoria (100% complete)
+**Last Updated:** 2026-08-14
 
 ## Phase History
 
@@ -31,6 +31,7 @@
 | P-024     | 00-01 | 2026-07-09 | Backend integration/e2e tests: Fluxo 1 — timesheets full workflow (create collaborator, project, allocation, period, fill, submit, approve, verify notification); Fluxo 2 — absences flow (submit leave request, verify balance decremented, verify absence reflected in timesheet); Fluxo 3 — GDPR erasure (create collaborator with full data, submit erasure request, verify anonymization, verify statistical data preserved); all using manual DataSource with synchronize/dropSchema + rbacSeed + supertest                                                                                                           |
 | P-024     | 00-02 | 2026-07-09 | Frontend Playwright e2e tests: login (valid/invalid/redirect), timesheet (submit/bulk-approve), absence (create), upload (file input); playwright.config.ts with headless:true (per user decision P024-01); CI workflow with postgres/redis services, lint/build, backend e2e, frontend e2e; backend .env.test; lint and build green                                                                                                                                                                                                                                                                                        |
 | P-025     | 00-01 | 2026-07-09 | Swagger/OpenAPI completo: tags por módulo (21 tags), Bearer Auth configurado, @ApiProperty() em todos os DTOs (26 ficheiros atualizados), export openapi.json para /docs/openapi.json, endpoint GET /api/docs condicional (dev/staging apenas, per P025-01); README.md (visão geral, pré-requisitos, quickstart, variáveis de ambiente documentadas, estrutura monorepo, troubleshooting); CONTRIBUTING.md (branches, commits convencionais, checklist novo módulo, testes); docs/ARCHITECTURE.md (diagramas Mermaid de componentes, sequência auth, ER simplificado, 15 ADRs); specs atualizadas; lint e build green       |
+| P-026     | 00-01 | 2026-08-14 | docs/AUDIT_PROCESS.md: processo de auditoria faseado (8 fases — âmbito, auth/RBAC, RGPD, integridade de dados, trilha de auditoria, infraestrutura/segredos, qualidade de código, relatório final), convenção de severidade com prazos, modelo de registo de finding; scripts/generate-secrets.sh para gerar JWT_SECRET/JWT_REFRESH_SECRET/MFA_ENCRYPTION_KEY/POSTGRES_PASSWORD/STORAGE_ACCESS_KEY/STORAGE_SECRET_KEY via openssl; README.md e AUDIT_PROCESS.md atualizados com referência ao script                                                                                                                              |
 
 ## Decisions
 
@@ -64,6 +65,8 @@
 | P023-01 | Fixed layout for dashboard v1 (no draggable widgets)        | Lower complexity, no persistence required                                      |
 | P024-01 | Playwright always headless in CI and local                  | Ensures reliable headless Chrome runs on any environment                       |
 | P025-01 | Swagger apenas em dev e staging (não em produção)           | Rota /api/docs indisponível em produção por segurança                          |
+| P026-01 | Auditoria completa em 8 fases sequenciais (0-7)             | Cada fase parte do resultado da anterior; findings Críticos bloqueiam a fase   |
+| P026-02 | MFA_ENCRYPTION_KEY não deve ser rodado sem aviso prévio     | Rotação torna ilegíveis os secrets TOTP já cifrados; obriga a reconfigurar MFA |
 
 ## Current State
 
@@ -143,6 +146,9 @@
 - P-024: Frontend Playwright e2e tests — `login.spec.ts`, `timesheet.spec.ts`, `absence.spec.ts`, `upload.spec.ts`; `playwright.config.ts` with headless:true; `backend/.env.test` with test DB config; `.github/workflows/ci.yml` with lint, backend e2e, frontend e2e jobs; `@playwright/test` installed, Chromium downloaded; lint and frontend build green
 - P-025: Swagger/OpenAPI — `main.ts` with conditional docs (dev/staging only), 21 module tags, bearer auth, description with link to specs, version 1.0, export to `docs/openapi.json`; `@ApiProperty()`/`@ApiPropertyOptional()` added to 26 DTO files across training, helpdesk, gdpr, calendar, policies, reports, analytics modules; analytics response DTOs converted from interfaces to classes; lint and both builds green
 - P-025: Documentation files — `README.md` (overview, prerequisites, quickstart, env vars table, monorepo structure, useful links, troubleshooting); `CONTRIBUTING.md` (branch flow, conventional commits, new module checklist, test commands, CI); `docs/ARCHITECTURE.md` (Mermaid component/sequence/ER diagrams, 15 ADRs); `specs/README.md` and `specs/global-tasks-risks.md` updated; lint and builds green
+- P-026: `docs/AUDIT_PROCESS.md` — phased audit process (Fases 0-7: âmbito, auth/RBAC, RGPD, integridade de dados, trilha de auditoria, infraestrutura/segredos, qualidade de código, relatório final), each phase grounded in real files/entities (`JwtAuthGuard`, `EncryptionService`, `AuditInterceptor`, etc.); severity/deadline table; reusable finding template
+- P-026: `scripts/generate-secrets.sh` — generates `JWT_SECRET`, `JWT_REFRESH_SECRET`, `MFA_ENCRYPTION_KEY`, `POSTGRES_PASSWORD`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY` via `openssl`; env-ready output on stdout, warnings (incl. MFA key rotation caveat) on stderr; executable, tested
+- P-026: `README.md` links to `docs/AUDIT_PROCESS.md` and references the secrets script in the env vars section
 
 ### In Progress
 
