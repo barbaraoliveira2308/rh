@@ -14,6 +14,7 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
 import { AbsencesService } from './services/absences.service';
+import { AbsenceType } from './entities/absence-type.entity';
 import { AbsenceRequest } from './entities/absence-request.entity';
 import { LeaveBalance } from './entities/leave-balance.entity';
 import { AbsenceStatus } from './entities/absence-status.enum';
@@ -69,6 +70,22 @@ export class AbsencesController {
   async create(@Body() dto: CreateAbsenceDto, @Req() req: Request): Promise<AbsenceRequest> {
     const user = req.user as JwtPayload;
     return this.absencesService.create(dto, user.sub);
+  }
+
+  @Get('absences/types')
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
+  @ApiOperation({ summary: 'Listar tipos de ausência ativos' })
+  @HttpCode(HttpStatus.OK)
+  async findTypes(): Promise<AbsenceType[]> {
+    return this.absencesService.findTypes();
+  }
+
+  @Get('absences/calendar')
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
+  @ApiOperation({ summary: 'Calendário de ausências da equipa' })
+  @HttpCode(HttpStatus.OK)
+  async getCalendar(@Query('month') _month: string): Promise<AbsenceRequest[]> {
+    return this.absencesService.findAll({ status: AbsenceStatus.APPROVED });
   }
 
   @Get('absences/:id')
@@ -171,13 +188,5 @@ export class AbsencesController {
 
     const targetYear = year ?? new Date().getFullYear();
     return this.absencesService.getLeaveBalance(employeeId, targetYear);
-  }
-
-  @Get('absences/calendar')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
-  @ApiOperation({ summary: 'Calendário de ausências da equipa' })
-  @HttpCode(HttpStatus.OK)
-  async getCalendar(@Query('month') _month: string): Promise<AbsenceRequest[]> {
-    return this.absencesService.findAll({ status: AbsenceStatus.APPROVED });
   }
 }

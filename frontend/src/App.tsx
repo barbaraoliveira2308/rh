@@ -80,6 +80,9 @@ const CapacityPage = React.lazy(() =>
 const HelpdeskListPage = React.lazy(() =>
   import('@/pages/HelpdeskListPage').then((m) => ({ default: m.HelpdeskListPage })),
 );
+const CalendarPage = React.lazy(() =>
+  import('@/pages/CalendarPage').then((m) => ({ default: m.CalendarPage })),
+);
 const TicketDetailPage = React.lazy(() =>
   import('@/pages/TicketDetailPage').then((m) => ({ default: m.TicketDetailPage })),
 );
@@ -157,6 +160,7 @@ export function App(): React.JSX.Element {
                 <Route path="/capacity" element={<CapacityPage />} />
                 <Route path="/helpdesk" element={<HelpdeskListPage />} />
                 <Route path="/helpdesk/:id" element={<TicketDetailPage />} />
+                <Route path="/calendar" element={<CalendarPage />} />
               </Route>
 
               <Route path="*" element={<NotFoundPage />} />

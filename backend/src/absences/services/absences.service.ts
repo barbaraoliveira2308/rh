@@ -40,6 +40,10 @@ export class AbsencesService {
     private readonly calendarService: CalendarService,
   ) {}
 
+  async findTypes(): Promise<AbsenceType[]> {
+    return this.typeRepository.find({ where: { isActive: true }, order: { name: 'ASC' } });
+  }
+
   async create(dto: CreateAbsenceDto, employeeId: string): Promise<AbsenceRequest> {
     const employee = await this.employeeRepository.findOne({
       where: { id: employeeId },

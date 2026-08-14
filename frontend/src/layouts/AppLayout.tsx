@@ -16,6 +16,7 @@ import {
   Settings,
   Gauge,
   LifeBuoy,
+  Calendar,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -36,6 +37,7 @@ const navItems: NavItem[] = [
   { label: 'Projetos', href: '/projects', icon: <FolderKanban className="h-4 w-4" /> },
   { label: 'Timesheets', href: '/timesheets', icon: <Clock className="h-4 w-4" /> },
   { label: 'Ausências', href: '/absences', icon: <CalendarDays className="h-4 w-4" /> },
+  { label: 'Calendário', href: '/calendar', icon: <Calendar className="h-4 w-4" /> },
   { label: 'Caixa de Entrada', href: '/workflow/inbox', icon: <Inbox className="h-4 w-4" /> },
   { label: 'Despesas', href: '/expenses', icon: <Wallet className="h-4 w-4" /> },
   { label: 'Financeiro', href: '/analytics/financials', icon: <BarChart3 className="h-4 w-4" /> },

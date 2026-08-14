@@ -75,6 +75,14 @@ export class CalendarController {
     return this.calendarService.createHoliday(dto);
   }
 
+  @Get('calendar/events')
+  @Roles(RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Listar todos os eventos de empresa' })
+  @HttpCode(HttpStatus.OK)
+  async findEvents(): Promise<CompanyEvent[]> {
+    return this.calendarService.findCompanyEvents();
+  }
+
   @Post('calendar/events')
   @Roles(RoleEnum.ADMIN)
   @ApiOperation({ summary: 'Criar evento de empresa' })
@@ -116,6 +124,14 @@ export class CalendarController {
   ): Promise<BlockedPeriod> {
     const user = req.user as JwtPayload;
     return this.calendarService.createBlockedPeriod(dto, user.sub);
+  }
+
+  @Get('calendar/blocked-periods')
+  @Roles(RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Listar períodos bloqueados' })
+  @HttpCode(HttpStatus.OK)
+  async findBlockedPeriods(): Promise<BlockedPeriod[]> {
+    return this.calendarService.findBlockedPeriods();
   }
 
   @Delete('calendar/blocked-periods/:id')

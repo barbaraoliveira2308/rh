@@ -5,6 +5,7 @@ import { dataSourceOptions } from '../data-source';
 import { rbacSeed } from './index';
 import { run as expenseCategoriesSeed } from '../../expenses/seeds/expense-categories.seed';
 import { run as notificationTemplatesSeed } from '../../notifications/seeds/notifications-templates.seed';
+import { runAbsenceTypesSeed } from '../../absences/absences.seed';
 
 config({ path: resolve(__dirname, '../../../../.env') });
 
@@ -29,6 +30,12 @@ async function main(): Promise<void> {
   await notificationTemplatesSeed(dataSource);
   // eslint-disable-next-line no-console
   console.log('Notification templates seed completed.');
+
+  // eslint-disable-next-line no-console
+  console.log('Running absence types seed...');
+  await runAbsenceTypesSeed(dataSource);
+  // eslint-disable-next-line no-console
+  console.log('Absence types seed completed.');
 
   await dataSource.destroy();
 }

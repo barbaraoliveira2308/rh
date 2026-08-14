@@ -135,6 +135,20 @@ describe('AbsencesService', () => {
     service = module.get<AbsencesService>(AbsencesService);
   });
 
+  describe('findTypes', () => {
+    it('deve devolver apenas tipos de ausência ativos, ordenados por nome', async () => {
+      mockTypeRepo.find.mockResolvedValue([mockSickType, mockVacationType]);
+
+      const result = await service.findTypes();
+
+      expect(mockTypeRepo.find).toHaveBeenCalledWith({
+        where: { isActive: true },
+        order: { name: 'ASC' },
+      });
+      expect(result).toEqual([mockSickType, mockVacationType]);
+    });
+  });
+
   describe('create', () => {
     const validDto = {
       absenceTypeId: 'type-1',
