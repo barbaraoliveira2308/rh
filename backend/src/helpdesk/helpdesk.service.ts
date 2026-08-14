@@ -202,6 +202,14 @@ export class HelpdeskService {
     return this.ticketRepository.save(ticket);
   }
 
+  async findComments(ticketId: string, includeInternal: boolean): Promise<TicketComment[]> {
+    await this.findOne(ticketId);
+    return this.commentRepository.find({
+      where: includeInternal ? { ticketId } : { ticketId, isInternal: false },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
   async findCategories(): Promise<TicketCategory[]> {
     return this.categoryRepository.find({ order: { name: 'ASC' } });
   }

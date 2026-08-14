@@ -26,6 +26,7 @@ describe('HelpdeskService', () => {
     mockCommentRepo = {
       create: jest.fn((data: Partial<TicketComment>) => data),
       save: jest.fn((data: Partial<TicketComment>) => Promise.resolve(data)),
+      find: jest.fn(),
     };
     mockSlaRepo = {
       create: jest.fn((data: Partial<TicketSla>) => data),
@@ -110,6 +111,36 @@ describe('HelpdeskService', () => {
 
       const result = await service.addComment('t-1', 'user-1', { text: 'Ainda em prazo' });
       expect(result.text).toBe('Ainda em prazo');
+    });
+  });
+
+  describe('findComments — visibilidade de comentários internos', () => {
+    beforeEach(() => {
+      mockTicketRepo.findOne.mockResolvedValue({ id: 't-1', status: TicketStatus.OPEN });
+    });
+
+    it('deve excluir comentários internos quando o requisitante não é agente/admin', async () => {
+      await service.findComments('t-1', false);
+
+      expect(mockCommentRepo.find).toHaveBeenCalledWith({
+        where: { ticketId: 't-1', isInternal: false },
+        order: { createdAt: 'ASC' },
+      });
+    });
+
+    it('deve incluir comentários internos quando o requisitante é agente/admin', async () => {
+      await service.findComments('t-1', true);
+
+      expect(mockCommentRepo.find).toHaveBeenCalledWith({
+        where: { ticketId: 't-1' },
+        order: { createdAt: 'ASC' },
+      });
+    });
+
+    it('deve lançar NotFoundException se o ticket não existir', async () => {
+      mockTicketRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.findComments('missing', true)).rejects.toThrow('Ticket não encontrado');
     });
   });
 });

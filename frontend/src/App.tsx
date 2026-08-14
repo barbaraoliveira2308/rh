@@ -77,6 +77,12 @@ const AdminSettingsPage = React.lazy(() =>
 const CapacityPage = React.lazy(() =>
   import('@/pages/CapacityPage').then((m) => ({ default: m.CapacityPage })),
 );
+const HelpdeskListPage = React.lazy(() =>
+  import('@/pages/HelpdeskListPage').then((m) => ({ default: m.HelpdeskListPage })),
+);
+const TicketDetailPage = React.lazy(() =>
+  import('@/pages/TicketDetailPage').then((m) => ({ default: m.TicketDetailPage })),
+);
 const NotFoundPage = React.lazy(() =>
   import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 );
@@ -149,6 +155,8 @@ export function App(): React.JSX.Element {
                 <Route path="/expenses/new" element={<ExpenseNewPage />} />
                 <Route path="/admin/settings" element={<AdminSettingsPage />} />
                 <Route path="/capacity" element={<CapacityPage />} />
+                <Route path="/helpdesk" element={<HelpdeskListPage />} />
+                <Route path="/helpdesk/:id" element={<TicketDetailPage />} />
               </Route>
 
               <Route path="*" element={<NotFoundPage />} />

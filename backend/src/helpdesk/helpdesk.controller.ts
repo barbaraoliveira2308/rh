@@ -73,6 +73,15 @@ export class HelpdeskController {
     return this.helpdeskService.update(id, dto);
   }
 
+  @Get('tickets/:id/comments')
+  @ApiOperation({ summary: 'Listar comentários de um ticket' })
+  async findComments(@Param('id') id: string, @Req() req: Request) {
+    const user = req.user as JwtPayload;
+    const isAgentOrAdmin =
+      user.roles.includes(RoleEnum.ADMIN) || user.roles.includes(RoleEnum.MANAGER);
+    return this.helpdeskService.findComments(id, isAgentOrAdmin);
+  }
+
   @Post('tickets/:id/comments')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Adicionar comentário a ticket' })

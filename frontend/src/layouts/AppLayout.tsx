@@ -15,6 +15,7 @@ import {
   BarChart3,
   Settings,
   Gauge,
+  LifeBuoy,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,7 @@ const navItems: NavItem[] = [
   { label: 'Despesas', href: '/expenses', icon: <Wallet className="h-4 w-4" /> },
   { label: 'Financeiro', href: '/analytics/financials', icon: <BarChart3 className="h-4 w-4" /> },
   { label: 'Capacidade', href: '/capacity', icon: <Gauge className="h-4 w-4" /> },
+  { label: 'Helpdesk', href: '/helpdesk', icon: <LifeBuoy className="h-4 w-4" /> },
   { label: 'Administração', href: '/admin/settings', icon: <Settings className="h-4 w-4" /> },
 ];
 
