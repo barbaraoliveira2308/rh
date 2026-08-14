@@ -116,7 +116,14 @@ export class HelpdeskService {
   async update(id: string, dto: UpdateTicketDto): Promise<Ticket> {
     const ticket = await this.findOne(id);
     if (ticket.status === TicketStatus.CLOSED) {
-      throw new BadRequestException('Não é possível alterar um ticket fechado');
+      const isReopening = dto.status !== undefined && dto.status !== TicketStatus.CLOSED;
+      if (!isReopening) {
+        throw new BadRequestException('Não é possível alterar um ticket fechado');
+      }
+      if (this.daysSinceClosed(ticket) > 7) {
+        throw new BadRequestException('Não é possível reabrir um ticket fechado há mais de 7 dias');
+      }
+      ticket.resolvedAt = null;
     }
     Object.assign(ticket, {
       title: dto.title ?? ticket.title,
@@ -128,6 +135,11 @@ export class HelpdeskService {
       status: dto.status ?? ticket.status,
     });
     return this.ticketRepository.save(ticket);
+  }
+
+  private daysSinceClosed(ticket: Ticket): number {
+    const closedTime = ticket.resolvedAt ?? ticket.updatedAt;
+    return (Date.now() - new Date(closedTime).getTime()) / (1000 * 3600 * 24);
   }
 
   async assign(ticketId: string, dto: AssignTicketDto): Promise<Ticket> {
@@ -144,14 +156,10 @@ export class HelpdeskService {
 
   async addComment(ticketId: string, userId: string, dto: AddCommentDto): Promise<TicketComment> {
     const ticket = await this.findOne(ticketId);
-    if (ticket.status === TicketStatus.CLOSED) {
-      const closedTime = ticket.resolvedAt ?? ticket.updatedAt;
-      const daysSinceClosed = (Date.now() - new Date(closedTime).getTime()) / (1000 * 3600 * 24);
-      if (daysSinceClosed > 7) {
-        throw new BadRequestException(
-          'Ticket fechado há mais de 7 dias não pode receber comentários',
-        );
-      }
+    if (ticket.status === TicketStatus.CLOSED && this.daysSinceClosed(ticket) > 7) {
+      throw new BadRequestException(
+        'Ticket fechado há mais de 7 dias não pode receber comentários',
+      );
     }
     const comment = this.commentRepository.create({
       ticketId,
