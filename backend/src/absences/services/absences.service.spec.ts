@@ -514,12 +514,15 @@ describe('AbsencesService', () => {
   });
 
   describe('cancel', () => {
+    const isoDaysFromNow = (days: number): string =>
+      new Date(Date.now() + days * 24 * 3600 * 1000).toISOString().split('T')[0];
+
     const mockPendingRequest = {
       id: 'req-1',
       employeeId: 'emp-1',
       absenceTypeId: 'type-1',
-      startDate: '2026-08-01',
-      endDate: '2026-08-03',
+      startDate: isoDaysFromNow(10),
+      endDate: isoDaysFromNow(12),
       totalDays: 3,
       totalHours: 24,
       status: AbsenceStatus.PENDING,
@@ -533,8 +536,8 @@ describe('AbsencesService', () => {
     });
 
     const mockApprovedPastRequest = Object.assign({}, mockPendingRequest, {
-      startDate: '2026-07-01',
-      endDate: '2026-07-03',
+      startDate: isoDaysFromNow(-10),
+      endDate: isoDaysFromNow(-8),
       status: AbsenceStatus.APPROVED,
     });
 

@@ -53,6 +53,8 @@
 | —     | Promoção specs Draft Policies (#17) e Helpdesk (#19) para Implemented; correção BR-HD-004 | Concluido |
 | —     | Módulo Capacidade & Alocação (#06): backend/src/capacity/, BR-CAP-004 implementada        | Concluido |
 | —     | Módulo Administração do Sistema (#23): backend/src/admin/, settings + entidades legais    | Concluido |
+| —     | Reforço de testes: AuthService, RbacService, AuditService, PoliciesService (0→52 testes)  | Concluido |
+| —     | Correção da falha pré-existente em absences.service.spec.ts (data hardcoded no passado)   | Concluido |
 
 ## Riscos
 
@@ -79,3 +81,5 @@
 | P029-02 | `GET /admin/metrics` — Prometheus real ou stub simples, dado que Prometheus/Grafana nunca foram implantados na infra?                                                                          | Prometheus real via `prom-client` (`collectDefaultMetrics`), sem exigir infra Prometheus/Grafana implantada                                               |
 | P029-03 | Modelo de armazenamento dos ~16 parâmetros de Admin Settings                                                                                                                                   | Entidade tipada de linha única (`SystemSetting`), consistente com o padrão de entidades tipadas dos outros módulos, em vez de tabela key-value genérica   |
 | P029-04 | Entidades Legais — catálogo standalone ou ligadas a Employee/Contract/Client via `legal_entity_id`?                                                                                            | Catálogo standalone (`LegalEntity`); Employee/Contract/Client não alterados (regra 4)                                                                     |
+| P030-01 | Prioridade para reforço de testes: serviços críticos sem testes, todos os serviços sem testes, ampliar suites finas, ou só corrigir a falha pré-existente?                                     | Serviços críticos sem nenhum teste: AuthService, RbacService, AuditService, PoliciesService                                                               |
+| P030-02 | Corrigir também a falha pré-existente em `absences.service.spec.ts` nesta sessão?                                                                                                              | Sim — `startDate`/`endDate` do teste `cancel` passam a ser calculados relativamente a `Date.now()`                                                        |
