@@ -22,6 +22,7 @@ import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { PoliciesService } from './policies.service';
 import { CreatePolicyDto } from './dto/create-policy.dto';
 import { UpdatePolicyDto } from './dto/update-policy.dto';
+import { PolicyStatus } from './entities/policy-status.enum';
 
 @ApiTags('Policies')
 @Controller('policies')
@@ -31,11 +32,21 @@ export class PoliciesController {
   constructor(private readonly policiesService: PoliciesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Listar políticas publicadas' })
+  @ApiOperation({
+    summary: 'Listar políticas publicadas (admin pode filtrar por estado, incl. rascunhos)',
+  })
   @ApiQuery({ name: 'q', required: false })
   @ApiQuery({ name: 'category', required: false })
-  async findAll(@Query('q') q?: string, @Query('category') category?: string) {
-    return this.policiesService.findAll(q, category);
+  @ApiQuery({ name: 'status', required: false, enum: PolicyStatus })
+  async findAll(
+    @Req() req: Request,
+    @Query('q') q?: string,
+    @Query('category') category?: string,
+    @Query('status') status?: PolicyStatus,
+  ) {
+    const user = req.user as JwtPayload;
+    const isAdmin = user.roles.includes(RoleEnum.ADMIN);
+    return this.policiesService.findAll(q, category, status, isAdmin);
   }
 
   @Get(':id')

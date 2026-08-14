@@ -63,6 +63,7 @@
 | —     | GET /helpdesk/tickets/:id/comments (endpoint em falta, necessário para a UI de comentários)                                                  | Concluido |
 | —     | Correção do gap de seed do admin (R-034): `Employee` para admin@hr-suite.local passa a ser criado por `rbacSeed`                             | Concluido |
 | —     | UI do módulo Calendário Organizacional (#13): `CalendarPage` (vista mensal, feriados, eventos, bloqueios, ausência rápida)                   | Concluido |
+| —     | UI do módulo Políticas Internas (#17): `PoliciesListPage` (publicadas/rascunhos/arquivadas), `PolicyDetailPage` (versionamento)              | Concluido |
 
 ## Riscos
 
@@ -103,3 +104,4 @@
 | P036-02 | `GET /absences/types` não existia — `GET /absences/:id` capturava "types" como UUID inválido (500), afetando também `/absences/new` desde P-022                                                                                                             | Adicionar `AbsencesService.findTypes()` + `GET /absences/types`, registado antes de `GET /absences/:id` para não repetir o problema de ordenação de rotas                                               |
 | P036-03 | Seed `runAbsenceTypesSeed` existia mas nunca fora ligado a `runner.ts` — tabela `absence_types` vazia mesmo após corrigir o endpoint                                                                                                                        | Ligar ao `runner.ts` e correr o seed na BD de desenvolvimento (10 tipos)                                                                                                                                |
 | P036-04 | Bug de ordenação de rotas em `AbsencesController` (`GET absences/:id` capturava `absences/calendar`) confirmado a quebrar a página `/absences` em runtime — corrigir agora ou documentar para fase futura                                                   | Corrigir agora — `getCalendar()` movido para antes de `findOne()`, sem alteração de lógica; ver `R-035`                                                                                                 |
+| P037-01 | `PoliciesService.findAll()` só listava políticas publicadas, sem forma de gerir rascunhos numa UI de admin — estender o filtro ou manter como está                                                                                                          | Estender `findAll()` com `status`/`isAdmin` (verificação sempre no servidor via JWT), permitindo abas admin "Rascunhos"/"Arquivadas"                                                                    |

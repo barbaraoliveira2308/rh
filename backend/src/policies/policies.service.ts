@@ -26,10 +26,16 @@ export class PoliciesService {
     return this.policyRepository.save(policy);
   }
 
-  async findAll(q?: string, category?: string): Promise<Policy[]> {
+  async findAll(
+    q?: string,
+    category?: string,
+    status?: PolicyStatus,
+    isAdmin = false,
+  ): Promise<Policy[]> {
+    const effectiveStatus = isAdmin && status ? status : PolicyStatus.PUBLISHED;
     const query = this.policyRepository
       .createQueryBuilder('p')
-      .where('p.status = :status', { status: PolicyStatus.PUBLISHED });
+      .where('p.status = :status', { status: effectiveStatus });
 
     if (q?.trim()) {
       query.andWhere(

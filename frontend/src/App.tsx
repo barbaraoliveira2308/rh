@@ -83,6 +83,12 @@ const HelpdeskListPage = React.lazy(() =>
 const CalendarPage = React.lazy(() =>
   import('@/pages/CalendarPage').then((m) => ({ default: m.CalendarPage })),
 );
+const PoliciesListPage = React.lazy(() =>
+  import('@/pages/PoliciesListPage').then((m) => ({ default: m.PoliciesListPage })),
+);
+const PolicyDetailPage = React.lazy(() =>
+  import('@/pages/PolicyDetailPage').then((m) => ({ default: m.PolicyDetailPage })),
+);
 const TicketDetailPage = React.lazy(() =>
   import('@/pages/TicketDetailPage').then((m) => ({ default: m.TicketDetailPage })),
 );
@@ -161,6 +167,8 @@ export function App(): React.JSX.Element {
                 <Route path="/helpdesk" element={<HelpdeskListPage />} />
                 <Route path="/helpdesk/:id" element={<TicketDetailPage />} />
                 <Route path="/calendar" element={<CalendarPage />} />
+                <Route path="/policies" element={<PoliciesListPage />} />
+                <Route path="/policies/:id" element={<PolicyDetailPage />} />
               </Route>
 
               <Route path="*" element={<NotFoundPage />} />

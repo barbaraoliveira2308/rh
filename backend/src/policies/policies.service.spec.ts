@@ -88,6 +88,30 @@ describe('PoliciesService', () => {
         expect.anything(),
       );
     });
+
+    it('ignora o filtro de estado quando o requisitante não é admin', async () => {
+      await service.findAll(undefined, undefined, PolicyStatus.DRAFT, false);
+
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('p.status = :status', {
+        status: PolicyStatus.PUBLISHED,
+      });
+    });
+
+    it('permite ao admin filtrar por estado (ex. rascunhos)', async () => {
+      await service.findAll(undefined, undefined, PolicyStatus.DRAFT, true);
+
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('p.status = :status', {
+        status: PolicyStatus.DRAFT,
+      });
+    });
+
+    it('admin sem estado indicado continua a ver só publicadas', async () => {
+      await service.findAll(undefined, undefined, undefined, true);
+
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('p.status = :status', {
+        status: PolicyStatus.PUBLISHED,
+      });
+    });
   });
 
   describe('findOne', () => {

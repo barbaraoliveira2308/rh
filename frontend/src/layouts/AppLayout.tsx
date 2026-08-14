@@ -17,6 +17,7 @@ import {
   Gauge,
   LifeBuoy,
   Calendar,
+  BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,7 @@ const navItems: NavItem[] = [
   { label: 'Financeiro', href: '/analytics/financials', icon: <BarChart3 className="h-4 w-4" /> },
   { label: 'Capacidade', href: '/capacity', icon: <Gauge className="h-4 w-4" /> },
   { label: 'Helpdesk', href: '/helpdesk', icon: <LifeBuoy className="h-4 w-4" /> },
+  { label: 'Políticas', href: '/policies', icon: <BookOpen className="h-4 w-4" /> },
   { label: 'Administração', href: '/admin/settings', icon: <Settings className="h-4 w-4" /> },
 ];
 
