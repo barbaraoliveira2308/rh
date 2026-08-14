@@ -13,29 +13,31 @@
 ## 2. Estado atual (resumo — confirmar sempre contra o `PROJECT_STATE.md`)
 
 - Stack: NestJS + React 18 + TypeORM + PostgreSQL, monorepo pnpm (`backend/`, `frontend/`, `shared/`).
-- Última fase concluída: **P-028** (módulo dedicado Capacidade & Alocação, `backend/src/capacity/`, com BR-CAP-004 implementada).
-- 22 dos 23 módulos da spec (`specs/README.md`) implementados no backend — falta apenas **#23 Administração do Sistema** (`admin`, Draft, sem `backend/src/admin/`).
+- Última fase concluída: **P-029** (módulo Administração do Sistema, `backend/src/admin/`, settings + entidades legais + health/metrics).
+- **23 dos 23 módulos** da spec (`specs/README.md`) agora `Implemented` no backend — nenhum módulo em `Draft`.
+- Settings (`SystemSetting`) e `LegalEntity` são apenas armazenados via CRUD em Admin — nenhum módulo existente (Auth, Capacity, Absences, Timesheets, Contracts/Projects, Documents) os lê em runtime (decisão P029-01); valores hardcoded existentes (ex. `CapacityService.UNDERALLOCATION_THRESHOLD_PERCENTAGE`) mantêm-se.
 - Frontend com UI própria apenas para: auth, users/org-chart, projects/allocations, timesheets, absences, expenses, dashboard, financial dashboard, workflow inbox.
 - Testes e2e (backend Jest + frontend Playwright) e CI (`ci.yml`: lint, backend e2e, frontend e2e) a correr verdes.
-- **Falha pré-existente conhecida (não bloqueia o resto):** `backend/src/absences/services/absences.service.spec.ts`, teste `cancel` — usa `startDate: '2026-08-01'` como data "futura" (escrito em 2026-07-08); passou a estar no passado e o teste falha desde meados de agosto de 2026. Não relacionado com P-027/P-028; por corrigir quando o módulo Ausências for revisitado.
+- **Falha pré-existente conhecida (não bloqueia o resto):** `backend/src/absences/services/absences.service.spec.ts`, teste `cancel` — usa `startDate: '2026-08-01'` como data "futura" (escrito em 2026-07-08); passou a estar no passado e o teste falha desde meados de agosto de 2026. Não relacionado com P-029; por corrigir quando o módulo Ausências for revisitado.
 
 ## 3. O que falta — candidatos à próxima fase
 
 Não escolhas por conta própria; usa esta lista para apresentar opções ao utilizador (ver secção 4).
 
-- **Spec em `Draft`**: apenas `admin` (#23 — "Administração do Sistema" nunca chegou a ser implementado, não existe `backend/src/admin/`). `capacity` (#06), `policies` (#17) e `helpdesk` (#19) já foram promovidas a `Implemented` em P-027/P-028.
-- **Frontend em falta** para módulos com backend pronto: GDPR (consentimentos, pedidos de titular), Training (cursos, avaliações, matriz 9-box), Helpdesk (tickets), Policies (políticas internas), Calendar, Reports (agendamento/download), Capacity (overview/alerts/calendar — endpoints prontos desde P-028, sem página; decisão P028-03 deixou o Gantt só como dados), página dedicada de Notificações (hoje só existe o sino/badge na sidebar).
+- **Todas as specs estão `Implemented`** — não há módulo de backend em falta. Próximas fases são sobre frontend, segurança/infra ou qualidade, não sobre novos módulos de spec.
+- **Frontend em falta** para módulos com backend pronto: GDPR (consentimentos, pedidos de titular), Training (cursos, avaliações, matriz 9-box), Helpdesk (tickets), Policies (políticas internas), Calendar, Reports (agendamento/download), Capacity (overview/alerts/calendar — endpoints prontos desde P-028, sem página; decisão P028-03 deixou o Gantt só como dados), Admin (settings e entidades legais — endpoints prontos desde P-029, sem página), página dedicada de Notificações (hoje só existe o sino/badge na sidebar).
 - **Gap de segurança identificado na Fase 5 do `AUDIT_PROCESS.md`**: sem Dependabot/Renovate nem scanning automático de dependências configurado no CI.
 - **Cobertura de testes**: vários módulos (analytics, gdpr, training, entre outros) têm apenas "testes básicos" — ver `PROJECT_STATE.md` para a lista exata. Ver também a falha pré-existente em Ausências referida na secção 2.
+- **Wiring de Admin Settings** (deixado fora do âmbito em P-029, decisão P029-01): se algum dia for pedido, os módulos Auth/Capacity/Absences/Timesheets/Contracts-Projects/Documents teriam de ser revisitados para lerem `SystemSetting` em vez dos valores fixos atuais — âmbito maior, envolve refactor de módulos já testados.
 
 ## 4. Antes de avançar
 
 Por regra 2 e 3 do `AGENTS.md`: não decidas sozinho qual destes itens atacar a seguir. Pergunta ao utilizador, no formato da regra 7:
 
 ```
-QUESTÃO [ID]: Qual deve ser o foco desta sessão — implementar o módulo Admin (#23), construir frontend em falta, fechar o gap de scanning de dependências, reforçar testes, ou outra prioridade?
+QUESTÃO [ID]: Qual deve ser o foco desta sessão — construir frontend em falta, fechar o gap de scanning de dependências, reforçar testes, ligar Admin Settings ao runtime dos módulos existentes, ou outra prioridade?
 Opções sugeridas: [lista acima]
-Impacto: define o módulo/spec a abrir e o número de fase seguinte (P-029)
+Impacto: define a área a trabalhar e o número de fase seguinte (P-030)
 ```
 
 Só depois de teres resposta é que abres a spec correspondente e começas a implementar.

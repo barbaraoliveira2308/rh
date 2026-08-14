@@ -1,0 +1,76 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import * as client from 'prom-client';
+import { SystemSetting } from './entities/system-setting.entity';
+import { LegalEntity } from './entities/legal-entity.entity';
+import { UpdateSystemSettingsDto } from './dto/update-system-settings.dto';
+import { CreateLegalEntityDto } from './dto/create-legal-entity.dto';
+import { UpdateLegalEntityDto } from './dto/update-legal-entity.dto';
+
+@Injectable()
+export class AdminService {
+  private readonly registry: client.Registry;
+
+  constructor(
+    @InjectRepository(SystemSetting)
+    private readonly settingsRepository: Repository<SystemSetting>,
+    @InjectRepository(LegalEntity)
+    private readonly legalEntityRepository: Repository<LegalEntity>,
+  ) {
+    this.registry = new client.Registry();
+    client.collectDefaultMetrics({ register: this.registry });
+  }
+
+  async getSettings(): Promise<SystemSetting> {
+    const settings = await this.settingsRepository.find({ order: { updatedAt: 'ASC' }, take: 1 });
+    if (settings.length === 0) {
+      throw new NotFoundException('Configurações do sistema não inicializadas');
+    }
+    return settings[0];
+  }
+
+  async updateSettings(dto: UpdateSystemSettingsDto): Promise<SystemSetting> {
+    const settings = await this.getSettings();
+    Object.assign(settings, dto);
+    return this.settingsRepository.save(settings);
+  }
+
+  async findLegalEntities(): Promise<LegalEntity[]> {
+    return this.legalEntityRepository.find({ order: { name: 'ASC' } });
+  }
+
+  async createLegalEntity(dto: CreateLegalEntityDto): Promise<LegalEntity> {
+    const entity = this.legalEntityRepository.create({
+      name: dto.name,
+      nif: dto.nif ?? null,
+      country: dto.country,
+      currency: dto.currency,
+      calendarProfileCountryCode: dto.calendarProfileCountryCode,
+      vacationDaysPerYearOverride: dto.vacationDaysPerYearOverride ?? null,
+      isActive: dto.isActive ?? true,
+    });
+    return this.legalEntityRepository.save(entity);
+  }
+
+  async updateLegalEntity(id: string, dto: UpdateLegalEntityDto): Promise<LegalEntity> {
+    const entity = await this.legalEntityRepository.findOne({ where: { id } });
+    if (!entity) {
+      throw new NotFoundException(`Entidade legal ${id} não encontrada`);
+    }
+    Object.assign(entity, dto);
+    return this.legalEntityRepository.save(entity);
+  }
+
+  health(): { status: string; timestamp: string } {
+    return { status: 'ok', timestamp: new Date().toISOString() };
+  }
+
+  async metrics(): Promise<string> {
+    return this.registry.metrics();
+  }
+
+  metricsContentType(): string {
+    return this.registry.contentType;
+  }
+}

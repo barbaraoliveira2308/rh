@@ -64,6 +64,7 @@ async function bootstrap(): Promise<void> {
       .addTag('Notifications', 'Notificações in-app e preferências')
       .addTag('Workflow', 'Caixa de entrada e aprovações')
       .addTag('Audit', 'Auditoria e logs de ações')
+      .addTag('Admin', 'Configurações globais, entidades legais, health e métricas')
       .build();
 
     const document = SwaggerModule.createDocument(app, swaggerConfig);

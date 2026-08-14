@@ -29,6 +29,7 @@ import { TrainingModule } from './training/training.module';
 import { PoliciesModule } from './policies/policies.module';
 import { HelpdeskModule } from './helpdesk/helpdesk.module';
 import { StorageModule } from './storage/storage.module';
+import { AdminModule } from './admin/admin.module';
 import { dataSourceOptions } from './database/data-source';
 
 @Module({
@@ -64,6 +65,7 @@ import { dataSourceOptions } from './database/data-source';
     TrainingModule,
     PoliciesModule,
     HelpdeskModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],
