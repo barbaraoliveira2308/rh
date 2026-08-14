@@ -58,6 +58,7 @@
 | —     | UI do módulo Administração do Sistema (#23): AdminSettingsPage, settings + entidades legais | Concluido |
 | —     | UI do módulo Capacidade & Alocação (#06): CapacityPage, visão geral + alertas + calendário  | Concluido |
 | —     | Correção de 3 gaps de infra pré-existentes em docker-compose.dev.yml/vite.config.ts         | Concluido |
+| —     | Verificação em browser real (dados reais): AdminSettingsPage (P-031) e CapacityPage (P-032) | Concluido |
 
 ## Riscos
 
@@ -89,3 +90,4 @@
 | P031-01 | Foco da sessão P-031: qual módulo de frontend em falta atacar (GDPR, Training, Helpdesk, Policies, Calendar, Reports, Capacity, Admin)?                                                                                                                     | Admin (Settings + Entidades Legais) — âmbito pequeno, autocontido, sem dependências de outros módulos frontend                                            |
 | P032-01 | Vista de calendário/Gantt de ocupação (RF-CAP-004) — endpoint `GET /capacity/calendar` pronto desde P-028, forma de representação por decidir                                                                                                               | Timeline simples em CSS (barras por colaborador/alocação), sem nova dependência de gráficos                                                               |
 | P032-02 | Verificação em browser bloqueada por 3 gaps de infra pré-existentes: `MFA_ENCRYPTION_KEY`/`JWT_REFRESH_SECRET` em falta no backend do compose, Vite só a escutar em `::1`, `VITE_API_BASE_URL` não corresponde à variável lida pelo código (`VITE_API_URL`) | Corrigir os 3 gaps (não específicos do Capacity) para desbloquear a validação em navegador real, em vez de repetir a limitação de P-031                   |
+| P033-01 | Foco da sessão P-033: verificar páginas pendentes, construir mais frontend, gap de scanning de dependências, ou reforço de testes                                                                                                                           | Verificar páginas pendentes (AdminSettingsPage + CapacityPage com dados reais) — fechar dívida técnica recente antes de abrir escopo novo                 |
