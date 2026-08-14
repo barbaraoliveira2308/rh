@@ -21,14 +21,12 @@ import { CompleteEnrollmentDto } from './dto/complete-enrollment.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { CreateCompetencyDto } from './dto/create-competency.dto';
+import { AssessCompetencyDto } from './dto/assess-competency.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../rbac/guards/roles.guard';
 import { Roles } from '../rbac/decorators/roles.decorator';
 import { RoleEnum } from '../rbac/enums/role.enum';
-
-interface RequestWithUser extends Request {
-  user?: { sub: string; role: RoleEnum };
-}
+import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 
 @ApiTags('Training')
 @Controller('training')
@@ -54,12 +52,8 @@ export class TrainingController {
   @Post('courses/:id/enroll')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Inscrever colaborador num curso' })
-  async enroll(
-    @Param('id') courseId: string,
-    @Body() dto: EnrollEmployeeDto,
-    @Req() req: RequestWithUser,
-  ) {
-    this.ensureSelfOrAdmin(dto.employeeId, req);
+  async enroll(@Param('id') courseId: string, @Body() dto: EnrollEmployeeDto, @Req() req: Request) {
+    this.ensureSelfOrPrivileged(dto.employeeId, req);
     return this.trainingService.enroll(dto.employeeId, courseId);
   }
 
@@ -73,8 +67,8 @@ export class TrainingController {
 
   @Get('records/:employeeId')
   @ApiOperation({ summary: 'Histórico de formação de um colaborador' })
-  async getRecords(@Param('employeeId') employeeId: string, @Req() req: RequestWithUser) {
-    this.ensureSelfOrAdmin(employeeId, req);
+  async getRecords(@Param('employeeId') employeeId: string, @Req() req: Request) {
+    this.ensureSelfOrPrivileged(employeeId, req);
     return this.trainingService.findRecordsByEmployee(employeeId);
   }
 
@@ -84,8 +78,9 @@ export class TrainingController {
   async getReviews(
     @Query('employeeId') employeeId: string,
     @Query('teamId') teamId: string,
-    @Req() req: RequestWithUser,
+    @Req() req: Request,
   ) {
+    const user = req.user as JwtPayload;
     const options: { employeeId?: string; teamId?: string } = {};
 
     if (employeeId) {
@@ -96,34 +91,33 @@ export class TrainingController {
       options.teamId = teamId;
     }
 
-    return this.trainingService.findReviews(req.user?.sub ?? '', options);
+    return this.trainingService.findReviews(user.sub, options);
   }
 
   @Post('reviews')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Criar avaliação de desempenho' })
-  async createReview(@Body() dto: CreateReviewDto, @Req() req: RequestWithUser) {
-    return this.trainingService.createReview(req.user?.sub ?? '', dto);
+  async createReview(@Body() dto: CreateReviewDto, @Req() req: Request) {
+    const user = req.user as JwtPayload;
+    return this.trainingService.createReview(user.sub, dto);
   }
 
   @Patch('reviews/:id')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
   @ApiOperation({ summary: 'Editar avaliação em rascunho' })
-  async updateReview(
-    @Param('id') id: string,
-    @Body() dto: UpdateReviewDto,
-    @Req() req: RequestWithUser,
-  ) {
-    return this.trainingService.updateReview(req.user?.sub ?? '', id, dto);
+  async updateReview(@Param('id') id: string, @Body() dto: UpdateReviewDto, @Req() req: Request) {
+    const user = req.user as JwtPayload;
+    return this.trainingService.updateReview(user.sub, id, dto);
   }
 
   @Post('reviews/:id/submit')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Submeter avaliação de desempenho' })
-  async submitReview(@Param('id') id: string, @Req() req: RequestWithUser) {
-    return this.trainingService.submitReview(req.user?.sub ?? '', id);
+  async submitReview(@Param('id') id: string, @Req() req: Request) {
+    const user = req.user as JwtPayload;
+    return this.trainingService.submitReview(user.sub, id);
   }
 
   @Get('nine-box')
@@ -154,14 +148,25 @@ export class TrainingController {
     return this.trainingService.getCompetencyMatrix(teamId);
   }
 
-  private ensureSelfOrAdmin(employeeId: string, req: RequestWithUser): void {
-    const user = req.user;
+  @Post('competencies/:employeeId/assess')
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Atribuir/atualizar o nível de uma competência a um colaborador' })
+  async assessCompetency(
+    @Param('employeeId') employeeId: string,
+    @Body() dto: AssessCompetencyDto,
+  ) {
+    return this.trainingService.assessCompetency(employeeId, dto);
+  }
+
+  private ensureSelfOrPrivileged(employeeId: string, req: Request): void {
+    const user = req.user as JwtPayload | undefined;
 
     if (!user) {
       throw new ForbiddenException('Utilizador não autenticado');
     }
 
-    if (user.role === RoleEnum.ADMIN) {
+    if (user.roles.includes(RoleEnum.ADMIN) || user.roles.includes(RoleEnum.MANAGER)) {
       return;
     }
 

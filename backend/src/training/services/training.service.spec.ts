@@ -33,6 +33,8 @@ describe('TrainingService', () => {
   let courseRepository: ReturnType<typeof createMockRepository>;
   let enrollmentRepository: ReturnType<typeof createMockRepository>;
   let employeeRepository: ReturnType<typeof createMockRepository>;
+  let competencyRepository: ReturnType<typeof createMockRepository>;
+  let employeeCompetencyRepository: ReturnType<typeof createMockRepository>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -54,6 +56,8 @@ describe('TrainingService', () => {
     courseRepository = module.get(getRepositoryToken(Course));
     enrollmentRepository = module.get(getRepositoryToken(CourseEnrollment));
     employeeRepository = module.get(getRepositoryToken(Employee));
+    competencyRepository = module.get(getRepositoryToken(Competency));
+    employeeCompetencyRepository = module.get(getRepositoryToken(EmployeeCompetency));
 
     jest.clearAllMocks();
   });
@@ -158,5 +162,75 @@ describe('TrainingService', () => {
     expect(matrix[0].performanceLevel).toBe('high');
     expect(matrix[0].potentialLevel).toBe('high');
     expect(matrix[0].box).toBe('high-high');
+  });
+
+  describe('assessCompetency', () => {
+    const employee = new Employee();
+    employee.id = 'emp-1';
+
+    const competency = new Competency();
+    competency.id = 'comp-1';
+    competency.name = 'Comunicação';
+
+    it('deve lançar erro se o colaborador não existir', async () => {
+      employeeRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.assessCompetency('emp-1', { competencyId: 'comp-1', level: 3 }),
+      ).rejects.toThrow('Colaborador não encontrado');
+    });
+
+    it('deve lançar erro se a competência não existir', async () => {
+      employeeRepository.findOne.mockResolvedValue(employee);
+      competencyRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.assessCompetency('emp-1', { competencyId: 'comp-1', level: 3 }),
+      ).rejects.toThrow('Competência não encontrada');
+    });
+
+    it('deve criar uma nova avaliação quando não existe nenhuma para o par colaborador/competência', async () => {
+      employeeRepository.findOne.mockResolvedValue(employee);
+      competencyRepository.findOne.mockResolvedValue(competency);
+      employeeCompetencyRepository.findOne.mockResolvedValue(null);
+      employeeCompetencyRepository.create.mockImplementation((data: unknown) => data);
+
+      const result = await service.assessCompetency('emp-1', {
+        competencyId: 'comp-1',
+        level: 4,
+        assessedAt: '2026-01-15',
+      });
+
+      expect(employeeCompetencyRepository.create).toHaveBeenCalledWith({
+        employeeId: 'emp-1',
+        competencyId: 'comp-1',
+        level: 4,
+        assessedAt: '2026-01-15',
+      });
+      expect(result).toEqual(
+        expect.objectContaining({ employeeId: 'emp-1', competencyId: 'comp-1', level: 4 }),
+      );
+    });
+
+    it('deve atualizar o nível de uma avaliação já existente em vez de duplicar', async () => {
+      const existing = {
+        employeeId: 'emp-1',
+        competencyId: 'comp-1',
+        level: 2,
+        assessedAt: '2025-01-01',
+      };
+      employeeRepository.findOne.mockResolvedValue(employee);
+      competencyRepository.findOne.mockResolvedValue(competency);
+      employeeCompetencyRepository.findOne.mockResolvedValue(existing);
+
+      const result = await service.assessCompetency('emp-1', {
+        competencyId: 'comp-1',
+        level: 5,
+        assessedAt: '2026-01-15',
+      });
+
+      expect(employeeCompetencyRepository.create).not.toHaveBeenCalled();
+      expect(result).toEqual(expect.objectContaining({ level: 5, assessedAt: '2026-01-15' }));
+    });
   });
 });

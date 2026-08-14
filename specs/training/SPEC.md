@@ -112,3 +112,25 @@ A matriz 9-box avalia colaboradores em dois eixos:
 | Q-TRN-001 | As avaliações de desempenho são 360 graus ou apenas top-down? | Alta       |
 | Q-TRN-002 | Os OKRs são por colaborador, equipa ou empresa?               | Alta       |
 | Q-TRN-003 | Existe integração com plataformas de e-learning (LMS)?        | Média      |
+
+## Notas de Implementação
+
+Implementado em P-019 (`backend/src/training/`), frontend em P-038.
+
+- **Âmbito não implementado**: RF-TRN-003 (importação CSV de cursos/participantes), RF-TRN-005 (OKRs como entidade própria — `objectives_next` existe apenas como campo de texto livre em `PerformanceReview`) e RF-TRN-008 (inquéritos de satisfação) não foram implementados, consistente com Q-TRN-001..003 permanecerem por resolver.
+- **`PerformanceReview.potential_rating`**: campo adicional (INT, 1–5) não listado na tabela de entidades da spec original, necessário para o eixo "Potencial" da matriz 9-box (a spec só documentava `overall_rating`).
+- **Rotas reais**: `GET/POST /training/courses`, `POST /training/courses/:id/enroll`, `POST /training/enrollments/:id/complete`, `GET /training/records/:employeeId`, `GET/POST /training/reviews`, `PATCH /training/reviews/:id`, `POST /training/reviews/:id/submit`, `GET /training/nine-box`, `GET/POST /training/competencies`, `GET /training/competencies/matrix`, `POST /training/competencies/:employeeId/assess` (nova em P-038, ver abaixo).
+- **Bug de backend corrigido em P-038** (decisão do utilizador): `TrainingController.ensureSelfOrAdmin()` verificava `req.user.role` (singular), mas o `JwtPayload` real usa `roles: string[]` (array) — `user.role` era sempre `undefined`, pelo que nenhum admin ou gestor conseguia inscrever outro colaborador (`POST /training/courses/:id/enroll`) nem ver o histórico de outro colaborador (`GET /training/records/:employeeId`); só o auto-serviço (`employeeId === user.sub`) funcionava. Renomeado para `ensureSelfOrPrivileged()`, corrigido para `user.roles.includes(RoleEnum.ADMIN) || user.roles.includes(RoleEnum.MANAGER)` — Gestor incluído porque a tabela de permissões já listava "Inscrever colaboradores: Gestor ✅" (não apenas Admin).
+- **Gap de funcionalidade corrigido em P-038** (decisão do utilizador): não existia nenhum endpoint para atribuir/atualizar o nível de uma competência a um colaborador — só havia leitura (`GET /training/competencies`, `GET /training/competencies/matrix`). Adicionado `AssessCompetencyDto`, `TrainingService.assessCompetency()` (upsert por par colaborador/competência) e `POST /training/competencies/:employeeId/assess` (`@Roles(ADMIN, MANAGER)`), tornando a Matriz de Competências utilizável.
+- **Gap conhecido, não corrigido nesta fase**: não existe nenhum endpoint para listar as inscrições (`CourseEnrollment`) em curso de um colaborador — apenas `TrainingRecord` (criado só quando `complete()` é chamado). O frontend não bloqueia a re-inscrição no cliente; o botão "Inscrever-me" fica sempre visível e o erro "já inscrito" devolvido pelo `TrainingService.enroll()` é apresentado tal e qual, em vez de o botão ficar desativado antecipadamente.
+
+## Frontend (P-038)
+
+- `frontend/src/pages/TrainingPage.tsx` (`/training`) — item "Formação" na sidebar, sem restrição de papel. Abas "Cursos" e "Meu Histórico" visíveis a todos; "Avaliações" e "9-Box" só admin/gestor (`@Roles(ADMIN, MANAGER)` dos respetivos endpoints); "Competências" visível a todos para a lista de definições, com secção "Matriz de Competências da Equipa" (incl. botão "Avaliar") só admin/gestor.
+- "Cursos": tabela com botão "Inscrever-me" por linha (`POST /training/courses/:id/enroll` com o próprio `user.id`, convenção `Employee.id = User.id`); admin cria cursos via diálogo.
+- "Meu Histórico": lista de `TrainingRecord` do próprio (`GET /training/records/:employeeId`), com pontuação e link de certificado quando existentes.
+- "Avaliações": filtro por equipa, diálogo "Nova Avaliação" (admin/gestor, colaborador escolhido de `GET /employees`), ações "Editar"/"Submeter" só visíveis quando `review.status === draft` e `review.reviewerId === user.id` (espelha a validação já existente no `TrainingService`).
+- "9-Box": grelha 3×3 (potencial × desempenho) construída em CSS puro a partir de `GET /training/nine-box?teamId=&reviewCycle=`, sem nova dependência de gráficos (mesma decisão de P032-01 para o Capacity).
+- "Competências": tabela de definições + diálogo "Nova Competência" (admin); "Matriz de Competências da Equipa" com filtro de equipa e diálogo "Avaliar" (admin/gestor, `POST /training/competencies/:employeeId/assess`).
+- 4 novos testes unitários em `training.service.spec.ts` para `assessCompetency()` (8/8 no ficheiro, 184/184 total, antes 180/180).
+- `pnpm run lint` (0 erros) e `pnpm run build` (raiz) green; verificação em browser real via Playwright contra a stack Docker completa — criação de curso, auto-inscrição, criação de avaliação de desempenho (rascunho editável/submetível pelo próprio reviewer), criação de competência, avaliação de competência persistida corretamente, 0 erros de consola em todos os passos.

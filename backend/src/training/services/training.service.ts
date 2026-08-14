@@ -21,6 +21,7 @@ import { CreateCourseDto } from '../dto/create-course.dto';
 import { CreateReviewDto } from '../dto/create-review.dto';
 import { UpdateReviewDto } from '../dto/update-review.dto';
 import { CreateCompetencyDto } from '../dto/create-competency.dto';
+import { AssessCompetencyDto } from '../dto/assess-competency.dto';
 
 export interface CompetencyMatrixItem {
   employeeId: string;
@@ -402,6 +403,46 @@ export class TrainingService {
 
   async findCompetencies(): Promise<Competency[]> {
     return this.competencyRepository.find({ order: { name: 'ASC' } });
+  }
+
+  async assessCompetency(
+    employeeId: string,
+    dto: AssessCompetencyDto,
+  ): Promise<EmployeeCompetency> {
+    const employee = await this.employeeRepository.findOne({ where: { id: employeeId } });
+
+    if (!employee) {
+      throw new NotFoundException('Colaborador não encontrado');
+    }
+
+    const competency = await this.competencyRepository.findOne({
+      where: { id: dto.competencyId },
+    });
+
+    if (!competency) {
+      throw new NotFoundException('Competência não encontrada');
+    }
+
+    const assessedAt = dto.assessedAt ?? new Date().toISOString().split('T')[0];
+
+    const existing = await this.employeeCompetencyRepository.findOne({
+      where: { employeeId, competencyId: dto.competencyId },
+    });
+
+    if (existing) {
+      existing.level = dto.level;
+      existing.assessedAt = assessedAt;
+      return this.employeeCompetencyRepository.save(existing);
+    }
+
+    const assessment = this.employeeCompetencyRepository.create({
+      employeeId,
+      competencyId: dto.competencyId,
+      level: dto.level,
+      assessedAt,
+    });
+
+    return this.employeeCompetencyRepository.save(assessment);
   }
 
   private average(values: (number | null)[]): number | null {

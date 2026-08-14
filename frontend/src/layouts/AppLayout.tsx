@@ -18,6 +18,7 @@ import {
   LifeBuoy,
   Calendar,
   BookOpen,
+  GraduationCap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,7 @@ const navItems: NavItem[] = [
   { label: 'Capacidade', href: '/capacity', icon: <Gauge className="h-4 w-4" /> },
   { label: 'Helpdesk', href: '/helpdesk', icon: <LifeBuoy className="h-4 w-4" /> },
   { label: 'Políticas', href: '/policies', icon: <BookOpen className="h-4 w-4" /> },
+  { label: 'Formação', href: '/training', icon: <GraduationCap className="h-4 w-4" /> },
   { label: 'Administração', href: '/admin/settings', icon: <Settings className="h-4 w-4" /> },
 ];
 

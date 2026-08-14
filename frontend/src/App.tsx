@@ -89,6 +89,9 @@ const PoliciesListPage = React.lazy(() =>
 const PolicyDetailPage = React.lazy(() =>
   import('@/pages/PolicyDetailPage').then((m) => ({ default: m.PolicyDetailPage })),
 );
+const TrainingPage = React.lazy(() =>
+  import('@/pages/TrainingPage').then((m) => ({ default: m.TrainingPage })),
+);
 const TicketDetailPage = React.lazy(() =>
   import('@/pages/TicketDetailPage').then((m) => ({ default: m.TicketDetailPage })),
 );
@@ -169,6 +172,7 @@ export function App(): React.JSX.Element {
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/policies" element={<PoliciesListPage />} />
                 <Route path="/policies/:id" element={<PolicyDetailPage />} />
+                <Route path="/training" element={<TrainingPage />} />
               </Route>
 
               <Route path="*" element={<NotFoundPage />} />
