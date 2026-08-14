@@ -71,6 +71,9 @@ const ExpensesListPage = React.lazy(() =>
 const ExpenseNewPage = React.lazy(() =>
   import('@/pages/ExpenseNewPage').then((m) => ({ default: m.ExpenseNewPage })),
 );
+const AdminSettingsPage = React.lazy(() =>
+  import('@/pages/AdminSettingsPage').then((m) => ({ default: m.AdminSettingsPage })),
+);
 const NotFoundPage = React.lazy(() =>
   import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 );
@@ -141,6 +144,7 @@ export function App(): React.JSX.Element {
                 <Route path="/analytics/financials" element={<FinancialDashboardPage />} />
                 <Route path="/expenses" element={<ExpensesListPage />} />
                 <Route path="/expenses/new" element={<ExpenseNewPage />} />
+                <Route path="/admin/settings" element={<AdminSettingsPage />} />
               </Route>
 
               <Route path="*" element={<NotFoundPage />} />

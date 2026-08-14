@@ -13,6 +13,7 @@ import {
   Inbox,
   Wallet,
   BarChart3,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -36,7 +37,10 @@ const navItems: NavItem[] = [
   { label: 'Caixa de Entrada', href: '/workflow/inbox', icon: <Inbox className="h-4 w-4" /> },
   { label: 'Despesas', href: '/expenses', icon: <Wallet className="h-4 w-4" /> },
   { label: 'Financeiro', href: '/analytics/financials', icon: <BarChart3 className="h-4 w-4" /> },
+  { label: 'Administração', href: '/admin/settings', icon: <Settings className="h-4 w-4" /> },
 ];
+
+const adminOnlyRoutes = ['/analytics/financials', '/admin/settings'];
 
 export function AppLayout(): React.JSX.Element {
   const { sidebarOpen, toggleSidebar } = useUiStore();
@@ -71,7 +75,7 @@ export function AppLayout(): React.JSX.Element {
         </div>
         <nav className="space-y-1 p-4">
           {navItems
-            .filter((item) => item.href !== '/analytics/financials' || isAdmin)
+            .filter((item) => !adminOnlyRoutes.includes(item.href) || isAdmin)
             .map((item) => (
               <Link
                 key={item.href}
