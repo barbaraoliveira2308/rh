@@ -20,7 +20,7 @@
    Opções sugeridas: [lista de alternativas se aplicável]
    Impacto: [o que muda consoante a resposta]
 
-8. Ao final de cada interacção, alteração ou prompt, exibe o comando para fazer commit e push no git (ex: `git add -A && git commit -m "mensagem" && git push`).
+8. Ao final de cada interacção, alteração ou prompt, faz apenas o commit no git (ex: `git add -A && git commit -m "mensagem"`). NUNCA executes `git push`. O push é sempre manual, feito pelo utilizador humano.
 
 9. Antes de propor o commit, corre o lint (`pnpm run lint`) e corrige **todos** os erros nos ficheiros que criaste ou modificaste. Verifica especificamente:
    - Imports não utilizados
