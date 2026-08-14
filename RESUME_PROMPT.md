@@ -13,28 +13,29 @@
 ## 2. Estado atual (resumo — confirmar sempre contra o `PROJECT_STATE.md`)
 
 - Stack: NestJS + React 18 + TypeORM + PostgreSQL, monorepo pnpm (`backend/`, `frontend/`, `shared/`).
-- Última fase concluída: **P-026** (processo de auditoria faseado + script de geração de segredos).
-- 23 módulos de domínio implementados no backend (auth, RBAC, users, teams, clients, contracts, documents, projects, timesheets, absences, expenses, analytics, notifications, workflow, calendar, reports, gdpr, training, policies, helpdesk, audit).
+- Última fase concluída: **P-028** (módulo dedicado Capacidade & Alocação, `backend/src/capacity/`, com BR-CAP-004 implementada).
+- 22 dos 23 módulos da spec (`specs/README.md`) implementados no backend — falta apenas **#23 Administração do Sistema** (`admin`, Draft, sem `backend/src/admin/`).
 - Frontend com UI própria apenas para: auth, users/org-chart, projects/allocations, timesheets, absences, expenses, dashboard, financial dashboard, workflow inbox.
 - Testes e2e (backend Jest + frontend Playwright) e CI (`ci.yml`: lint, backend e2e, frontend e2e) a correr verdes.
+- **Falha pré-existente conhecida (não bloqueia o resto):** `backend/src/absences/services/absences.service.spec.ts`, teste `cancel` — usa `startDate: '2026-08-01'` como data "futura" (escrito em 2026-07-08); passou a estar no passado e o teste falha desde meados de agosto de 2026. Não relacionado com P-027/P-028; por corrigir quando o módulo Ausências for revisitado.
 
 ## 3. O que falta — candidatos à próxima fase
 
 Não escolhas por conta própria; usa esta lista para apresentar opções ao utilizador (ver secção 4).
 
-- **Specs em `Draft`** (`specs/README.md`): `capacity` (#06 — nunca virou módulo dedicado, hoje disperso entre Teams/Projects), `policies` (#17), `helpdesk` (#19) — estes dois últimos têm backend implementado desde a P-020, a spec é que ficou por promover — e `admin` (#23 — "Administração do Sistema" nunca chegou a ser implementado, não existe `backend/src/admin/`).
-- **Frontend em falta** para módulos com backend pronto: GDPR (consentimentos, pedidos de titular), Training (cursos, avaliações, matriz 9-box), Helpdesk (tickets), Policies (políticas internas), Calendar, Reports (agendamento/download), página dedicada de Notificações (hoje só existe o sino/badge na sidebar).
+- **Spec em `Draft`**: apenas `admin` (#23 — "Administração do Sistema" nunca chegou a ser implementado, não existe `backend/src/admin/`). `capacity` (#06), `policies` (#17) e `helpdesk` (#19) já foram promovidas a `Implemented` em P-027/P-028.
+- **Frontend em falta** para módulos com backend pronto: GDPR (consentimentos, pedidos de titular), Training (cursos, avaliações, matriz 9-box), Helpdesk (tickets), Policies (políticas internas), Calendar, Reports (agendamento/download), Capacity (overview/alerts/calendar — endpoints prontos desde P-028, sem página; decisão P028-03 deixou o Gantt só como dados), página dedicada de Notificações (hoje só existe o sino/badge na sidebar).
 - **Gap de segurança identificado na Fase 5 do `AUDIT_PROCESS.md`**: sem Dependabot/Renovate nem scanning automático de dependências configurado no CI.
-- **Cobertura de testes**: vários módulos (analytics, gdpr, training, entre outros) têm apenas "testes básicos" — ver `PROJECT_STATE.md` para a lista exata.
+- **Cobertura de testes**: vários módulos (analytics, gdpr, training, entre outros) têm apenas "testes básicos" — ver `PROJECT_STATE.md` para a lista exata. Ver também a falha pré-existente em Ausências referida na secção 2.
 
 ## 4. Antes de avançar
 
 Por regra 2 e 3 do `AGENTS.md`: não decidas sozinho qual destes itens atacar a seguir. Pergunta ao utilizador, no formato da regra 7:
 
 ```
-QUESTÃO [ID]: Qual deve ser o foco desta sessão — completar specs em Draft, construir frontend em falta, fechar o gap de scanning de dependências, reforçar testes, ou outra prioridade?
+QUESTÃO [ID]: Qual deve ser o foco desta sessão — implementar o módulo Admin (#23), construir frontend em falta, fechar o gap de scanning de dependências, reforçar testes, ou outra prioridade?
 Opções sugeridas: [lista acima]
-Impacto: define o módulo/spec a abrir e o número de fase seguinte (P-027)
+Impacto: define o módulo/spec a abrir e o número de fase seguinte (P-029)
 ```
 
 Só depois de teres resposta é que abres a spec correspondente e começas a implementar.
@@ -47,9 +48,10 @@ Só depois de teres resposta é que abres a spec correspondente e começas a imp
 
 ## Acções de Fecho
 
-- [ ] Atualizar `PROJECT_STATE.md`: nova entrada na tabela de fases (P-027+), decisões tomadas (ID + valor + impacto), secção "Current State" e data de "Last Updated"
+- [ ] Atualizar `PROJECT_STATE.md`: nova entrada na tabela de fases (P-029+), decisões tomadas (ID + valor + impacto), secção "Current State" e data de "Last Updated"
 - [ ] Se o módulo trabalhado tinha spec em `Draft`, promover para `Implemented` em `specs/README.md` e acrescentar notas de implementação no `specs/<módulo>/spec.md`
 - [ ] Atualizar `specs/global-tasks-risks.md` se alguma tarefa/risco mudou de estado
 - [ ] Correr `pnpm run lint` e `pnpm run build` (raiz, backend, frontend) — corrigir todos os erros
+- [ ] **Atualizar este ficheiro (`RESUME_PROMPT.md`)** — secção 2 (última fase concluída, contagem de módulos, falhas pré-existentes conhecidas), secção 3 (remover itens resolvidos, acrescentar gaps novos descobertos na sessão) e o número de fase sugerido na secção 4. Fazer isto sempre que o estado do projeto mudar, não só quando pedido explicitamente.
 - [ ] `git add` + `git commit` com mensagem em Conventional Commits — **nunca `git push`**
 - [ ] Resumir ao utilizador, em poucas frases, o que foi feito e o que fica para a sessão seguinte
