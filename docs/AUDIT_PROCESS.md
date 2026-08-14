@@ -10,16 +10,16 @@ Guia interno para a equipa técnica conduzir uma auditoria completa ao sistema: 
 
 ## Como funciona
 
-O processo tem 8 fases (0–7), pensadas para correr sequencialmente — cada fase parte do resultado da anterior. Cada fase tem um objetivo, uma checklist acionável e um entregável concreto. Um item falhado é registado como *finding* (modelo no fim deste documento) e não bloqueia a fase seguinte, exceto findings **Críticos**, que devem ser corrigidos antes de avançar.
+O processo tem 8 fases (0–7), pensadas para correr sequencialmente — cada fase parte do resultado da anterior. Cada fase tem um objetivo, uma checklist acionável e um entregável concreto. Um item falhado é registado como _finding_ (modelo no fim deste documento) e não bloqueia a fase seguinte, exceto findings **Críticos**, que devem ser corrigidos antes de avançar.
 
 ## Severidade
 
-| Nível        | Critério                                                                 | Prazo de remediação |
-| ------------ | ------------------------------------------------------------------------ | -------------------- |
-| **Crítico**  | Exposição de dados pessoais/segredos, bypass de autenticação/autorização | Imediato — bloqueia a auditoria |
-| **Alto**     | Falha de controlo com exploração plausível, incumprimento RGPD direto    | 7 dias |
-| **Médio**    | Falha de controlo com exploração pouco provável, dívida técnica de risco | 30 dias |
-| **Baixo**    | Boa prática não seguida, sem impacto direto                              | Próximo ciclo de sprint |
+| Nível       | Critério                                                                 | Prazo de remediação             |
+| ----------- | ------------------------------------------------------------------------ | ------------------------------- |
+| **Crítico** | Exposição de dados pessoais/segredos, bypass de autenticação/autorização | Imediato — bloqueia a auditoria |
+| **Alto**    | Falha de controlo com exploração plausível, incumprimento RGPD direto    | 7 dias                          |
+| **Médio**   | Falha de controlo com exploração pouco provável, dívida técnica de risco | 30 dias                         |
+| **Baixo**   | Boa prática não seguida, sem impacto direto                              | Próximo ciclo de sprint         |
 
 ---
 
@@ -137,7 +137,7 @@ O processo tem 8 fases (0–7), pensadas para correr sequencialmente — cada fa
 - [ ] Cobertura de testes por módulo revista — assinalar módulos com apenas "testes básicos" (per `PROJECT_STATE.md`: analytics, gdpr, training entre outros) como candidatos a reforço
 - [ ] CI (`ci.yml`) cobre lint, e2e backend e e2e frontend em todos os PRs para `main`
 - [ ] Nenhum `TODO`/`FIXME` relacionado com segurança ou dados pessoais em código de produção sem issue associada
-- [ ] `specs/global-tasks-risks.md` e `specs/README.md` refletem o estado real dos módulos (nenhum módulo marcado como "Implemented" com gaps conhecidos por documentar)
+- [ ] `specs/GLOBAL-TASKS-RISKS.md` e `specs/README.md` refletem o estado real dos módulos (nenhum módulo marcado como "Implemented" com gaps conhecidos por documentar)
 
 **Entregável:** lista de módulos com cobertura de testes abaixo do padrão da equipa, priorizada por criticidade (financeiro/RGPD primeiro).
 

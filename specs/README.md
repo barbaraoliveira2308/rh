@@ -6,29 +6,29 @@ Este directório contém as especificações técnicas (SDD) de cada módulo do 
 
 | #   | Módulo                      | Pasta                   | Estado      |
 | --- | --------------------------- | ----------------------- | ----------- |
-| 01  | Autenticação & Segurança    | `auth/spec.md`          | Implemented |
-| 02  | Utilizadores & RBAC         | `users/spec.md`         | Implemented |
-| 03  | Equipas & Organograma       | `teams/spec.md`         | Implemented |
-| 04  | Clientes                    | `clients/spec.md`       | Implemented |
-| 05  | Projetos                    | `projects/spec.md`      | Implemented |
-| 06  | Capacidade & Alocação       | `capacity/spec.md`      | Implemented |
-| 07  | Assiduidade & Timesheets    | `timesheets/spec.md`    | Implemented |
-| 08  | Ausências                   | `absences/spec.md`      | Implemented |
-| 09  | Despesas & Reembolsos       | `expenses/spec.md`      | Implemented |
-| 10  | Gestão Documental           | `documents/spec.md`     | Implemented |
-| 11  | Contratos                   | `contracts/spec.md`     | Implemented |
-| 12  | Workflow & Caixa de Entrada | `workflow/spec.md`      | Implemented |
-| 13  | Calendário Organizacional   | `calendar/spec.md`      | Implemented |
-| 14  | Relatórios                  | `reports/spec.md`       | Implemented |
-| 15  | Dashboard de Recursos       | `dashboard/spec.md`     | Implemented |
-| 16  | Dashboard Financeiro        | `financials/spec.md`    | Implemented |
-| 17  | Políticas Internas          | `policies/spec.md`      | Implemented |
-| 18  | Formação & Talento          | `training/spec.md`      | Implemented |
-| 19  | Helpdesk Interno            | `helpdesk/spec.md`      | Implemented |
-| 20  | Notificações & Alertas      | `notifications/spec.md` | Implemented |
-| 21  | Auditoria                   | `audit/spec.md`         | Implemented |
-| 22  | GDPR & Conformidade         | `gdpr/spec.md`          | Implemented |
-| 23  | Administração do Sistema    | `admin/spec.md`         | Draft       |
+| 01  | Autenticação & Segurança    | `auth/SPEC.md`          | Implemented |
+| 02  | Utilizadores & RBAC         | `users/SPEC.md`         | Implemented |
+| 03  | Equipas & Organograma       | `teams/SPEC.md`         | Implemented |
+| 04  | Clientes                    | `clients/SPEC.md`       | Implemented |
+| 05  | Projetos                    | `projects/SPEC.md`      | Implemented |
+| 06  | Capacidade & Alocação       | `capacity/SPEC.md`      | Implemented |
+| 07  | Assiduidade & Timesheets    | `timesheets/SPEC.md`    | Implemented |
+| 08  | Ausências                   | `absences/SPEC.md`      | Implemented |
+| 09  | Despesas & Reembolsos       | `expenses/SPEC.md`      | Implemented |
+| 10  | Gestão Documental           | `documents/SPEC.md`     | Implemented |
+| 11  | Contratos                   | `contracts/SPEC.md`     | Implemented |
+| 12  | Workflow & Caixa de Entrada | `workflow/SPEC.md`      | Implemented |
+| 13  | Calendário Organizacional   | `calendar/SPEC.md`      | Implemented |
+| 14  | Relatórios                  | `reports/SPEC.md`       | Implemented |
+| 15  | Dashboard de Recursos       | `dashboard/SPEC.md`     | Implemented |
+| 16  | Dashboard Financeiro        | `financials/SPEC.md`    | Implemented |
+| 17  | Políticas Internas          | `policies/SPEC.md`      | Implemented |
+| 18  | Formação & Talento          | `training/SPEC.md`      | Implemented |
+| 19  | Helpdesk Interno            | `helpdesk/SPEC.md`      | Implemented |
+| 20  | Notificações & Alertas      | `notifications/SPEC.md` | Implemented |
+| 21  | Auditoria                   | `audit/SPEC.md`         | Implemented |
+| 22  | GDPR & Conformidade         | `gdpr/SPEC.md`          | Implemented |
+| 23  | Administração do Sistema    | `admin/SPEC.md`         | Draft       |
 
 ## Histórico de Alterações
 
@@ -62,5 +62,5 @@ Este directório contém as especificações técnicas (SDD) de cada módulo do 
 | P-023     | 2026-07-09 | UI dos módulos financeiros e dashboards: Dashboard principal com KPIs (colaboradores ativos, projetos ativos, timesheets pendentes, ausências pendentes), gráfico de ocupação (barras empilhadas com recharts), pendentes de aprovação (max 5, link para inbox) e alertas; Caixa de Entrada/Workflow com lista unificada, filtro por tipo e ações inline Aprovar/Rejeitar; Dashboard Financeiro com margem por consultor, rentabilidade por projeto (barras horizontais) e evolução mensal de receita (linha), visível apenas para Admin; Despesas com listagem com status e formulário com items dinâmicos, upload de recibo por item e aviso visual de duplicados; badge de contagem na sidebar com polling 60s; recharts instalado; layout fixo para v1; lint e build green |
 | P-024     | 2026-07-09 | Testes de Integração e E2E: backend — Fluxo 1 (timesheets full CRUD: colaborador, projecto, alocação, folha, submissão, aprovação, notificação), Fluxo 2 (ausência: pedido férias, verificação saldo, verificação reflexo na folha), Fluxo 3 (GDPR erasure: colaborador completo, anonimização, preservação dados estatísticos); frontend — Playwright e2e (login, timesheet, absence, upload); CI workflow com postgres/redis services; lint e build green                                                                                                                                                                                                                                                                                                                    |
 | P-025     | 2026-07-09 | Documentação final: Swagger/OpenAPI completo (tags por módulo, Bearer Auth, @ApiProperty em todos os DTOs, export openapi.json, endpoint /api/docs condicional dev/staging); README.md (visão geral, pré-requisitos, quickstart, variáveis de ambiente, estrutura, troubleshooting); CONTRIBUTING.md (branches, commits convencionais, checklist novo módulo, testes); docs/ARCHITECTURE.md (diagramas Mermaid, ADRs); lint e build green                                                                                                                                                                                                                                                                                                                                      |
-| P-027     | 2026-08-14 | Promoção de specs Draft (Políticas Internas #17, Helpdesk Interno #19) para Implemented: revisão da spec face à implementação real de P-020, secções de Notas de Implementação acrescentadas a `specs/policies/spec.md` e `specs/helpdesk/spec.md`; correção de BR-HD-004 (Helpdesk) — `update()` passa a permitir reabertura de tickets fechados dentro de 7 dias (decisão P027-02), com `resolved_at` limpo e helper `daysSinceClosed()` partilhado com `addComment()`; 5 novos testes unitários em `helpdesk.service.spec.ts`; lint e build green                                                                                                                                                                                                                           |
-| P-028     | 2026-08-14 | Módulo Capacidade & Alocação (#06): backend/src/capacity/ (CapacityController/CapacityService) implementando GET /capacity/overview, /calendar, /alerts, /project-profitability/:id, reaproveitando AnalyticsService/TeamsService como fonte de dados; extensão aditiva AnalyticsService.getEmployeeOccupancy(); BR-CAP-004 implementada (exclusão de ausências aprovadas do cálculo de ocupação via applyAbsenceAdjustment()); threshold de sub-alocação 80% fixo (decisão P028-04); 9 novos testes unitários; specs/capacity/spec.md promovida a Implemented com Notas de Implementação; lint e build green                                                                                                                                                                  |
+| P-027     | 2026-08-14 | Promoção de specs Draft (Políticas Internas #17, Helpdesk Interno #19) para Implemented: revisão da spec face à implementação real de P-020, secções de Notas de Implementação acrescentadas a `specs/policies/SPEC.md` e `specs/helpdesk/SPEC.md`; correção de BR-HD-004 (Helpdesk) — `update()` passa a permitir reabertura de tickets fechados dentro de 7 dias (decisão P027-02), com `resolved_at` limpo e helper `daysSinceClosed()` partilhado com `addComment()`; 5 novos testes unitários em `helpdesk.service.spec.ts`; lint e build green                                                                                                                                                                                                                           |
+| P-028     | 2026-08-14 | Módulo Capacidade & Alocação (#06): backend/src/capacity/ (CapacityController/CapacityService) implementando GET /capacity/overview, /calendar, /alerts, /project-profitability/:id, reaproveitando AnalyticsService/TeamsService como fonte de dados; extensão aditiva AnalyticsService.getEmployeeOccupancy(); BR-CAP-004 implementada (exclusão de ausências aprovadas do cálculo de ocupação via applyAbsenceAdjustment()); threshold de sub-alocação 80% fixo (decisão P028-04); 9 novos testes unitários; specs/capacity/SPEC.md promovida a Implemented com Notas de Implementação; lint e build green                                                                                                                                                                  |

@@ -7,7 +7,7 @@
 1. `AGENTS.md` — regras globais. Aplicam-se sem exceção a partir daqui.
 2. `PROJECT_STATE.md` — histórico completo de fases, decisões tomadas e estado atual. É a fonte de verdade; o resumo na secção 2 pode estar desatualizado.
 3. `specs/README.md` — índice de módulos e estado de cada um (`Implemented` / `Draft`).
-4. `specs/global-tasks-risks.md` — tarefas, riscos e ambiguidades já resolvidas (para não repetir perguntas já respondidas).
+4. `specs/GLOBAL-TASKS-RISKS.md` — tarefas, riscos e ambiguidades já resolvidas (para não repetir perguntas já respondidas).
 5. Se o trabalho tocar arquitetura, segurança ou conformidade: `docs/ARCHITECTURE.md` e `docs/AUDIT_PROCESS.md`.
 
 ## 2. Estado atual (resumo — confirmar sempre contra o `PROJECT_STATE.md`)
@@ -49,8 +49,8 @@ Só depois de teres resposta é que abres a spec correspondente e começas a imp
 ## Acções de Fecho
 
 - [ ] Atualizar `PROJECT_STATE.md`: nova entrada na tabela de fases (P-029+), decisões tomadas (ID + valor + impacto), secção "Current State" e data de "Last Updated"
-- [ ] Se o módulo trabalhado tinha spec em `Draft`, promover para `Implemented` em `specs/README.md` e acrescentar notas de implementação no `specs/<módulo>/spec.md`
-- [ ] Atualizar `specs/global-tasks-risks.md` se alguma tarefa/risco mudou de estado
+- [ ] Se o módulo trabalhado tinha spec em `Draft`, promover para `Implemented` em `specs/README.md` e acrescentar notas de implementação no `specs/<módulo>/SPEC.md`
+- [ ] Atualizar `specs/GLOBAL-TASKS-RISKS.md` se alguma tarefa/risco mudou de estado
 - [ ] Correr `pnpm run lint` e `pnpm run build` (raiz, backend, frontend) — corrigir todos os erros
 - [ ] **Atualizar este ficheiro (`RESUME_PROMPT.md`)** — secção 2 (última fase concluída, contagem de módulos, falhas pré-existentes conhecidas), secção 3 (remover itens resolvidos, acrescentar gaps novos descobertos na sessão) e o número de fase sugerido na secção 4. Fazer isto sempre que o estado do projeto mudar, não só quando pedido explicitamente.
 - [ ] `git add` + `git commit` com mensagem em Conventional Commits — **nunca `git push`**
