@@ -19,6 +19,7 @@ import { TimesheetsModule } from './timesheets/timesheets.module';
 import { AbsencesModule } from './absences/absences.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { CapacityModule } from './capacity/capacity.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { WorkflowModule } from './workflow/workflow.module';
 import { CalendarModule } from './calendar/calendar.module';
@@ -54,6 +55,7 @@ import { dataSourceOptions } from './database/data-source';
     AbsencesModule,
     ExpensesModule,
     AnalyticsModule,
+    CapacityModule,
     NotificationsModule,
     WorkflowModule,
     CalendarModule,

@@ -99,6 +99,51 @@ export class AnalyticsService {
   }
 
   @CacheResult(300)
+  async getEmployeeOccupancy(employeeId: string, month: string): Promise<TeamOccupancyDto | null> {
+    const employee = await this.employeeRepository.findOne({ where: { id: employeeId } });
+
+    if (!employee) {
+      return null;
+    }
+
+    const [year, monthNum] = month.split('-').map(Number);
+    const startDate = this.firstDayOfMonth(year, monthNum);
+    const endDate = this.lastDayOfMonth(year, monthNum);
+
+    const allocations = await this.dataSource
+      .getRepository(ProjectAllocation)
+      .createQueryBuilder('pa')
+      .where('pa.employee_id = :employeeId', { employeeId })
+      .andWhere('pa.start_date <= :endDate', { endDate })
+      .andWhere('(pa.end_date IS NULL OR pa.end_date >= :startDate)', { startDate })
+      .getMany();
+
+    let allocated = 0;
+
+    for (const allocation of allocations) {
+      const overlapStart = allocation.startDate > startDate ? allocation.startDate : startDate;
+      const overlapEnd =
+        allocation.endDate && allocation.endDate < endDate ? allocation.endDate : endDate;
+      const overlapDays = this.daysBetween(overlapStart, overlapEnd) + 1;
+      const monthDays = this.daysBetween(startDate, endDate) + 1;
+      const weight = overlapDays / monthDays;
+
+      const value =
+        allocation.allocationType === AllocationType.PERCENTAGE
+          ? allocation.allocationValue / 100
+          : allocation.allocationValue / WORKING_HOURS_PER_MONTH;
+
+      allocated += value * weight;
+    }
+
+    return {
+      employeeId,
+      employeeName: employee.firstName + ' ' + employee.lastName,
+      allocationPercentage: Math.round(allocated * 100 * 100) / 100,
+    };
+  }
+
+  @CacheResult(300)
   async getProjectAllocationMap(month: string): Promise<ProjectAllocationMapDto[]> {
     const [year, monthNum] = month.split('-').map(Number);
     const startDate = this.firstDayOfMonth(year, monthNum);

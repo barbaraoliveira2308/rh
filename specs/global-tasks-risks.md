@@ -51,6 +51,7 @@
 | —     | CI workflow (lint, build, backend e2e, frontend e2e)                                      | Concluido |
 | —     | Documentação final (Swagger, README, CONTRIBUTING, ARCHITECTURE)                          | Concluido |
 | —     | Promoção specs Draft Policies (#17) e Helpdesk (#19) para Implemented; correção BR-HD-004 | Concluido |
+| —     | Módulo Capacidade & Alocação (#06): backend/src/capacity/, BR-CAP-004 implementada        | Concluido |
 
 ## Riscos
 
@@ -68,3 +69,8 @@
 | P010-02 | Projeto closed pode ser reativado?                                                                                                                | Sim, admin pode reativar                                                                                                                                  |
 | P011-01 | Submissão com entradas a 0h: válido ou obrigatório >0h?                                                                                           | 0h é válido como entrada preenchida                                                                                                                       |
 | P027-02 | Helpdesk BR-HD-004: "não reabrir após 7 dias" — reabertura dentro de 7 dias estava por implementar (`update()` bloqueava sempre tickets fechados) | Implementar reabertura: `update()` permite reabrir ticket fechado há ≤7 dias (limpa `resolved_at`); rejeita fora da janela ou sem tentativa de reabertura |
+| P028-01 | Arquitetura do módulo Capacity: endpoints /capacity/* próprios vs. consolidar em Analytics vs. só documentar o disperso                           | Novo módulo dedicado `backend/src/capacity/`, reaproveitando AnalyticsService/TeamsService como fonte de dados em vez de duplicar queries                 |
+| P028-02 | Ausência de campo FTE/horas contratuais em Employee/Contract                                                                                      | Manter aproximação 1.0 FTE por colaborador ativo (comportamento já existente); sem alteração ao modelo de dados nesta fase                                |
+| P028-03 | Calendário Gantt (RF-CAP-004): endpoint de dados vs. página frontend completa                                                                     | Só endpoint `GET /capacity/calendar`; sem página frontend nesta fase                                                                                      |
+| P028-04 | Threshold de sub-alocação (BR-CAP-002, "80% configurável") — onde configurar                                                                      | Constante fixa `UNDERALLOCATION_THRESHOLD_PERCENTAGE = 80`, sem UI/endpoint de configuração                                                               |
+| P028-05 | BR-CAP-004 (excluir ausências aprovadas do cálculo) não estava implementada em nenhum serviço existente                                           | Implementar em `CapacityService.applyAbsenceAdjustment()` como lógica nova                                                                                |
