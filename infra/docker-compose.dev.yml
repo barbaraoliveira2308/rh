@@ -127,8 +127,10 @@ services:
       STORAGE_REGION: ${STORAGE_REGION:-eu-west-1}
       STORAGE_USE_SSL: 'false'
       JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_in_prod}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev_jwt_refresh_secret_change_in_prod}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-dev_mfa_encryption_key_change_in_prod}
       BACKEND_PORT: 3000
       BACKEND_CORS_ORIGIN: ${BACKEND_CORS_ORIGIN:-http://localhost:5173}
       KEYCLOAK_URL: http://keycloak:8080
@@ -161,7 +163,7 @@ services:
     ports:
       - '5173:5173'
     environment:
-      VITE_API_BASE_URL: http://localhost:3000/api
+      VITE_API_URL: http://localhost:3000/api
       VITE_KEYCLOAK_URL: http://localhost:8080
       VITE_KEYCLOAK_REALM: hr-suite
       VITE_KEYCLOAK_CLIENT_ID: srh-frontend

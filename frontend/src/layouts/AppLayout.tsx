@@ -14,6 +14,7 @@ import {
   Wallet,
   BarChart3,
   Settings,
+  Gauge,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -37,10 +38,12 @@ const navItems: NavItem[] = [
   { label: 'Caixa de Entrada', href: '/workflow/inbox', icon: <Inbox className="h-4 w-4" /> },
   { label: 'Despesas', href: '/expenses', icon: <Wallet className="h-4 w-4" /> },
   { label: 'Financeiro', href: '/analytics/financials', icon: <BarChart3 className="h-4 w-4" /> },
+  { label: 'Capacidade', href: '/capacity', icon: <Gauge className="h-4 w-4" /> },
   { label: 'Administração', href: '/admin/settings', icon: <Settings className="h-4 w-4" /> },
 ];
 
 const adminOnlyRoutes = ['/analytics/financials', '/admin/settings'];
+const managerOrAdminRoutes = ['/capacity'];
 
 export function AppLayout(): React.JSX.Element {
   const { sidebarOpen, toggleSidebar } = useUiStore();
@@ -48,6 +51,7 @@ export function AppLayout(): React.JSX.Element {
   const navigate = useNavigate();
 
   const isAdmin = permissions.includes('admin:*') || permissions.some((p) => p.startsWith('admin'));
+  const isManagerOrAdmin = isAdmin || permissions.includes('manager');
 
   const { data: inboxCount } = useQuery({
     queryKey: ['workflow-count'],
@@ -76,6 +80,7 @@ export function AppLayout(): React.JSX.Element {
         <nav className="space-y-1 p-4">
           {navItems
             .filter((item) => !adminOnlyRoutes.includes(item.href) || isAdmin)
+            .filter((item) => !managerOrAdminRoutes.includes(item.href) || isManagerOrAdmin)
             .map((item) => (
               <Link
                 key={item.href}
