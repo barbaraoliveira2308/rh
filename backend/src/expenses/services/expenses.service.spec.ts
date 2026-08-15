@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ExpensesService } from './expenses.service';
+import { RbacService } from '../../rbac/services/rbac.service';
 import { ExpenseReport } from '../entities/expense-report.entity';
 import { ExpenseItem } from '../entities/expense-item.entity';
 import { ExpenseCategory } from '../entities/expense-category.entity';
@@ -17,6 +18,7 @@ describe('ExpensesService', () => {
   let mockApprovalRepo: Record<string, jest.Mock>;
   let mockEmployeeRepo: Record<string, jest.Mock>;
   let mockEventEmitter: Record<string, jest.Mock>;
+  let mockRbacService: Record<string, jest.Mock>;
 
   const mockCategory: ExpenseCategory = {
     id: 'cat-1',
@@ -117,6 +119,10 @@ describe('ExpensesService', () => {
       emit: jest.fn(),
     };
 
+    mockRbacService = {
+      isAdmin: jest.fn().mockResolvedValue(false),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ExpensesService,
@@ -126,6 +132,7 @@ describe('ExpensesService', () => {
         { provide: getRepositoryToken(ExpenseApproval), useValue: mockApprovalRepo },
         { provide: getRepositoryToken(Employee), useValue: mockEmployeeRepo },
         { provide: EventEmitter2, useValue: mockEventEmitter },
+        { provide: RbacService, useValue: mockRbacService },
       ],
     }).compile();
 

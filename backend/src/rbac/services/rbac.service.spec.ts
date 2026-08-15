@@ -112,6 +112,32 @@ describe('RbacService', () => {
     });
   });
 
+  describe('isAdmin', () => {
+    it('deve devolver true se o utilizador tiver o perfil admin', async () => {
+      mockUserRoleRepo.find.mockResolvedValue([{ roleId: 'r-1', role: { name: 'admin' } }]);
+
+      const result = await service.isAdmin('u-1');
+
+      expect(result).toBe(true);
+    });
+
+    it('deve devolver false se o utilizador não tiver o perfil admin', async () => {
+      mockUserRoleRepo.find.mockResolvedValue([{ roleId: 'r-1', role: { name: 'manager' } }]);
+
+      const result = await service.isAdmin('u-1');
+
+      expect(result).toBe(false);
+    });
+
+    it('deve devolver false se o utilizador não tiver perfis', async () => {
+      mockUserRoleRepo.find.mockResolvedValue([]);
+
+      const result = await service.isAdmin('u-1');
+
+      expect(result).toBe(false);
+    });
+  });
+
   describe('hasPermission', () => {
     it('deve devolver true sempre que o utilizador tiver o perfil admin', async () => {
       mockUserRoleRepo.find.mockResolvedValue([{ roleId: 'r-1', role: { name: 'admin' } }]);

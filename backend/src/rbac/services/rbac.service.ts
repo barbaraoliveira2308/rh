@@ -80,6 +80,15 @@ export class RbacService {
     return Array.from(uniquePermissions.values());
   }
 
+  async isAdmin(userId: string): Promise<boolean> {
+    const userRoles = await this.userRoleRepository.find({
+      where: { userId },
+      relations: { role: true },
+    });
+
+    return userRoles.some((ur) => ur.role.name === 'admin');
+  }
+
   async hasPermission(userId: string, resource: string, action: string): Promise<boolean> {
     const userRoles = await this.userRoleRepository.find({
       where: { userId },

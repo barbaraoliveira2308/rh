@@ -4,6 +4,7 @@ import { NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TimesheetsService } from './timesheets.service';
 import { CalendarService } from '../../calendar/services/calendar.service';
+import { RbacService } from '../../rbac/services/rbac.service';
 import { TimesheetPeriod } from '../entities/timesheet-period.entity';
 import { TimesheetEntry } from '../entities/timesheet-entry.entity';
 import { TimesheetApproval } from '../entities/timesheet-approval.entity';
@@ -22,6 +23,7 @@ describe('TimesheetsService', () => {
   let mockEmployeeRepo: Record<string, jest.Mock>;
   let mockEventEmitter: Record<string, jest.Mock>;
   let mockCalendarService: Record<string, jest.Mock>;
+  let mockRbacService: Record<string, jest.Mock>;
 
   const mockEmployee = {
     id: 'emp-1',
@@ -114,6 +116,10 @@ describe('TimesheetsService', () => {
       validateBlockedPeriodForTimesheets: jest.fn().mockResolvedValue(undefined),
     };
 
+    mockRbacService = {
+      isAdmin: jest.fn().mockResolvedValue(false),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TimesheetsService,
@@ -125,6 +131,7 @@ describe('TimesheetsService', () => {
         { provide: getRepositoryToken(Employee), useValue: mockEmployeeRepo },
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: CalendarService, useValue: mockCalendarService },
+        { provide: RbacService, useValue: mockRbacService },
       ],
     }).compile();
 
@@ -213,9 +220,10 @@ describe('TimesheetsService', () => {
 
   describe('bulkApprove', () => {
     it('deve aprovar múltiplas folhas de horas', async () => {
-      const approver = { ...mockEmployee, id: 'admin-1', userId: 'admin' };
+      const approver = { ...mockEmployee, id: 'admin-1', userId: 'admin-user-uuid' };
 
       mockEmployeeRepo.findOne.mockResolvedValue(approver);
+      mockRbacService.isAdmin.mockResolvedValue(true);
 
       const submittedPeriod1 = {
         ...mockPeriod,
@@ -252,9 +260,10 @@ describe('TimesheetsService', () => {
     });
 
     it('deve continuar mesmo se uma aprovação falhar', async () => {
-      const approver = { ...mockEmployee, id: 'admin-1', userId: 'admin' };
+      const approver = { ...mockEmployee, id: 'admin-1', userId: 'admin-user-uuid' };
 
       mockEmployeeRepo.findOne.mockResolvedValue(approver);
+      mockRbacService.isAdmin.mockResolvedValue(true);
 
       const submittedPeriod = {
         ...mockPeriod,

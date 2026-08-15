@@ -20,6 +20,7 @@ import { AbsenceCancelledEvent } from '../events/absence-cancelled.event';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
 import { HolidayCalendar } from '../../timesheets/entities/holiday-calendar.entity';
 import { CalendarService } from '../../calendar/services/calendar.service';
+import { RbacService } from '../../rbac/services/rbac.service';
 
 @Injectable()
 export class AbsencesService {
@@ -38,6 +39,7 @@ export class AbsencesService {
     private readonly holidayRepository: Repository<HolidayCalendar>,
     private readonly eventEmitter: EventEmitter2,
     private readonly calendarService: CalendarService,
+    private readonly rbacService: RbacService,
   ) {}
 
   async findTypes(): Promise<AbsenceType[]> {
@@ -500,7 +502,7 @@ export class AbsencesService {
       throw new BadRequestException('Aprovador não está ativo');
     }
 
-    if (approver.userId === 'admin') return;
+    if (await this.rbacService.isAdmin(approver.userId)) return;
 
     const employee = await this.employeeRepository.findOne({
       where: { id: employeeId },

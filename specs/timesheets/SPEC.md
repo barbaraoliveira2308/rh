@@ -364,7 +364,7 @@ Feature: Folha de Horas Mensal
 
 **Bug corrigido em P-045 (`R-038`)**: `TimesheetsController` passava `req.user.sub` (JWT, `User.id`) diretamente onde se esperava `Employee.id` — em `findOne` (verificação de dono), `updateEntry`, `submit`, `approve`/`reject` (`approverId`, verificado por `TimesheetsService.validateApprover()`) e `bulkApprove`. Só funcionava para o admin; um colaborador ou gestor real via/editava/aprovava a folha de horas errada, ou era sempre rejeitado. Corrigido injetando o novo `EmployeeIdentityService` partilhado (`backend/src/auth/services/employee-identity.service.ts`).
 
-**Gap descoberto em P-045, não corrigido, registado como `R-039`**: `TimesheetsService.validateApprover()` tem um bypass de admin quebrado (`const isAdmin = approver.userId === 'admin'; // simplified admin check`, comparação de UUID contra string literal, nunca verdadeiro) — na prática ADMIN só aprova/rejeita folhas de colaboradores dos quais seja `managerId` direto. O mesmo padrão existe em `AbsencesService`/`ExpensesService`.
+**Gap descoberto em P-045, corrigido em P-046 (`R-039`)**: `TimesheetsService.validateApprover()` tinha um bypass de admin quebrado (`const isAdmin = approver.userId === 'admin'; // simplified admin check`, comparação de UUID contra string literal, nunca verdadeiro) — na prática ADMIN só conseguia aprovar/rejeitar folhas de colaboradores dos quais fosse `managerId` direto. Corrigido substituindo pela verificação real via novo `RbacService.isAdmin(userId)`. O mesmo padrão foi corrigido em `AbsencesService`/`ExpensesService`.
 
 ### Entregue
 
@@ -393,7 +393,7 @@ Feature: Folha de Horas Mensal
 - As entidades `AttendanceRecord` (relógio de ponto) e `WorkSchedule` (horários fixos/flexíveis/turnos) não foram implementadas; as horas planeadas são sempre 8h em dias úteis.
 - As horas extraordinárias são calculadas como `max(0, workedHours - 8)`, independentemente de horário personalizado.
 - A aprovação guarda o registo histórico na entidade `TimesheetApproval`; o comentário fica nessa tabela e não na própria folha.
-- A verificação de administrador no fluxo de aprovação é simplificada (`approver.userId === 'admin'`).
+- A verificação de administrador no fluxo de aprovação usa `RbacService.isAdmin()` (corrigido em P-046, `R-039`; anteriormente uma comparação de UUID contra a string literal `'admin'`, sempre falsa).
 - A rejeição altera o estado para `rejected` mas não existe mecanismo de “desbloqueio” porque só entradas aprovadas ficam `isLocked = true`.
 - Não há validação de dias úteis vazios aquando da submissão, nem validação de projeto ativo.
 - Não existe entidade de banco de horas; o saldo fica apenas no campo calculado `hoursBalance` da `TimesheetPeriod`.

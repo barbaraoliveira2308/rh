@@ -19,6 +19,7 @@ import { ExpenseSubmittedEvent } from '../events/expense-submitted.event';
 import { ExpenseApprovedEvent } from '../events/expense-approved.event';
 import { ExpenseRejectedEvent } from '../events/expense-rejected.event';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
+import { RbacService } from '../../rbac/services/rbac.service';
 
 @Injectable()
 export class ExpensesService {
@@ -34,6 +35,7 @@ export class ExpensesService {
     @InjectRepository(Employee)
     private readonly employeeRepository: Repository<Employee>,
     private readonly eventEmitter: EventEmitter2,
+    private readonly rbacService: RbacService,
   ) {}
 
   async createReport(employeeId: string, dto: CreateExpenseReportDto): Promise<ExpenseReport> {
@@ -465,7 +467,7 @@ export class ExpensesService {
       throw new BadRequestException('Aprovador não está ativo');
     }
 
-    if (approver.userId === 'admin') {
+    if (await this.rbacService.isAdmin(approver.userId)) {
       return;
     }
 

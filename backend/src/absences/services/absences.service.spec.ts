@@ -4,6 +4,7 @@ import { NotFoundException, BadRequestException, ForbiddenException } from '@nes
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AbsencesService } from './absences.service';
 import { CalendarService } from '../../calendar/services/calendar.service';
+import { RbacService } from '../../rbac/services/rbac.service';
 import { AbsenceType } from '../entities/absence-type.entity';
 import { AbsenceRequest } from '../entities/absence-request.entity';
 import { AbsenceApproval } from '../entities/absence-approval.entity';
@@ -22,6 +23,7 @@ describe('AbsencesService', () => {
   let mockHolidayRepo: Record<string, jest.Mock>;
   let mockEventEmitter: Record<string, jest.Mock>;
   let mockCalendarService: Record<string, jest.Mock>;
+  let mockRbacService: Record<string, jest.Mock>;
 
   const mockEmployee = {
     id: 'emp-1',
@@ -118,6 +120,10 @@ describe('AbsencesService', () => {
       validateBlockedPeriodForAbsences: jest.fn().mockResolvedValue(undefined),
     };
 
+    mockRbacService = {
+      isAdmin: jest.fn().mockResolvedValue(false),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AbsencesService,
@@ -129,6 +135,7 @@ describe('AbsencesService', () => {
         { provide: getRepositoryToken(HolidayCalendar), useValue: mockHolidayRepo },
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: CalendarService, useValue: mockCalendarService },
+        { provide: RbacService, useValue: mockRbacService },
       ],
     }).compile();
 
@@ -421,6 +428,37 @@ describe('AbsencesService', () => {
         'absence.approved',
         expect.objectContaining({ absenceId: 'req-1' }),
       );
+    });
+
+    it('deve aprovar mesmo sem ser o manager direto se o RbacService confirmar admin (R-039)', async () => {
+      const adminApprover = {
+        id: 'admin-emp',
+        userId: 'admin-user-uuid',
+        firstName: 'Admin',
+        lastName: 'System',
+        status: EmployeeStatus.ACTIVE,
+        managerId: null,
+      };
+      const savedRequest = { ...mockPendingRequest, status: AbsenceStatus.APPROVED };
+      const approval = {
+        id: 'appr-3',
+        absenceId: 'req-1',
+        approverId: 'admin-emp',
+        decision: 'approved',
+      };
+
+      mockRequestRepo.findOne.mockResolvedValue(mockPendingRequest);
+      mockEmployeeRepo.findOne.mockResolvedValueOnce(adminApprover);
+      mockRbacService.isAdmin.mockResolvedValueOnce(true);
+      mockRequestRepo.save.mockResolvedValue(savedRequest);
+      mockApprovalRepo.create.mockReturnValue(approval);
+      mockApprovalRepo.save.mockResolvedValue(approval);
+      mockBalanceRepo.findOne.mockResolvedValue(mockBalance);
+
+      const result = await service.approve('req-1', 'admin-emp');
+
+      expect(result).toEqual(savedRequest);
+      expect(mockRbacService.isAdmin).toHaveBeenCalledWith('admin-user-uuid');
     });
   });
 

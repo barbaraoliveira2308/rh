@@ -20,6 +20,7 @@ import { TimesheetApprovedEvent } from '../events/timesheet-approved.event';
 import { TimesheetRejectedEvent } from '../events/timesheet-rejected.event';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
 import { CalendarService } from '../../calendar/services/calendar.service';
+import { RbacService } from '../../rbac/services/rbac.service';
 
 interface AbsenceRow {
   id: string;
@@ -47,6 +48,7 @@ export class TimesheetsService {
     private readonly employeeRepository: Repository<Employee>,
     private readonly eventEmitter: EventEmitter2,
     private readonly calendarService: CalendarService,
+    private readonly rbacService: RbacService,
   ) {}
 
   async generateMonthlyPeriods(year: number, month: number): Promise<number> {
@@ -349,7 +351,7 @@ export class TimesheetsService {
       throw new BadRequestException('Aprovador não está ativo');
     }
 
-    const isAdmin = approver.userId === 'admin'; // simplified admin check
+    const isAdmin = await this.rbacService.isAdmin(approver.userId);
 
     if (isAdmin) return;
 
