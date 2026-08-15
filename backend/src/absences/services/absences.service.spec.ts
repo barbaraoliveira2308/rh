@@ -5,6 +5,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AbsencesService } from './absences.service';
 import { CalendarService } from '../../calendar/services/calendar.service';
 import { RbacService } from '../../rbac/services/rbac.service';
+import { AdminService } from '../../admin/admin.service';
 import { AbsenceType } from '../entities/absence-type.entity';
 import { AbsenceRequest } from '../entities/absence-request.entity';
 import { AbsenceApproval } from '../entities/absence-approval.entity';
@@ -24,6 +25,7 @@ describe('AbsencesService', () => {
   let mockEventEmitter: Record<string, jest.Mock>;
   let mockCalendarService: Record<string, jest.Mock>;
   let mockRbacService: Record<string, jest.Mock>;
+  let mockAdminService: Record<string, jest.Mock>;
 
   const mockEmployee = {
     id: 'emp-1',
@@ -102,10 +104,13 @@ describe('AbsencesService', () => {
       findOne: jest.fn(),
       find: jest.fn(),
       update: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
     };
 
     mockEmployeeRepo = {
       findOne: jest.fn(),
+      find: jest.fn(),
     };
 
     mockHolidayRepo = {
@@ -124,6 +129,12 @@ describe('AbsencesService', () => {
       isAdmin: jest.fn().mockResolvedValue(false),
     };
 
+    mockAdminService = {
+      getSettings: jest
+        .fn()
+        .mockResolvedValue({ defaultVacationDaysPerYear: 22, carryOverVacationDays: 5 }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AbsencesService,
@@ -136,6 +147,7 @@ describe('AbsencesService', () => {
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: CalendarService, useValue: mockCalendarService },
         { provide: RbacService, useValue: mockRbacService },
+        { provide: AdminService, useValue: mockAdminService },
       ],
     }).compile();
 
@@ -677,6 +689,83 @@ describe('AbsencesService', () => {
         relations: ['absenceType'],
         order: { absenceTypeId: 'ASC' },
       });
+    });
+  });
+
+  describe('generateAnnualLeaveBalances', () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('cria saldo com entitledDays completo para colaborador admitido em ano anterior', async () => {
+      jest.useFakeTimers().setSystemTime(new Date(2026, 0, 1));
+      mockTypeRepo.findOne.mockResolvedValue(mockVacationType);
+      mockEmployeeRepo.find.mockResolvedValue([
+        Object.assign({}, mockEmployee, { employmentStartDate: '2020-05-10' }),
+      ]);
+      mockBalanceRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+      mockBalanceRepo.create.mockImplementation((data: unknown) => data);
+      mockBalanceRepo.save.mockResolvedValue(undefined);
+
+      const created = await service.generateAnnualLeaveBalances();
+
+      expect(created).toBe(1);
+      expect(mockBalanceRepo.create).toHaveBeenCalledWith({
+        employeeId: 'emp-1',
+        absenceTypeId: 'type-1',
+        year: 2026,
+        entitledDays: 22,
+        carryOverDays: 0,
+        remainingDays: 22,
+      });
+    });
+
+    it('proporciona entitledDays para colaborador admitido a meio do ano', async () => {
+      jest.useFakeTimers().setSystemTime(new Date(2026, 0, 1));
+      mockTypeRepo.findOne.mockResolvedValue(mockVacationType);
+      mockEmployeeRepo.find.mockResolvedValue([
+        Object.assign({}, mockEmployee, { employmentStartDate: '2026-07-01' }),
+      ]);
+      mockBalanceRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+      mockBalanceRepo.create.mockImplementation((data: unknown) => data);
+      mockBalanceRepo.save.mockResolvedValue(undefined);
+
+      await service.generateAnnualLeaveBalances();
+
+      expect(mockBalanceRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ entitledDays: 11 }),
+      );
+    });
+
+    it('aplica carryOverDays com base no saldo remanescente do ano anterior, limitado ao cap', async () => {
+      jest.useFakeTimers().setSystemTime(new Date(2026, 0, 1));
+      mockTypeRepo.findOne.mockResolvedValue(mockVacationType);
+      mockEmployeeRepo.find.mockResolvedValue([
+        Object.assign({}, mockEmployee, { employmentStartDate: '2020-05-10' }),
+      ]);
+      mockBalanceRepo.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(Object.assign({}, mockBalance, { year: 2025, remainingDays: 9 }));
+      mockBalanceRepo.create.mockImplementation((data: unknown) => data);
+      mockBalanceRepo.save.mockResolvedValue(undefined);
+
+      await service.generateAnnualLeaveBalances();
+
+      expect(mockBalanceRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ carryOverDays: 5, remainingDays: 27 }),
+      );
+    });
+
+    it('não cria saldo duplicado se já existir para o ano', async () => {
+      jest.useFakeTimers().setSystemTime(new Date(2026, 0, 1));
+      mockTypeRepo.findOne.mockResolvedValue(mockVacationType);
+      mockEmployeeRepo.find.mockResolvedValue([mockEmployee]);
+      mockBalanceRepo.findOne.mockResolvedValueOnce(mockBalance);
+
+      const created = await service.generateAnnualLeaveBalances();
+
+      expect(created).toBe(0);
+      expect(mockBalanceRepo.create).not.toHaveBeenCalled();
     });
   });
 });

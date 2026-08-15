@@ -319,6 +319,8 @@ Feature: Pedido de Ausência
 
 **Gap descoberto em P-045, corrigido em P-046 (`R-039`)**: `AbsencesService.validateApprover()` tinha um bypass de admin quebrado (`approver.userId === 'admin'`, comparação de UUID contra string literal, nunca verdadeiro) — na prática ADMIN só conseguia aprovar/rejeitar pedidos de colaboradores dos quais fosse `managerId` direto. Corrigido substituindo pela verificação real via novo `RbacService.isAdmin(userId)`. O mesmo padrão foi corrigido em `TimesheetsService`/`ExpensesService`. Verificado em runtime: ADMIN aprovou um pedido de Bruno Costa sem ser o seu gestor direto.
 
+**Gap pré-existente desde a implementação original do módulo, corrigido em P-057 (wiring de `defaultVacationDaysPerYear`/`carryOverVacationDays` do Admin Settings)**: nenhuma linha `LeaveBalance` era criada em lado nenhum (nem seed, nem endpoint, nem cron) — `AbsencesService.create()` só faz `if (balance) { ... }` antes de validar saldo, pelo que sem nenhuma linha a validação era sempre um no-op silencioso e qualquer pedido de férias, de qualquer tamanho, era sempre aceite. Corrigido com um novo `AbsencesService.generateAnnualLeaveBalances()` (`@Cron('0 7 1 1 *')`, 1 de janeiro, mesmo padrão do cron anual de feriados de `CalendarService`), que cria a linha `LeaveBalance` do tipo `VACATION` para cada colaborador ativo sem uma já existente para o ano corrente. `entitledDays` vem de `settings.defaultVacationDaysPerYear`, proporcional aos meses restantes do ano para colaboradores admitidos durante esse mesmo ano (`computeEntitledVacationDays()`, arredondado por mês, sem granularidade ao dia); colaboradores admitidos em anos anteriores recebem o valor completo. `carryOverDays` vem de `min(settings.carryOverVacationDays, remainingDays do ano anterior)` (`computeCarryOverDays()`), zero se não existir uma linha do ano anterior. Detalhe completo (incluindo as 3 decisões de produto tomadas antes de implementar) em `specs/admin/SPEC.md`.
+
 ### Entregue nesta fase
 
 - **Entidades implementadas:** `AbsenceType`, `AbsenceRequest`, `AbsenceApproval`, `LeaveBalance`.
@@ -344,20 +346,21 @@ Feature: Pedido de Ausência
 - A aprovação multi-etapa (RF-ABS-003) não foi implementada; a aprovação é única pelo manager direto ou admin.
 - Os endpoints não usam o prefixo `/api/v1/absence-requests` previsto na spec inicial, mas sim `/api/absences`.
 - `LeaveBalanceAlert` e o ajuste manual de saldos (UC-ABS-004) ainda não foram implementados.
+- **Gap conhecido, documentado como `R-043`, não corrigido em P-057**: `generateAnnualLeaveBalances()` só corre uma vez por ano (1 de janeiro); um colaborador admitido depois dessa data fica sem nenhuma linha `LeaveBalance` para esse ano — de volta ao comportamento de no-op silencioso — até ao cron do ano seguinte. Decisão do utilizador (P057-02) escolheu só o cron anual, sem criação lazy no momento da admissão; documentado aqui por transparência.
 
 ### Testes
 
-- 25 testes unitários em `src/absences/services/absences.service.spec.ts`.
+- 25 testes unitários em `src/absences/services/absences.service.spec.ts`, mais 4 novos em P-057 para `generateAnnualLeaveBalances()`.
 - 15 testes e2e em `test/absences.e2e-spec.ts`.
 
 ---
 
 ## Questões em Aberto
 
-| ID        | Questão                                                                                                   | Prioridade |
-| --------- | --------------------------------------------------------------------------------------------------------- | ---------- |
-| Q-ABS-001 | Quantos dias de férias tem direito cada colaborador por ano (22 dias por lei portuguesa)? É configurável? | Alta       |
-| Q-ABS-002 | Os dias de férias transitados do ano anterior têm prazo de validade?                                      | Alta       |
-| Q-ABS-003 | A aprovação multi-etapa é configurável por tipo de ausência ou global?                                    | Alta       |
-| Q-ABS-004 | Quem é o aprovador por defeito quando não há gestor definido?                                             | Alta       |
-| Q-ABS-005 | Existe limite máximo de dias de ausência consecutivos sem aprovação especial?                             | Média      |
+| ID        | Questão                                                                                                                                                                                                                                                               | Prioridade |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| Q-ABS-001 | ~~Quantos dias de férias tem direito cada colaborador por ano (22 dias por lei portuguesa)? É configurável?~~ **Resolvido em P-057**: configurável via `SystemSetting.defaultVacationDaysPerYear` (default 22), ligado ao runtime em `generateAnnualLeaveBalances()`. | ~~Alta~~   |
+| Q-ABS-002 | Os dias de férias transitados do ano anterior têm prazo de validade? (nota P-057: `carryOverDays` fica somado a `remainingDays` sem expiração própria à parte — os dias transitados usam-se como qualquer outro dia do ano, sem prazo adicional)                      | Alta       |
+| Q-ABS-003 | A aprovação multi-etapa é configurável por tipo de ausência ou global?                                                                                                                                                                                                | Alta       |
+| Q-ABS-004 | Quem é o aprovador por defeito quando não há gestor definido?                                                                                                                                                                                                         | Alta       |
+| Q-ABS-005 | Existe limite máximo de dias de ausência consecutivos sem aprovação especial?                                                                                                                                                                                         | Média      |

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
+import { Cron } from '@nestjs/schedule';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AbsenceType } from '../entities/absence-type.entity';
 import { AbsenceRequest } from '../entities/absence-request.entity';
@@ -21,6 +22,9 @@ import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
 import { HolidayCalendar } from '../../timesheets/entities/holiday-calendar.entity';
 import { CalendarService } from '../../calendar/services/calendar.service';
 import { RbacService } from '../../rbac/services/rbac.service';
+import { AdminService } from '../../admin/admin.service';
+
+const VACATION_TYPE_CODE = 'VACATION';
 
 @Injectable()
 export class AbsencesService {
@@ -40,6 +44,7 @@ export class AbsencesService {
     private readonly eventEmitter: EventEmitter2,
     private readonly calendarService: CalendarService,
     private readonly rbacService: RbacService,
+    private readonly adminService: AdminService,
   ) {}
 
   async findTypes(): Promise<AbsenceType[]> {
@@ -515,5 +520,92 @@ export class AbsencesService {
     if (employee.managerId !== approverId) {
       throw new ForbiddenException('Apenas o manager direto ou admin pode aprovar/rejeitar');
     }
+  }
+
+  @Cron('0 7 1 1 *')
+  async generateAnnualLeaveBalances(): Promise<number> {
+    const year = new Date().getFullYear();
+    const settings = await this.adminService.getSettings();
+
+    const vacationType = await this.typeRepository.findOne({
+      where: { code: VACATION_TYPE_CODE },
+    });
+
+    if (!vacationType) return 0;
+
+    const employees = await this.employeeRepository.find({
+      where: { status: EmployeeStatus.ACTIVE },
+    });
+
+    let createdCount = 0;
+
+    for (const employee of employees) {
+      const existing = await this.balanceRepository.findOne({
+        where: { employeeId: employee.id, absenceTypeId: vacationType.id, year },
+      });
+
+      if (existing) continue;
+
+      const entitledDays = this.computeEntitledVacationDays(
+        employee.employmentStartDate,
+        year,
+        settings.defaultVacationDaysPerYear,
+      );
+
+      if (entitledDays <= 0) continue;
+
+      const carryOverDays = await this.computeCarryOverDays(
+        employee.id,
+        vacationType.id,
+        year,
+        settings.carryOverVacationDays,
+      );
+
+      const balance = this.balanceRepository.create({
+        employeeId: employee.id,
+        absenceTypeId: vacationType.id,
+        year,
+        entitledDays,
+        carryOverDays,
+        remainingDays: entitledDays + carryOverDays,
+      });
+
+      await this.balanceRepository.save(balance);
+      createdCount++;
+    }
+
+    return createdCount;
+  }
+
+  private computeEntitledVacationDays(
+    employmentStartDate: string,
+    year: number,
+    defaultDaysPerYear: number,
+  ): number {
+    const [startYearStr, startMonthStr] = employmentStartDate.split('-');
+    const startYear = Number(startYearStr);
+    const startMonth = Number(startMonthStr);
+
+    if (startYear < year) return defaultDaysPerYear;
+    if (startYear > year) return 0;
+
+    const remainingMonths = 13 - startMonth;
+
+    return Math.round((defaultDaysPerYear * remainingMonths) / 12);
+  }
+
+  private async computeCarryOverDays(
+    employeeId: string,
+    absenceTypeId: string,
+    year: number,
+    carryOverCap: number,
+  ): Promise<number> {
+    const previousYearBalance = await this.balanceRepository.findOne({
+      where: { employeeId, absenceTypeId, year: year - 1 },
+    });
+
+    if (!previousYearBalance) return 0;
+
+    return Math.min(carryOverCap, Math.max(0, previousYearBalance.remainingDays));
   }
 }
