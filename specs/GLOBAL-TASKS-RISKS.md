@@ -84,6 +84,7 @@
 | —     | 3 eventos GDPR em falta emitidos: `gdpr.request.completed`, `gdpr.incident.escalated`, `gdpr.data.exported`                                  | Concluido |
 | —     | Correção de R-038 (`user.sub`/`Employee.id`) em 10 módulos via novo `EmployeeIdentityService` partilhado; R-039 descoberto e documentado     | Concluido |
 | —     | Correção de R-039 (bypass de admin quebrado em `validateApprover()` de Absences/Timesheets/Expenses) via novo `RbacService.isAdmin()`        | Concluido |
+| —     | Reforço de cobertura de testes em `AnalyticsService` (2→15 testes) e `WorkflowService` (3→27 testes)                                         | Concluido |
 
 ## Riscos
 
