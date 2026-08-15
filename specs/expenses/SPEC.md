@@ -138,6 +138,15 @@ stateDiagram-v2
 
 ---
 
+## Notas de Implementação (P-013 backend, P-045 fix de auto-serviço)
+
+Prefixo de rota real é `/api/expenses/...`, sem `/v1` (consistente com o resto do backend). Rotas reais: `GET/POST /expenses`, `GET /expenses/:id`, `POST /expenses/:id/items`, `POST /expenses/:id/submit`, `POST /expenses/:id/approve`, `POST /expenses/:id/reject`, `GET /expenses/export`, `GET/POST /expenses/categories`.
+
+- **Bug corrigido em P-045 (`R-038`)**: `ExpensesController` passava `req.user.sub` (JWT, `User.id`) diretamente onde `ExpensesService` esperava um `Employee.id` — em `findAll`/`export` (filtro por auto-serviço), `create` (`employeeId` do novo relatório), `findOne`/`addItem`/`submit` (comparação de dono) e `approve`/`reject` (`approverId`, verificado por `ExpensesService.validateApprover()`). Só funcionava para o admin (`Employee.id = User.id` por convenção do seed de P-035); qualquer colaborador ou gestor real recebia "Colaborador não encontrado" ao criar um relatório ou "Aprovador não encontrado" ao aprovar. Corrigido injetando o novo `EmployeeIdentityService` partilhado (`backend/src/auth/services/employee-identity.service.ts`) em `ExpensesController`, resolvendo sempre `Employee.id` a partir do `userId` do JWT antes de usar. Verificado em runtime com um colaborador (Bruno Costa) e gestor (Ana Silva) reais: criação, adição de item e aprovação bem-sucedidas.
+- **Gap descoberto em P-045, não corrigido, registado como `R-039`**: `ExpensesService.validateApprover()` tem um bypass de admin quebrado — `if (approver.userId === 'admin') return;` compara uma coluna UUID com a string literal `'admin'`, nunca verdadeiro. Na prática, ADMIN só consegue aprovar/rejeitar despesas de colaboradores dos quais seja `managerId` direto. O mesmo padrão existe em `AbsencesService`/`TimesheetsService`.
+
+---
+
 ## Eventos do Sistema
 
 | Evento                     | Trigger              |

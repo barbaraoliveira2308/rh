@@ -5,12 +5,14 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './services/auth.service';
 import { JwtService, EncryptionService } from './services';
 import { MfaService } from './services/mfa.service';
+import { EmployeeIdentityService } from './services/employee-identity.service';
 import { JwtAuthGuard, SESSION_VALIDATOR } from './guards';
 import { SessionValidator } from './guards/jwt-auth.guard';
 import { RateLimitGuard } from './guards/rate-limit.guard';
 import { AuthAuditInterceptor, AUDIT_EVENT_HANDLER } from './interceptors/auth-audit.interceptor';
 import { CacheService } from '../cache/cache.service';
 import { KeycloakModule } from './keycloak/keycloak.module';
+import { Employee } from '../users/entities/employee.entity';
 import {
   User,
   Session,
@@ -34,6 +36,7 @@ import {
       UserRole,
       PasswordResetToken,
       ApiKey,
+      Employee,
     ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     KeycloakModule,
@@ -44,6 +47,7 @@ import {
     JwtService,
     EncryptionService,
     MfaService,
+    EmployeeIdentityService,
     AuthAuditInterceptor,
     RateLimitGuard,
     {
@@ -80,6 +84,7 @@ import {
     EncryptionService,
     JwtAuthGuard,
     SESSION_VALIDATOR,
+    EmployeeIdentityService,
     TypeOrmModule,
   ],
 })

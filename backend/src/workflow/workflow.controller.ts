@@ -21,13 +21,17 @@ import { RolesGuard } from '../rbac/guards/roles.guard';
 import { Roles } from '../rbac/decorators/roles.decorator';
 import { RoleEnum } from '../rbac/enums/role.enum';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { EmployeeIdentityService } from '../auth/services/employee-identity.service';
 
 @Controller()
 @ApiTags('Workflow')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class WorkflowController {
-  constructor(private readonly workflowService: WorkflowService) {}
+  constructor(
+    private readonly workflowService: WorkflowService,
+    private readonly employeeIdentity: EmployeeIdentityService,
+  ) {}
 
   @Get('workflow/inbox')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER)
@@ -38,7 +42,8 @@ export class WorkflowController {
     @Query('status') status?: WorkflowItemStatus,
   ): Promise<WorkflowItem[]> {
     const user = req.user as JwtPayload;
-    return this.workflowService.findInbox(user.sub, status);
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.workflowService.findInbox(employeeId, status);
   }
 
   @Get('workflow/inbox/count')
@@ -47,7 +52,8 @@ export class WorkflowController {
   @HttpCode(HttpStatus.OK)
   async countPending(@Req() req: Request): Promise<{ count: number }> {
     const user = req.user as JwtPayload;
-    const count = await this.workflowService.countPending(user.sub);
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    const count = await this.workflowService.countPending(employeeId);
     return { count };
   }
 
@@ -61,7 +67,8 @@ export class WorkflowController {
     @Req() req: Request,
   ): Promise<WorkflowItem> {
     const user = req.user as JwtPayload;
-    return this.workflowService.approve(id, user.sub, dto.reason);
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.workflowService.approve(id, employeeId, dto.reason);
   }
 
   @Post('workflow/inbox/:id/reject')
@@ -74,6 +81,7 @@ export class WorkflowController {
     @Req() req: Request,
   ): Promise<WorkflowItem> {
     const user = req.user as JwtPayload;
-    return this.workflowService.reject(id, user.sub, dto.reason ?? '');
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.workflowService.reject(id, employeeId, dto.reason ?? '');
   }
 }

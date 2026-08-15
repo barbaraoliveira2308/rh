@@ -25,13 +25,17 @@ import { RolesGuard } from '../rbac/guards/roles.guard';
 import { Roles } from '../rbac/decorators/roles.decorator';
 import { RoleEnum } from '../rbac/enums/role.enum';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { EmployeeIdentityService } from '../auth/services/employee-identity.service';
 
 @Controller()
 @ApiTags('Documents')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class DocumentsController {
-  constructor(private readonly documentsService: DocumentsService) {}
+  constructor(
+    private readonly documentsService: DocumentsService,
+    private readonly employeeIdentity: EmployeeIdentityService,
+  ) {}
 
   @Post('documents')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.EMPLOYEE)
@@ -45,7 +49,8 @@ export class DocumentsController {
     @Req() req: Request,
   ): Promise<Document> {
     const user = req.user as JwtPayload;
-    return this.documentsService.upload(file, metadata, user.sub);
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.documentsService.upload(file, metadata, employeeId);
   }
 
   @Get('documents')

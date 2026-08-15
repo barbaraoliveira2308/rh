@@ -315,6 +315,10 @@ Feature: Pedido de Ausência
 
 ## Notas de Implementação (P-012)
 
+**Bug corrigido em P-045 (`R-038`)**: `AbsencesController` passava `req.user.sub` (JWT, `User.id`) diretamente onde se esperava `Employee.id` — em `findAll` (filtro de auto-serviço), `create` (`employeeId` do novo pedido), `findOne`/`uploadDocument` (comparação de dono), `approve`/`reject` (`approverId`, verificado por `AbsencesService.validateApprover()`), `cancel` e `getBalance`. Só funcionava para o admin; um colaborador ou gestor real recebia sempre 403 ao aceder aos seus próprios pedidos, ou nunca conseguia criar um pedido (FK inválida). Corrigido injetando o novo `EmployeeIdentityService` partilhado (`backend/src/auth/services/employee-identity.service.ts`), que resolve `Employee.id` a partir do `userId` do JWT. Verificado em runtime: Bruno Costa (colaborador) criou/listou/cancelou um pedido próprio, Ana Silva (gestora) aprovou-o.
+
+**Gap descoberto em P-045, não corrigido, registado como `R-039`**: `AbsencesService.validateApprover()` tem um bypass de admin quebrado (`approver.userId === 'admin'`, comparação de UUID contra string literal, nunca verdadeiro) — na prática ADMIN só aprova/rejeita pedidos de colaboradores dos quais seja `managerId` direto. O mesmo padrão existe em `TimesheetsService`/`ExpensesService`.
+
 ### Entregue nesta fase
 
 - **Entidades implementadas:** `AbsenceType`, `AbsenceRequest`, `AbsenceApproval`, `LeaveBalance`.

@@ -362,6 +362,10 @@ Feature: Folha de Horas Mensal
 
 ## Notas de Implementação
 
+**Bug corrigido em P-045 (`R-038`)**: `TimesheetsController` passava `req.user.sub` (JWT, `User.id`) diretamente onde se esperava `Employee.id` — em `findOne` (verificação de dono), `updateEntry`, `submit`, `approve`/`reject` (`approverId`, verificado por `TimesheetsService.validateApprover()`) e `bulkApprove`. Só funcionava para o admin; um colaborador ou gestor real via/editava/aprovava a folha de horas errada, ou era sempre rejeitado. Corrigido injetando o novo `EmployeeIdentityService` partilhado (`backend/src/auth/services/employee-identity.service.ts`).
+
+**Gap descoberto em P-045, não corrigido, registado como `R-039`**: `TimesheetsService.validateApprover()` tem um bypass de admin quebrado (`const isAdmin = approver.userId === 'admin'; // simplified admin check`, comparação de UUID contra string literal, nunca verdadeiro) — na prática ADMIN só aprova/rejeita folhas de colaboradores dos quais seja `managerId` direto. O mesmo padrão existe em `AbsencesService`/`ExpensesService`.
+
 ### Entregue
 
 - **Entidades implementadas:** `TimesheetPeriod`, `TimesheetEntry`, `TimesheetApproval`, `HolidayCalendar`; enums `TimesheetStatus` e `EntryType`. Não existe entidade `AbsenceRequest` neste módulo — a `syncAbsences` consulta a tabela `hr.absence_requests` diretamente.

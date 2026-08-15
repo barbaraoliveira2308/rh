@@ -356,6 +356,8 @@ Feature: Gestão de Colaboradores
 
 ## Notas de Implementação
 
+**Bug corrigido em P-045 (`R-038`)**: `UsersController.update()` comparava `user.sub` (JWT, `User.id`) diretamente com o `id` (`Employee.id`) da rota `PATCH /users/:id` para decidir se era o próprio colaborador a editar o seu perfil — só coincidiam para o admin. Um colaborador real nunca conseguia editar o seu próprio perfil (403), embora Gestor/Admin sempre pudessem (comportamento existente, mantido). Corrigido injetando o novo `EmployeeIdentityService` partilhado (`backend/src/auth/services/employee-identity.service.ts`). Verificado em runtime: Bruno Costa atualizou o seu próprio `workLocation` com sucesso.
+
 Secção de registo do estado atual da implementação do módulo no backend (`backend/src/users` e `backend/src/rbac`).
 
 ### Entregue

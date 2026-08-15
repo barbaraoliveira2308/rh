@@ -92,6 +92,8 @@ PDF, DOC/DOCX, XLS/XLSX, PNG/JPG, ZIP
 
 ## Notas de Implementação
 
+**Bug corrigido em P-045 (`R-038`)**: `DocumentsController.upload()` passava `req.user.sub` (JWT, `User.id`) como `uploadedBy`, coluna com FK para `hr.employees(id)` (`Document.uploader`) — só funcionava para o admin; um colaborador real a fazer upload de um documento recebia uma violação de FK. Corrigido injetando o novo `EmployeeIdentityService` partilhado (`backend/src/auth/services/employee-identity.service.ts`). Verificado em runtime: Bruno Costa fez upload de um documento com sucesso (`uploadedBy` corretamente igual ao seu `Employee.id`).
+
 ### Entregue
 
 - **Entidade `Document`** com os campos da spec (`id`, `name`, `category`, `storage_path`, `file_type`, `size_bytes`, `owner_id`, `is_public`, `is_template`, `uploaded_by`, `deleted_at`, `created_at`) e relações `ManyToOne` com `Employee` para `owner` e `uploader`.

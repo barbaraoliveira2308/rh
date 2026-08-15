@@ -24,13 +24,17 @@ import { CreateTicketCategoryDto } from './dto/create-ticket-category.dto';
 import { AddCommentDto } from './dto/add-comment.dto';
 import { AssignTicketDto } from './dto/assign-ticket.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
+import { EmployeeIdentityService } from '../auth/services/employee-identity.service';
 
 @ApiTags('Helpdesk')
 @Controller('helpdesk')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class HelpdeskController {
-  constructor(private readonly helpdeskService: HelpdeskService) {}
+  constructor(
+    private readonly helpdeskService: HelpdeskService,
+    private readonly employeeIdentity: EmployeeIdentityService,
+  ) {}
 
   @Get('tickets')
   @ApiOperation({ summary: 'Listar tickets' })
@@ -49,7 +53,8 @@ export class HelpdeskController {
       : user.roles.includes(RoleEnum.MANAGER)
         ? 'manager'
         : 'employee';
-    return this.helpdeskService.findAll(user.sub, role, { status, priority, categoryId });
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.helpdeskService.findAll(employeeId, role, { status, priority, categoryId });
   }
 
   @Post('tickets')
@@ -57,7 +62,8 @@ export class HelpdeskController {
   @ApiOperation({ summary: 'Criar ticket' })
   async create(@Body() dto: CreateTicketDto, @Req() req: Request) {
     const user = req.user as JwtPayload;
-    return this.helpdeskService.create(dto, user.sub);
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.helpdeskService.create(dto, employeeId);
   }
 
   @Get('tickets/:id')
@@ -87,7 +93,8 @@ export class HelpdeskController {
   @ApiOperation({ summary: 'Adicionar comentário a ticket' })
   async addComment(@Param('id') id: string, @Body() dto: AddCommentDto, @Req() req: Request) {
     const user = req.user as JwtPayload;
-    return this.helpdeskService.addComment(id, user.sub, dto);
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.helpdeskService.addComment(id, employeeId, dto);
   }
 
   @Post('tickets/:id/assign')
@@ -116,7 +123,8 @@ export class HelpdeskController {
       : user.roles.includes(RoleEnum.MANAGER)
         ? 'manager'
         : 'employee';
-    return this.helpdeskService.close(id, user.sub, role);
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.helpdeskService.close(id, employeeId, role);
   }
 
   @Get('categories')

@@ -31,13 +31,17 @@ import { RolesGuard } from '../rbac/guards/roles.guard';
 import { Roles } from '../rbac/decorators/roles.decorator';
 import { RoleEnum } from '../rbac/enums/role.enum';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { EmployeeIdentityService } from '../auth/services/employee-identity.service';
 
 @Controller()
 @ApiTags('Users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly employeeIdentity: EmployeeIdentityService,
+  ) {}
 
   @Get('users')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
@@ -78,8 +82,11 @@ export class UsersController {
     const isAdmin = user.roles.includes(RoleEnum.ADMIN);
     const isManager = user.roles.includes(RoleEnum.MANAGER);
 
-    if (!isAdmin && user.sub !== id && !isManager) {
-      throw new ForbiddenException('Não tem permissão para editar este colaborador');
+    if (!isAdmin && !isManager) {
+      const callerEmployeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+      if (callerEmployeeId !== id) {
+        throw new ForbiddenException('Não tem permissão para editar este colaborador');
+      }
     }
 
     return this.usersService.update(id, dto);

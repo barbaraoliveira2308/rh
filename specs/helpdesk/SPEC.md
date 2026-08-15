@@ -65,6 +65,8 @@ Disponibilizar sistema de tickets internos para suporte a colaboradores, com ges
 
 ## Notas de Implementação
 
+**Bug corrigido em P-045 (`R-038`)**: `HelpdeskController` passava `req.user.sub` (JWT, `User.id`) onde se esperava `Employee.id` — em `findAll` (`Ticket.submitterId`, FK para `hr.employees`), `create`, `addComment` (`TicketComment.userId`, apesar do nome também FK para `hr.employees`) e `close`. Só funcionava para o admin; um colaborador real via a lista de tickets errada (ou vazia) e nunca conseguia criar/comentar um ticket com o próprio ID correto. Corrigido injetando o novo `EmployeeIdentityService` partilhado (`backend/src/auth/services/employee-identity.service.ts`). Verificado em runtime: Bruno Costa listou tickets com sucesso.
+
 Implementado em P-020 (`backend/src/helpdesk/`), corrigido e documentado em P-027.
 
 - **Entidade `TicketCategory`**: `default_priority` tem um valor por omissão de sistema (`TicketPriority.MEDIUM`) caso não seja definido na criação da categoria; `Ticket` sem categoria (`categoryId` null) usa a mesma prioridade e um SLA por omissão codificado em `DEFAULT_SLA_HOURS` (low: 120h, medium: 48h, high: 4h, urgent: 1h).

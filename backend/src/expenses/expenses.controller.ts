@@ -29,13 +29,17 @@ import { RolesGuard } from '../rbac/guards/roles.guard';
 import { Roles } from '../rbac/decorators/roles.decorator';
 import { RoleEnum } from '../rbac/enums/role.enum';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { EmployeeIdentityService } from '../auth/services/employee-identity.service';
 
 @Controller()
 @ApiTags('Expenses')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class ExpensesController {
-  constructor(private readonly expensesService: ExpensesService) {}
+  constructor(
+    private readonly expensesService: ExpensesService,
+    private readonly employeeIdentity: EmployeeIdentityService,
+  ) {}
 
   @Get('expenses')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
@@ -53,12 +57,18 @@ export class ExpensesController {
       user.roles.includes(RoleEnum.MANAGER) ||
       user.roles.includes(RoleEnum.APPROVER);
 
-    if (!isAdminOrManager && employeeId && employeeId !== user.sub) {
-      throw new ForbiddenException('Apenas pode ver as suas próprias despesas');
+    let callerEmployeeId: string | undefined;
+
+    if (!isAdminOrManager) {
+      callerEmployeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+
+      if (employeeId && employeeId !== callerEmployeeId) {
+        throw new ForbiddenException('Apenas pode ver as suas próprias despesas');
+      }
     }
 
     return this.expensesService.findAll({
-      employeeId: isAdminOrManager ? employeeId : user.sub,
+      employeeId: isAdminOrManager ? employeeId : callerEmployeeId,
       status,
       month,
     });
@@ -70,7 +80,8 @@ export class ExpensesController {
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateExpenseReportDto, @Req() req: Request): Promise<ExpenseReport> {
     const user = req.user as JwtPayload;
-    return this.expensesService.createReport(user.sub, dto);
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.expensesService.createReport(employeeId, dto);
   }
 
   @Get('expenses/export')
@@ -90,8 +101,12 @@ export class ExpensesController {
       user.roles.includes(RoleEnum.MANAGER) ||
       user.roles.includes(RoleEnum.APPROVER);
 
+    const callerEmployeeId = isAdminOrManager
+      ? undefined
+      : await this.employeeIdentity.resolveEmployeeId(user.sub);
+
     const buffer = await this.expensesService.exportToExcel({
-      employeeId: isAdminOrManager ? employeeId : user.sub,
+      employeeId: isAdminOrManager ? employeeId : callerEmployeeId,
       status,
       month,
     });
@@ -135,7 +150,8 @@ export class ExpensesController {
 
     if (!isAdminOrManager) {
       const report = await this.expensesService.findOne(id);
-      if (report.employeeId !== user.sub) {
+      const callerEmployeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+      if (report.employeeId !== callerEmployeeId) {
         throw new ForbiddenException('Acesso negado a este relatório');
       }
     }
@@ -154,8 +170,9 @@ export class ExpensesController {
   ): Promise<ExpenseItem> {
     const user = req.user as JwtPayload;
     const report = await this.expensesService.findOne(id);
+    const callerEmployeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
 
-    if (report.employeeId !== user.sub) {
+    if (report.employeeId !== callerEmployeeId) {
       throw new ForbiddenException('Apenas o próprio pode editar o relatório');
     }
 
@@ -169,8 +186,9 @@ export class ExpensesController {
   async submit(@Param('id') id: string, @Req() req: Request): Promise<ExpenseReport> {
     const user = req.user as JwtPayload;
     const report = await this.expensesService.findOne(id);
+    const callerEmployeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
 
-    if (report.employeeId !== user.sub) {
+    if (report.employeeId !== callerEmployeeId) {
       throw new ForbiddenException('Apenas o próprio pode submeter o relatório');
     }
 
@@ -187,7 +205,8 @@ export class ExpensesController {
     @Req() req: Request,
   ): Promise<ExpenseReport> {
     const user = req.user as JwtPayload;
-    return this.expensesService.approve(id, user.sub, dto.comment);
+    const approverId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.expensesService.approve(id, approverId, dto.comment);
   }
 
   @Post('expenses/:id/reject')
@@ -200,6 +219,7 @@ export class ExpensesController {
     @Req() req: Request,
   ): Promise<ExpenseReport> {
     const user = req.user as JwtPayload;
-    return this.expensesService.reject(id, user.sub, dto.reason);
+    const approverId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.expensesService.reject(id, approverId, dto.reason);
   }
 }

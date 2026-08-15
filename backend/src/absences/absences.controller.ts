@@ -26,13 +26,17 @@ import { RolesGuard } from '../rbac/guards/roles.guard';
 import { Roles } from '../rbac/decorators/roles.decorator';
 import { RoleEnum } from '../rbac/enums/role.enum';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { EmployeeIdentityService } from '../auth/services/employee-identity.service';
 
 @Controller()
 @ApiTags('Absences')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class AbsencesController {
-  constructor(private readonly absencesService: AbsencesService) {}
+  constructor(
+    private readonly absencesService: AbsencesService,
+    private readonly employeeIdentity: EmployeeIdentityService,
+  ) {}
 
   @Get('absences')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
@@ -51,12 +55,18 @@ export class AbsencesController {
       user.roles.includes(RoleEnum.MANAGER) ||
       user.roles.includes(RoleEnum.APPROVER);
 
-    if (!isAdminOrManager && employeeId && employeeId !== user.sub) {
-      throw new ForbiddenException('Apenas pode ver as suas próprias ausências');
+    let callerEmployeeId: string | undefined;
+
+    if (!isAdminOrManager) {
+      callerEmployeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+
+      if (employeeId && employeeId !== callerEmployeeId) {
+        throw new ForbiddenException('Apenas pode ver as suas próprias ausências');
+      }
     }
 
     return this.absencesService.findAll({
-      employeeId: isAdminOrManager ? employeeId : user.sub,
+      employeeId: isAdminOrManager ? employeeId : callerEmployeeId,
       type,
       status,
       year,
@@ -69,7 +79,8 @@ export class AbsencesController {
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateAbsenceDto, @Req() req: Request): Promise<AbsenceRequest> {
     const user = req.user as JwtPayload;
-    return this.absencesService.create(dto, user.sub);
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.absencesService.create(dto, employeeId);
   }
 
   @Get('absences/types')
@@ -101,7 +112,8 @@ export class AbsencesController {
 
     if (!isAdminOrManager) {
       const request = await this.absencesService.findOne(id);
-      if (request.employeeId !== user.sub) {
+      const callerEmployeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+      if (request.employeeId !== callerEmployeeId) {
         throw new ForbiddenException('Acesso negado a este pedido');
       }
     }
@@ -119,7 +131,8 @@ export class AbsencesController {
     @Req() req: Request,
   ): Promise<AbsenceRequest> {
     const user = req.user as JwtPayload;
-    return this.absencesService.approve(id, user.sub);
+    const approverId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.absencesService.approve(id, approverId);
   }
 
   @Post('absences/:id/reject')
@@ -132,7 +145,8 @@ export class AbsencesController {
     @Req() req: Request,
   ): Promise<AbsenceRequest> {
     const user = req.user as JwtPayload;
-    return this.absencesService.reject(id, user.sub, dto.reason);
+    const approverId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.absencesService.reject(id, approverId, dto.reason);
   }
 
   @Post('absences/:id/cancel')
@@ -141,7 +155,8 @@ export class AbsencesController {
   @HttpCode(HttpStatus.OK)
   async cancel(@Param('id') id: string, @Req() req: Request): Promise<AbsenceRequest> {
     const user = req.user as JwtPayload;
-    return this.absencesService.cancel(id, user.sub);
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.absencesService.cancel(id, employeeId);
   }
 
   @Post('absences/:id/document')
@@ -155,8 +170,9 @@ export class AbsencesController {
   ): Promise<AbsenceRequest> {
     const user = req.user as JwtPayload;
     const request = await this.absencesService.findOne(id);
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
 
-    if (request.employeeId !== user.sub) {
+    if (request.employeeId !== employeeId) {
       throw new ForbiddenException('Apenas o próprio pode anexar documentos');
     }
 
@@ -182,8 +198,11 @@ export class AbsencesController {
       user.roles.includes(RoleEnum.MANAGER) ||
       user.roles.includes(RoleEnum.APPROVER);
 
-    if (!isAdminOrManager && employeeId !== user.sub) {
-      throw new ForbiddenException('Acesso negado');
+    if (!isAdminOrManager) {
+      const callerEmployeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+      if (employeeId !== callerEmployeeId) {
+        throw new ForbiddenException('Acesso negado');
+      }
     }
 
     const targetYear = year ?? new Date().getFullYear();

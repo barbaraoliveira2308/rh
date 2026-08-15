@@ -28,13 +28,17 @@ import { RolesGuard } from '../rbac/guards/roles.guard';
 import { Roles } from '../rbac/decorators/roles.decorator';
 import { RoleEnum } from '../rbac/enums/role.enum';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { EmployeeIdentityService } from '../auth/services/employee-identity.service';
 
 @Controller()
 @ApiTags('Timesheets')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class TimesheetsController {
-  constructor(private readonly timesheetsService: TimesheetsService) {}
+  constructor(
+    private readonly timesheetsService: TimesheetsService,
+    private readonly employeeIdentity: EmployeeIdentityService,
+  ) {}
 
   @Get('timesheets')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
@@ -101,7 +105,8 @@ export class TimesheetsController {
 
     if (!isAdmin) {
       const period = await this.timesheetsService.findOne(id);
-      const isOwner = period.employeeId === user.sub;
+      const callerEmployeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+      const isOwner = period.employeeId === callerEmployeeId;
 
       if (
         !isOwner &&
@@ -126,7 +131,8 @@ export class TimesheetsController {
     @Req() req: Request,
   ): Promise<TimesheetEntry> {
     const user = req.user as JwtPayload;
-    return this.timesheetsService.updateEntry(id, entryId, user.sub, dto);
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.timesheetsService.updateEntry(id, entryId, employeeId, dto);
   }
 
   @Post('timesheets/:id/submit')
@@ -135,7 +141,8 @@ export class TimesheetsController {
   @HttpCode(HttpStatus.OK)
   async submit(@Param('id') id: string, @Req() req: Request): Promise<TimesheetPeriod> {
     const user = req.user as JwtPayload;
-    return this.timesheetsService.submitForApproval(id, user.sub);
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.timesheetsService.submitForApproval(id, employeeId);
   }
 
   @Post('timesheets/:id/approve')
@@ -148,7 +155,8 @@ export class TimesheetsController {
     @Req() req: Request,
   ): Promise<TimesheetPeriod> {
     const user = req.user as JwtPayload;
-    return this.timesheetsService.approve(id, user.sub, dto.comment);
+    const approverId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.timesheetsService.approve(id, approverId, dto.comment);
   }
 
   @Post('timesheets/:id/reject')
@@ -161,7 +169,8 @@ export class TimesheetsController {
     @Req() req: Request,
   ): Promise<TimesheetPeriod> {
     const user = req.user as JwtPayload;
-    return this.timesheetsService.reject(id, user.sub, dto.reason);
+    const approverId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.timesheetsService.reject(id, approverId, dto.reason);
   }
 
   @Post('timesheets/bulk-approve')
@@ -170,6 +179,7 @@ export class TimesheetsController {
   @HttpCode(HttpStatus.OK)
   async bulkApprove(@Body() dto: BulkApproveDto, @Req() req: Request): Promise<TimesheetPeriod[]> {
     const user = req.user as JwtPayload;
-    return this.timesheetsService.bulkApprove(dto.ids, user.sub);
+    const approverId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.timesheetsService.bulkApprove(dto.ids, approverId);
   }
 }

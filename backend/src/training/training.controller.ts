@@ -27,13 +27,17 @@ import { RolesGuard } from '../rbac/guards/roles.guard';
 import { Roles } from '../rbac/decorators/roles.decorator';
 import { RoleEnum } from '../rbac/enums/role.enum';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { EmployeeIdentityService } from '../auth/services/employee-identity.service';
 
 @ApiTags('Training')
 @Controller('training')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class TrainingController {
-  constructor(private readonly trainingService: TrainingService) {}
+  constructor(
+    private readonly trainingService: TrainingService,
+    private readonly employeeIdentity: EmployeeIdentityService,
+  ) {}
 
   @Get('courses')
   @ApiOperation({ summary: 'Listar cursos' })
@@ -53,7 +57,7 @@ export class TrainingController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Inscrever colaborador num curso' })
   async enroll(@Param('id') courseId: string, @Body() dto: EnrollEmployeeDto, @Req() req: Request) {
-    this.ensureSelfOrPrivileged(dto.employeeId, req);
+    await this.ensureSelfOrPrivileged(dto.employeeId, req);
     return this.trainingService.enroll(dto.employeeId, courseId);
   }
 
@@ -68,7 +72,7 @@ export class TrainingController {
   @Get('records/:employeeId')
   @ApiOperation({ summary: 'Histórico de formação de um colaborador' })
   async getRecords(@Param('employeeId') employeeId: string, @Req() req: Request) {
-    this.ensureSelfOrPrivileged(employeeId, req);
+    await this.ensureSelfOrPrivileged(employeeId, req);
     return this.trainingService.findRecordsByEmployee(employeeId);
   }
 
@@ -100,7 +104,8 @@ export class TrainingController {
   @ApiOperation({ summary: 'Criar avaliação de desempenho' })
   async createReview(@Body() dto: CreateReviewDto, @Req() req: Request) {
     const user = req.user as JwtPayload;
-    return this.trainingService.createReview(user.sub, dto);
+    const reviewerId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.trainingService.createReview(reviewerId, dto);
   }
 
   @Patch('reviews/:id')
@@ -108,7 +113,8 @@ export class TrainingController {
   @ApiOperation({ summary: 'Editar avaliação em rascunho' })
   async updateReview(@Param('id') id: string, @Body() dto: UpdateReviewDto, @Req() req: Request) {
     const user = req.user as JwtPayload;
-    return this.trainingService.updateReview(user.sub, id, dto);
+    const reviewerId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.trainingService.updateReview(reviewerId, id, dto);
   }
 
   @Post('reviews/:id/submit')
@@ -117,7 +123,8 @@ export class TrainingController {
   @ApiOperation({ summary: 'Submeter avaliação de desempenho' })
   async submitReview(@Param('id') id: string, @Req() req: Request) {
     const user = req.user as JwtPayload;
-    return this.trainingService.submitReview(user.sub, id);
+    const reviewerId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.trainingService.submitReview(reviewerId, id);
   }
 
   @Get('nine-box')
@@ -159,7 +166,7 @@ export class TrainingController {
     return this.trainingService.assessCompetency(employeeId, dto);
   }
 
-  private ensureSelfOrPrivileged(employeeId: string, req: Request): void {
+  private async ensureSelfOrPrivileged(employeeId: string, req: Request): Promise<void> {
     const user = req.user as JwtPayload | undefined;
 
     if (!user) {
@@ -170,7 +177,9 @@ export class TrainingController {
       return;
     }
 
-    if (user.sub === employeeId) {
+    const callerEmployeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+
+    if (callerEmployeeId === employeeId) {
       return;
     }
 

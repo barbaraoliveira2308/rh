@@ -22,13 +22,17 @@ import { RolesGuard } from '../rbac/guards/roles.guard';
 import { Roles } from '../rbac/decorators/roles.decorator';
 import { RoleEnum } from '../rbac/enums/role.enum';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { EmployeeIdentityService } from '../auth/services/employee-identity.service';
 
 @Controller()
 @ApiTags('Notifications')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class NotificationsController {
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly employeeIdentity: EmployeeIdentityService,
+  ) {}
 
   @Get('notifications')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
@@ -40,7 +44,8 @@ export class NotificationsController {
     @Query('limit') limit = '20',
   ): Promise<{ items: Notification[]; total: number }> {
     const user = req.user as JwtPayload;
-    return this.notificationsService.findByUser(user.sub, {
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.notificationsService.findByUser(employeeId, {
       page: Number.parseInt(page, 10),
       limit: Number.parseInt(limit, 10),
     });
@@ -52,7 +57,8 @@ export class NotificationsController {
   @HttpCode(HttpStatus.OK)
   async countUnread(@Req() req: Request): Promise<{ count: number }> {
     const user = req.user as JwtPayload;
-    const count = await this.notificationsService.countUnread(user.sub);
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    const count = await this.notificationsService.countUnread(employeeId);
     return { count };
   }
 
@@ -62,7 +68,8 @@ export class NotificationsController {
   @HttpCode(HttpStatus.OK)
   async markAsRead(@Param('id') id: string, @Req() req: Request): Promise<Notification> {
     const user = req.user as JwtPayload;
-    return this.notificationsService.markAsRead(id, user.sub);
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.notificationsService.markAsRead(id, employeeId);
   }
 
   @Post('notifications/read-all')
@@ -71,7 +78,8 @@ export class NotificationsController {
   @HttpCode(HttpStatus.OK)
   async markAllAsRead(@Req() req: Request): Promise<void> {
     const user = req.user as JwtPayload;
-    return this.notificationsService.markAllAsRead(user.sub);
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.notificationsService.markAllAsRead(employeeId);
   }
 
   @Get('notifications/preferences')
@@ -80,7 +88,8 @@ export class NotificationsController {
   @HttpCode(HttpStatus.OK)
   async getPreferences(@Req() req: Request): Promise<NotificationPreference[]> {
     const user = req.user as JwtPayload;
-    return this.notificationsService.getPreferences(user.sub);
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.notificationsService.getPreferences(employeeId);
   }
 
   @Patch('notifications/preferences')
@@ -92,6 +101,7 @@ export class NotificationsController {
     @Body() dto: UpdatePreferenceDto[],
   ): Promise<NotificationPreference[]> {
     const user = req.user as JwtPayload;
-    return this.notificationsService.updatePreferences(user.sub, dto);
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    return this.notificationsService.updatePreferences(employeeId, dto);
   }
 }

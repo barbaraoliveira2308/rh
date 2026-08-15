@@ -27,6 +27,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../rbac/guards/roles.guard';
 import { Roles } from '../rbac/decorators/roles.decorator';
 import { RoleEnum } from '../rbac/enums/role.enum';
+import { EmployeeIdentityService } from '../auth/services/employee-identity.service';
 import { ConsentRecord } from './entities/consent-record.entity';
 import { DataSubjectRequest } from './entities/data-subject-request.entity';
 import { RetentionPolicy } from './entities/retention-policy.entity';
@@ -41,7 +42,10 @@ interface RequestWithUser extends Request {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class GdprController {
-  constructor(private readonly gdprService: GdprService) {}
+  constructor(
+    private readonly gdprService: GdprService,
+    private readonly employeeIdentity: EmployeeIdentityService,
+  ) {}
 
   @Get('consents/:employeeId')
   @ApiOperation({ summary: 'Listar consentimentos de um colaborador' })
@@ -49,7 +53,7 @@ export class GdprController {
     @Param('employeeId') employeeId: string,
     @Req() req: RequestWithUser,
   ): Promise<ConsentRecord[]> {
-    this.ensureSelfOrAdmin(employeeId, req);
+    await this.ensureSelfOrAdmin(employeeId, req);
     return this.gdprService.findConsents(employeeId);
   }
 
@@ -61,7 +65,7 @@ export class GdprController {
     @Body() dto: RevokeConsentDto,
     @Req() req: RequestWithUser,
   ): Promise<ConsentRecord> {
-    this.ensureSelfOrAdmin(employeeId, req);
+    await this.ensureSelfOrAdmin(employeeId, req);
     return this.gdprService.revokeConsent(employeeId, dto.purpose);
   }
 
@@ -90,7 +94,7 @@ export class GdprController {
     @Body() dto: CreateDataRequestDto,
     @Req() req: RequestWithUser,
   ): Promise<DataSubjectRequest> {
-    this.ensureSelfOrAdmin(dto.subjectId, req);
+    await this.ensureSelfOrAdmin(dto.subjectId, req);
     return this.gdprService.createDataRequest(dto);
   }
 
@@ -171,7 +175,7 @@ export class GdprController {
     return this.gdprService.getComplianceReport();
   }
 
-  private ensureSelfOrAdmin(employeeId: string, req: RequestWithUser): void {
+  private async ensureSelfOrAdmin(employeeId: string, req: RequestWithUser): Promise<void> {
     const user = req.user;
 
     if (!user) {
@@ -182,7 +186,9 @@ export class GdprController {
       return;
     }
 
-    if (user.sub === employeeId) {
+    const callerEmployeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+
+    if (callerEmployeeId === employeeId) {
       return;
     }
 
