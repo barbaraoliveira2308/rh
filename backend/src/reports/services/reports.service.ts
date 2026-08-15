@@ -52,7 +52,7 @@ export class ReportsService {
   async resolveEmployeeScope(
     roles: string[],
     callerUserId: string,
-    requestedEmployeeId: string,
+    requestedEmployeeId?: string,
   ): Promise<{ employeeId?: string; employeeIds?: string[] }> {
     if (roles.includes(RoleEnum.ADMIN)) {
       return requestedEmployeeId ? { employeeId: requestedEmployeeId } : {};
@@ -189,9 +189,15 @@ export class ReportsService {
           this.asString(filters.period),
         );
       case ReportType.MARGINS:
-        return this.generateMarginReport(this.asString(filters.period));
+        return this.generateMarginReport(
+          this.asString(filters.period),
+          this.asStringArray(filters.employeeIds),
+        );
       case ReportType.CONTRACTS_EXPIRING:
-        return this.generateContractsExpiringReport(Number(filters.days ?? 30));
+        return this.generateContractsExpiringReport(
+          Number(filters.days ?? 30),
+          this.asStringArray(filters.employeeIds),
+        );
       case ReportType.AUDIT:
         return this.generateAuditReport(filters);
       default:
@@ -492,7 +498,10 @@ export class ReportsService {
     }));
   }
 
-  async generateMarginReport(period: string): Promise<Record<string, unknown>[]> {
+  async generateMarginReport(
+    period: string,
+    employeeIds: string[] = [],
+  ): Promise<Record<string, unknown>[]> {
     if (!period) {
       throw new BadRequestException('period é obrigatório');
     }
@@ -502,7 +511,10 @@ export class ReportsService {
     const endDate = this.lastDayOfMonth(year, month);
 
     const employees = await this.dataSource.getRepository(Employee).find({
-      where: { status: EmployeeStatus.ACTIVE },
+      where:
+        employeeIds.length > 0
+          ? { status: EmployeeStatus.ACTIVE, id: In(employeeIds) }
+          : { status: EmployeeStatus.ACTIVE },
     });
 
     const result: Record<string, unknown>[] = [];
@@ -562,7 +574,10 @@ export class ReportsService {
     return result;
   }
 
-  async generateContractsExpiringReport(daysAhead: number): Promise<Record<string, unknown>[]> {
+  async generateContractsExpiringReport(
+    daysAhead: number,
+    employeeIds: string[] = [],
+  ): Promise<Record<string, unknown>[]> {
     const today = new Date();
     const limit = new Date(today);
     limit.setDate(today.getDate() + daysAhead);
@@ -572,6 +587,7 @@ export class ReportsService {
       where: {
         status: ContractStatus.ACTIVE,
         endDate: LessThanOrEqual(limitStr),
+        ...(employeeIds.length > 0 ? { employeeId: In(employeeIds) } : {}),
       },
       relations: ['employee'],
       order: { endDate: 'ASC' },

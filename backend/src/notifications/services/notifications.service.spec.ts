@@ -10,12 +10,15 @@ import { AbsenceRequest } from '../../absences/entities/absence-request.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { NotificationStatus } from '../entities/notification-status.enum';
 import { NotificationChannel } from '../entities/notification-channel.enum';
+import { DataSubjectRequestCompletedEvent } from '../../gdpr/events/data-subject-request-completed.event';
+import { PersonalDataExportedEvent } from '../../gdpr/events/personal-data-exported.event';
 
 describe('NotificationsService', () => {
   let service: NotificationsService;
   let mockNotificationRepo: Record<string, jest.Mock>;
   let mockTemplateRepo: Record<string, jest.Mock>;
   let mockPreferenceRepo: Record<string, jest.Mock>;
+  let mockEmployeeRepo: Record<string, jest.Mock>;
 
   beforeEach(async () => {
     mockNotificationRepo = {
@@ -39,13 +42,17 @@ describe('NotificationsService', () => {
       save: jest.fn(),
     };
 
+    mockEmployeeRepo = {
+      findOne: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NotificationsService,
         { provide: getRepositoryToken(Notification), useValue: mockNotificationRepo },
         { provide: getRepositoryToken(NotificationTemplate), useValue: mockTemplateRepo },
         { provide: getRepositoryToken(NotificationPreference), useValue: mockPreferenceRepo },
-        { provide: getRepositoryToken(Employee), useValue: {} },
+        { provide: getRepositoryToken(Employee), useValue: mockEmployeeRepo },
         { provide: getRepositoryToken(TimesheetPeriod), useValue: {} },
         { provide: getRepositoryToken(AbsenceRequest), useValue: {} },
         { provide: getRepositoryToken(Project), useValue: {} },
@@ -143,6 +150,76 @@ describe('NotificationsService', () => {
       expect(mockNotificationRepo.delete).toHaveBeenCalledWith(
         expect.objectContaining({ channel: NotificationChannel.IN_APP }),
       );
+    });
+  });
+
+  describe('handleGdprRequestCompleted', () => {
+    it('não deve notificar se o titular dos dados não existir', async () => {
+      mockEmployeeRepo.findOne.mockResolvedValue(null);
+
+      await service.handleGdprRequestCompleted(
+        new DataSubjectRequestCompletedEvent('req-1', 'emp-1', 'access'),
+      );
+
+      expect(mockNotificationRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('deve notificar o titular dos dados quando o pedido é concluído', async () => {
+      mockEmployeeRepo.findOne.mockResolvedValue({ id: 'emp-1', firstName: 'João' });
+      mockPreferenceRepo.findOne.mockResolvedValue({
+        employeeId: 'emp-1',
+        notificationType: 'gdpr.request.completed',
+        emailEnabled: false,
+        inAppEnabled: true,
+      });
+
+      const createdNotification = { id: 'notif-1', recipientId: 'emp-1' };
+      mockNotificationRepo.create.mockReturnValue(createdNotification);
+      mockNotificationRepo.save.mockResolvedValue(createdNotification);
+
+      await service.handleGdprRequestCompleted(
+        new DataSubjectRequestCompletedEvent('req-1', 'emp-1', 'access'),
+      );
+
+      expect(mockNotificationRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ recipientId: 'emp-1', type: 'gdpr.request.completed' }),
+      );
+      expect(mockNotificationRepo.save).toHaveBeenCalled();
+    });
+  });
+
+  describe('handleGdprDataExported', () => {
+    it('não deve notificar se o titular dos dados não existir', async () => {
+      mockEmployeeRepo.findOne.mockResolvedValue(null);
+
+      await service.handleGdprDataExported(
+        new PersonalDataExportedEvent('emp-1', 'req-1', 'access'),
+      );
+
+      expect(mockNotificationRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('deve notificar o titular dos dados quando os dados são exportados', async () => {
+      mockEmployeeRepo.findOne.mockResolvedValue({ id: 'emp-1', firstName: 'João' });
+      mockPreferenceRepo.findOne.mockResolvedValue({
+        employeeId: 'emp-1',
+        notificationType: 'gdpr.data.exported',
+        emailEnabled: false,
+        inAppEnabled: true,
+      });
+
+      const createdNotification = { id: 'notif-1', recipientId: 'emp-1' };
+      mockNotificationRepo.create.mockReturnValue(createdNotification);
+      mockNotificationRepo.save.mockResolvedValue(createdNotification);
+
+      await service.handleGdprDataExported(
+        new PersonalDataExportedEvent('emp-1', 'req-1', 'portability'),
+      );
+
+      expect(mockNotificationRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ recipientId: 'emp-1', type: 'gdpr.data.exported' }),
+      );
+      expect(mockNotificationRepo.save).toHaveBeenCalled();
     });
   });
 });

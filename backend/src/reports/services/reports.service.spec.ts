@@ -10,6 +10,8 @@ import { ReportJob } from '../entities/report-job.entity';
 import { ReportType } from '../entities/report-type.enum';
 import { ReportFormat } from '../entities/report-format.enum';
 import { ReportJobStatus } from '../entities/report-job-status.enum';
+import { EmployeeStatus } from '../../users/entities/employee.entity';
+import { ContractStatus } from '../../contracts/entities/contract.entity';
 
 const mockRepository = {
   create: jest.fn().mockImplementation((dto: Record<string, unknown>) => {
@@ -241,6 +243,75 @@ describe('ReportsService', () => {
       await expect(service.resolveEmployeeScope(['manager'], 'user-mgr', 'emp-99')).rejects.toThrow(
         ForbiddenException,
       );
+    });
+  });
+
+  interface FindOperatorLike {
+    type: string;
+    value: unknown;
+  }
+
+  describe('generateMarginReport', () => {
+    const employeeRepo = mockDataSource.getRepository() as { find: jest.Mock };
+
+    it('should filter employees by employeeIds when provided (MANAGER scope)', async () => {
+      let capturedWhere: { status: EmployeeStatus; id?: FindOperatorLike } | undefined;
+      employeeRepo.find.mockImplementationOnce(
+        (options: { where: { status: EmployeeStatus; id?: FindOperatorLike } }) => {
+          capturedWhere = options.where;
+          return Promise.resolve([]);
+        },
+      );
+
+      await service.generateMarginReport('2026-07', ['emp-1', 'emp-2']);
+
+      expect(capturedWhere?.status).toBe(EmployeeStatus.ACTIVE);
+      expect(capturedWhere?.id?.type).toBe('in');
+      expect(capturedWhere?.id?.value).toEqual(['emp-1', 'emp-2']);
+    });
+
+    it('should not restrict employees when employeeIds is empty (ADMIN scope)', async () => {
+      let capturedWhere: Record<string, unknown> | undefined;
+      employeeRepo.find.mockImplementationOnce((options: { where: Record<string, unknown> }) => {
+        capturedWhere = options.where;
+        return Promise.resolve([]);
+      });
+
+      await service.generateMarginReport('2026-07');
+
+      expect(capturedWhere).toEqual({ status: EmployeeStatus.ACTIVE });
+    });
+  });
+
+  describe('generateContractsExpiringReport', () => {
+    const contractRepo = mockDataSource.getRepository() as { find: jest.Mock };
+
+    it('should filter contracts by employeeIds when provided (MANAGER scope)', async () => {
+      let capturedWhere: { status: ContractStatus; employeeId?: FindOperatorLike } | undefined;
+      contractRepo.find.mockImplementationOnce(
+        (options: { where: { status: ContractStatus; employeeId?: FindOperatorLike } }) => {
+          capturedWhere = options.where;
+          return Promise.resolve([]);
+        },
+      );
+
+      await service.generateContractsExpiringReport(30, ['emp-1']);
+
+      expect(capturedWhere?.status).toBe(ContractStatus.ACTIVE);
+      expect(capturedWhere?.employeeId?.type).toBe('in');
+      expect(capturedWhere?.employeeId?.value).toEqual(['emp-1']);
+    });
+
+    it('should not restrict contracts when employeeIds is empty (ADMIN scope)', async () => {
+      let capturedWhere: { employeeId?: unknown } | undefined;
+      contractRepo.find.mockImplementationOnce((options: { where: { employeeId?: unknown } }) => {
+        capturedWhere = options.where;
+        return Promise.resolve([]);
+      });
+
+      await service.generateContractsExpiringReport(30);
+
+      expect(capturedWhere?.employeeId).toBeUndefined();
     });
   });
 });

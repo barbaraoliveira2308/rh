@@ -139,6 +139,54 @@ describe('ScheduledReportsService', () => {
     });
   });
 
+  describe('update', () => {
+    it('deve lançar NotFoundException se o agendamento não existir', async () => {
+      const service = await buildModule();
+      mockScheduledRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.update('missing', { name: 'Novo nome' })).rejects.toThrow(
+        'Tarefa agendada não encontrada',
+      );
+    });
+
+    it('deve atualizar os campos fornecidos sem recalcular nextRunAt quando a frequência não muda', async () => {
+      const service = await buildModule();
+      const existingNextRunAt = new Date('2026-09-01T00:00:00.000Z');
+      mockScheduledRepo.findOne.mockResolvedValue({
+        id: 's-1',
+        name: 'Antigo',
+        frequency: ReportFrequency.WEEKLY,
+        nextRunAt: existingNextRunAt,
+        isActive: true,
+      });
+
+      const result = await service.update('s-1', { name: 'Novo nome', isActive: false });
+
+      expect(result.name).toBe('Novo nome');
+      expect(result.isActive).toBe(false);
+      expect(result.nextRunAt).toBe(existingNextRunAt);
+    });
+
+    it('deve recalcular nextRunAt quando a frequência é alterada', async () => {
+      const service = await buildModule();
+      const before = new Date();
+      mockScheduledRepo.findOne.mockResolvedValue({
+        id: 's-1',
+        name: 'Relatório',
+        frequency: ReportFrequency.WEEKLY,
+        nextRunAt: new Date('2026-09-01T00:00:00.000Z'),
+        isActive: true,
+      });
+
+      const result = await service.update('s-1', { frequency: ReportFrequency.DAILY });
+
+      const expectedDiffDays = Math.round(
+        (assertDate(result.nextRunAt).getTime() - before.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      expect(expectedDiffDays).toBe(1);
+    });
+  });
+
   describe('remove', () => {
     it('deve lançar erro se o agendamento não existir', async () => {
       const service = await buildModule();

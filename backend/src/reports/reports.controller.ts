@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Param,
   Query,
@@ -12,12 +13,14 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { ReportsService } from './services/reports.service';
 import { ScheduledReportsService } from './services/scheduled-reports.service';
 import { CreateScheduledReportDto } from './dto/create-scheduled-report.dto';
+import { UpdateScheduledReportDto } from './dto/update-scheduled-report.dto';
 import { ScheduledReportResponseDto } from './dto/scheduled-report-response.dto';
 import { ReportJob } from './entities/report-job.entity';
 import { ReportType } from './entities/report-type.enum';
@@ -27,6 +30,8 @@ import { RolesGuard } from '../rbac/guards/roles.guard';
 import { Roles } from '../rbac/decorators/roles.decorator';
 import { RoleEnum } from '../rbac/enums/role.enum';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { ProjectsService } from '../projects/services/projects.service';
+import { TeamsService } from '../teams/services/teams.service';
 
 function parseFormat(format?: string): ReportFormat {
   const value = format ?? 'json';
@@ -46,6 +51,8 @@ export class ReportsController {
   constructor(
     private readonly reportsService: ReportsService,
     private readonly scheduledReportsService: ScheduledReportsService,
+    private readonly projectsService: ProjectsService,
+    private readonly teamsService: TeamsService,
   ) {}
 
   @Get('timesheets')
@@ -143,8 +150,19 @@ export class ReportsController {
     @Param('id') id: string,
     @Query('period') period: string,
     @Query('format') format: string,
+    @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
+    const user = req.user as JwtPayload;
+
+    if (!user.roles.includes(RoleEnum.ADMIN)) {
+      const isManager = await this.projectsService.isProjectManager(id, user.sub);
+
+      if (!isManager) {
+        throw new ForbiddenException('Sem acesso aos dados deste projeto');
+      }
+    }
+
     const result = await this.reportsService.generateReport(
       ReportType.PROJECT_HOURS,
       { projectId: id, period },
@@ -162,8 +180,19 @@ export class ReportsController {
     @Param('id') id: string,
     @Query('period') period: string,
     @Query('format') format: string,
+    @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
+    const user = req.user as JwtPayload;
+
+    if (!user.roles.includes(RoleEnum.ADMIN)) {
+      const isLeader = await this.teamsService.isTeamLeader(id, user.sub);
+
+      if (!isLeader) {
+        throw new ForbiddenException('Sem acesso aos dados desta equipa');
+      }
+    }
+
     const result = await this.reportsService.generateReport(
       ReportType.TEAM_OCCUPANCY,
       { teamId: id, period },
@@ -180,11 +209,14 @@ export class ReportsController {
   async getMarginReport(
     @Query('period') period: string,
     @Query('format') format: string,
+    @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
+    const user = req.user as JwtPayload;
+    const scope = await this.reportsService.resolveEmployeeScope(user.roles, user.sub, undefined);
     const result = await this.reportsService.generateReport(
       ReportType.MARGINS,
-      { period },
+      { period, ...scope },
       parseFormat(format),
     );
 
@@ -198,12 +230,15 @@ export class ReportsController {
   async getContractsExpiringReport(
     @Query('days') days: string,
     @Query('format') format: string,
+    @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
+    const user = req.user as JwtPayload;
+    const scope = await this.reportsService.resolveEmployeeScope(user.roles, user.sub, undefined);
     const daysNum = days ? Number.parseInt(days, 10) : 30;
     const result = await this.reportsService.generateReport(
       ReportType.CONTRACTS_EXPIRING,
-      { days: daysNum },
+      { days: daysNum, ...scope },
       parseFormat(format),
     );
 
@@ -269,6 +304,17 @@ export class ReportsController {
   @HttpCode(HttpStatus.CREATED)
   async createSchedule(@Body() dto: CreateScheduledReportDto): Promise<ScheduledReportResponseDto> {
     return this.scheduledReportsService.create(dto);
+  }
+
+  @Patch('schedules/:id')
+  @Roles(RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Editar relatório agendado' })
+  @HttpCode(HttpStatus.OK)
+  async updateSchedule(
+    @Param('id') id: string,
+    @Body() dto: UpdateScheduledReportDto,
+  ): Promise<ScheduledReportResponseDto> {
+    return this.scheduledReportsService.update(id, dto);
   }
 
   @Delete('schedules/:id')

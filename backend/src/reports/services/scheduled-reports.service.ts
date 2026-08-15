@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -9,6 +9,7 @@ import { ReportFormat } from '../entities/report-format.enum';
 import { ReportsService } from './reports.service';
 import { ReportsRabbitmqService } from './reports-rabbitmq.service';
 import { CreateScheduledReportDto } from '../dto/create-scheduled-report.dto';
+import { UpdateScheduledReportDto } from '../dto/update-scheduled-report.dto';
 import { ScheduledReportResponseDto } from '../dto/scheduled-report-response.dto';
 
 @Injectable()
@@ -56,6 +57,23 @@ export class ScheduledReportsService {
   async findAll(): Promise<ScheduledReportResponseDto[]> {
     const items = await this.scheduledRepository.find({ order: { createdAt: 'DESC' } });
     return items.map((item) => this.mapToResponse(item));
+  }
+
+  async update(id: string, dto: UpdateScheduledReportDto): Promise<ScheduledReportResponseDto> {
+    const item = await this.scheduledRepository.findOne({ where: { id } });
+
+    if (!item) {
+      throw new NotFoundException('Tarefa agendada não encontrada');
+    }
+
+    Object.assign(item, dto);
+
+    if (dto.frequency) {
+      item.nextRunAt = this.calculateNextRun(dto.frequency);
+    }
+
+    const saved = await this.scheduledRepository.save(item);
+    return this.mapToResponse(saved);
   }
 
   async remove(id: string): Promise<void> {

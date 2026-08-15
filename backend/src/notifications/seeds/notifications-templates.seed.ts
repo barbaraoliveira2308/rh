@@ -84,6 +84,18 @@ const templates: TemplateDefinition[] = [
     subject: 'A tua timesheet ainda não foi submetida',
     file: 'timesheet-pending.hbs',
   },
+  {
+    code: 'gdpr-request-completed',
+    name: 'Pedido de Titular Concluído',
+    subject: 'O teu pedido de titular de dados foi concluído',
+    file: 'gdpr-request-completed.hbs',
+  },
+  {
+    code: 'gdpr-data-exported',
+    name: 'Dados Pessoais Exportados',
+    subject: 'Os teus dados pessoais foram exportados',
+    file: 'gdpr-data-exported.hbs',
+  },
 ];
 
 export async function run(dataSource: DataSource): Promise<void> {

@@ -26,6 +26,8 @@ import { AllocationEndingAlertEvent } from '../../projects/events/allocation-end
 import { OverallocationDetectedEvent } from '../../projects/events/overallocation-detected.event';
 import { ExpenseApprovedEvent } from '../../expenses/events/expense-approved.event';
 import { ExpenseRejectedEvent } from '../../expenses/events/expense-rejected.event';
+import { DataSubjectRequestCompletedEvent } from '../../gdpr/events/data-subject-request-completed.event';
+import { PersonalDataExportedEvent } from '../../gdpr/events/personal-data-exported.event';
 
 interface TimesheetPendingSubmissionEvent {
   periodId: string;
@@ -636,6 +638,50 @@ export class NotificationsService {
       },
       event.periodId,
       'TimesheetPeriod',
+    );
+  }
+
+  @OnEvent('gdpr.request.completed')
+  async handleGdprRequestCompleted(event: DataSubjectRequestCompletedEvent): Promise<void> {
+    const employee = await this.employeeRepository.findOne({ where: { id: event.subjectId } });
+
+    if (!employee) return;
+
+    await this.notify(
+      event.subjectId,
+      'gdpr.request.completed',
+      'Pedido de titular concluído',
+      'O teu pedido de titular de dados (' + event.requestType + ') foi concluído',
+      'gdpr-request-completed',
+      {
+        employeeName: employee.firstName,
+        requestType: event.requestType,
+        link: '/gdpr',
+      },
+      event.requestId,
+      'DataSubjectRequest',
+    );
+  }
+
+  @OnEvent('gdpr.data.exported')
+  async handleGdprDataExported(event: PersonalDataExportedEvent): Promise<void> {
+    const employee = await this.employeeRepository.findOne({ where: { id: event.subjectId } });
+
+    if (!employee) return;
+
+    await this.notify(
+      event.subjectId,
+      'gdpr.data.exported',
+      'Dados pessoais exportados',
+      'Os teus dados pessoais foram exportados no âmbito de um pedido de titular',
+      'gdpr-data-exported',
+      {
+        employeeName: employee.firstName,
+        requestType: event.requestType,
+        link: '/gdpr',
+      },
+      event.requestId,
+      'DataSubjectRequest',
     );
   }
 

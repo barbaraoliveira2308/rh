@@ -8,9 +8,11 @@ import { ScheduledReportsService } from './services/scheduled-reports.service';
 import { ReportsConsumerService } from './services/reports-consumer.service';
 import { ScheduledReport } from './entities/scheduled-report.entity';
 import { ReportJob } from './entities/report-job.entity';
+import { ProjectsModule } from '../projects/projects.module';
+import { TeamsModule } from '../teams/teams.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ScheduledReport, ReportJob])],
+  imports: [TypeOrmModule.forFeature([ScheduledReport, ReportJob]), ProjectsModule, TeamsModule],
   controllers: [ReportsController],
   providers: [
     ReportsService,
