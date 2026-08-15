@@ -21,6 +21,7 @@ import {
   ProjectAllocation,
   AllocationType,
 } from '../../projects/entities/project-allocation.entity';
+import { Team } from '../../teams/entities/team.entity';
 import { TeamMember } from '../../teams/entities/team-member.entity';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
 import { Contract, ContractStatus } from '../../contracts/entities/contract.entity';
@@ -430,9 +431,8 @@ export class ReportsService {
       throw new BadRequestException('period é obrigatório');
     }
 
-    const team = await this.dataSource.getRepository(TeamMember).findOne({
-      where: { teamId },
-      relations: ['team'],
+    const team = await this.dataSource.getRepository(Team).findOne({
+      where: { id: teamId },
     });
 
     if (!team) {

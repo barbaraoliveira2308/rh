@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -243,6 +243,26 @@ describe('ReportsService', () => {
       await expect(service.resolveEmployeeScope(['manager'], 'user-mgr', 'emp-99')).rejects.toThrow(
         ForbiddenException,
       );
+    });
+  });
+
+  describe('generateTeamOccupancyReport', () => {
+    const teamRepo = mockDataSource.getRepository() as { findOne: jest.Mock };
+
+    it('should throw NotFoundException if the team does not exist', async () => {
+      teamRepo.findOne.mockResolvedValueOnce(null);
+
+      await expect(service.generateTeamOccupancyReport('team-1', '2026-07')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should return an empty array for a valid team with no members (regression for R-040)', async () => {
+      teamRepo.findOne.mockResolvedValueOnce({ id: 'team-1', name: 'Equipa Vazia' });
+
+      const result = await service.generateTeamOccupancyReport('team-1', '2026-07');
+
+      expect(result).toEqual([]);
     });
   });
 
