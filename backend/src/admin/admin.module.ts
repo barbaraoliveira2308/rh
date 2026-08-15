@@ -1,10 +1,11 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { SystemSetting } from './entities/system-setting.entity';
 import { LegalEntity } from './entities/legal-entity.entity';
 
+@Global()
 @Module({
   imports: [TypeOrmModule.forFeature([SystemSetting, LegalEntity])],
   controllers: [AdminController],

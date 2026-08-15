@@ -5,6 +5,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TimesheetsService } from './timesheets.service';
 import { CalendarService } from '../../calendar/services/calendar.service';
 import { RbacService } from '../../rbac/services/rbac.service';
+import { AdminService } from '../../admin/admin.service';
 import { TimesheetPeriod } from '../entities/timesheet-period.entity';
 import { TimesheetEntry } from '../entities/timesheet-entry.entity';
 import { TimesheetApproval } from '../entities/timesheet-approval.entity';
@@ -24,6 +25,7 @@ describe('TimesheetsService', () => {
   let mockEventEmitter: Record<string, jest.Mock>;
   let mockCalendarService: Record<string, jest.Mock>;
   let mockRbacService: Record<string, jest.Mock>;
+  let mockAdminService: Record<string, jest.Mock>;
 
   const mockEmployee = {
     id: 'emp-1',
@@ -120,6 +122,10 @@ describe('TimesheetsService', () => {
       isAdmin: jest.fn().mockResolvedValue(false),
     };
 
+    mockAdminService = {
+      getSettings: jest.fn().mockResolvedValue({ defaultDailyHours: 8 }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TimesheetsService,
@@ -132,10 +138,35 @@ describe('TimesheetsService', () => {
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: CalendarService, useValue: mockCalendarService },
         { provide: RbacService, useValue: mockRbacService },
+        { provide: AdminService, useValue: mockAdminService },
       ],
     }).compile();
 
     service = module.get<TimesheetsService>(TimesheetsService);
+  });
+
+  describe('generateMonthlyPeriods', () => {
+    it('deve usar defaultDailyHours de SystemSetting nas entradas de dias úteis', async () => {
+      mockEmployeeRepo.find.mockResolvedValue([mockEmployee]);
+      mockHolidayRepo.find.mockResolvedValue([]);
+      mockPeriodRepo.findOne.mockResolvedValue(null);
+      mockPeriodRepo.create.mockImplementation((data: unknown) => data);
+      mockPeriodRepo.save.mockResolvedValue({ id: 'period-new' });
+      mockEntryRepo.create.mockImplementation((data: unknown) => data);
+      mockEntryRepo.save.mockResolvedValue(undefined);
+      mockEntryRepo.find.mockResolvedValue([]);
+      mockAdminService.getSettings.mockResolvedValue({ defaultDailyHours: 7.5 });
+
+      await service.generateMonthlyPeriods(2026, 8);
+
+      expect(mockAdminService.getSettings).toHaveBeenCalled();
+      const savedEntries = (mockEntryRepo.save.mock.calls[0] as unknown[])[0] as {
+        entryType: EntryType;
+        plannedHours: number;
+      }[];
+      const workEntry = savedEntries.find((entry) => entry.entryType === EntryType.WORK);
+      expect(workEntry?.plannedHours).toBe(7.5);
+    });
   });
 
   describe('syncAbsences', () => {

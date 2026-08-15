@@ -14,12 +14,10 @@ import { UserRole } from '../entities/user-role.entity';
 import { JwtService } from './jwt.service';
 import { MfaService } from './mfa.service';
 import { CacheService } from '../../cache/cache.service';
+import { AdminService } from '../../admin/admin.service';
 
 @Injectable()
 export class AuthService {
-  private readonly lockoutDurationMs: number;
-  private readonly maxFailedAttempts: number;
-
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -31,10 +29,8 @@ export class AuthService {
     private readonly mfaService: MfaService,
     private readonly cacheService: CacheService,
     private readonly configService: ConfigService,
-  ) {
-    this.lockoutDurationMs = 15 * 60 * 1000;
-    this.maxFailedAttempts = 5;
-  }
+    private readonly adminService: AdminService,
+  ) {}
 
   async login(
     email: string,
@@ -354,10 +350,11 @@ export class AuthService {
   }
 
   private async handleFailedLogin(user: User): Promise<void> {
+    const settings = await this.adminService.getSettings();
     const newCount = user.failedLoginCount + 1;
 
-    if (newCount >= this.maxFailedAttempts) {
-      const lockedUntil = new Date(Date.now() + this.lockoutDurationMs);
+    if (newCount >= settings.maxLoginAttempts) {
+      const lockedUntil = new Date(Date.now() + settings.lockoutPeriodMinutes * 60 * 1000);
       await this.userRepository.update(user.id, {
         failedLoginCount: newCount,
         lockedUntil,

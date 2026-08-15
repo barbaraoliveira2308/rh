@@ -8,13 +8,12 @@ import { Employee, EmployeeStatus } from '../users/entities/employee.entity';
 import { ProjectAllocation } from '../projects/entities/project-allocation.entity';
 import { AbsenceRequest } from '../absences/entities/absence-request.entity';
 import { AbsenceStatus } from '../absences/entities/absence-status.enum';
+import { AdminService } from '../admin/admin.service';
 import {
   CapacityOverviewEntryDto,
   CapacityAlertsDto,
   CapacityCalendarEntryDto,
 } from './dto/capacity-response.dto';
-
-const UNDERALLOCATION_THRESHOLD_PERCENTAGE = 80;
 
 @Injectable()
 export class CapacityService {
@@ -27,6 +26,7 @@ export class CapacityService {
     private readonly absenceRepository: Repository<AbsenceRequest>,
     private readonly analyticsService: AnalyticsService,
     private readonly teamsService: TeamsService,
+    private readonly adminService: AdminService,
   ) {}
 
   async getOverview(
@@ -59,12 +59,13 @@ export class CapacityService {
 
   async getAlerts(period: string, teamId?: string): Promise<CapacityAlertsDto> {
     const overview = await this.getOverview(period, teamId);
+    const settings = await this.adminService.getSettings();
 
     const overallocations = overview.filter((entry) => entry.adjustedAllocationPercentage > 100);
     const underallocations = overview.filter(
       (entry) =>
         entry.adjustedAllocationPercentage > 0 &&
-        entry.adjustedAllocationPercentage < UNDERALLOCATION_THRESHOLD_PERCENTAGE,
+        entry.adjustedAllocationPercentage < settings.underallocationThresholdPercentage,
     );
     const available = overview
       .filter((entry) => entry.adjustedAllocationPercentage === 0)

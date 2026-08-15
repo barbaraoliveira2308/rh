@@ -15,6 +15,7 @@ import { UpdateContractDto } from '../dto/update-contract.dto';
 import { RenewContractDto } from '../dto/renew-contract.dto';
 import { ContractExpiringSoonEvent } from '../events/contract-expiring-soon.event';
 import { Employee } from '../../users/entities/employee.entity';
+import { AdminService } from '../../admin/admin.service';
 
 @Injectable()
 export class ContractsService {
@@ -26,6 +27,7 @@ export class ContractsService {
     @InjectRepository(Employee)
     private readonly employeeRepository: Repository<Employee>,
     private readonly eventEmitter: EventEmitter2,
+    private readonly adminService: AdminService,
   ) {}
 
   async create(dto: CreateContractDto): Promise<Contract> {
@@ -119,7 +121,8 @@ export class ContractsService {
 
   @Cron(CronExpression.EVERY_DAY_AT_8AM)
   async scheduleExpirationAlerts(): Promise<void> {
-    const soonContracts = await this.findExpiringSoon(30);
+    const settings = await this.adminService.getSettings();
+    const soonContracts = await this.findExpiringSoon(settings.contractExpiryAlertDays);
 
     for (const contract of soonContracts) {
       if (!contract.endDate) continue;

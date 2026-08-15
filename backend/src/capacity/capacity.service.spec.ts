@@ -7,6 +7,7 @@ import { Employee, EmployeeStatus } from '../users/entities/employee.entity';
 import { ProjectAllocation, AllocationType } from '../projects/entities/project-allocation.entity';
 import { AbsenceRequest } from '../absences/entities/absence-request.entity';
 import { AbsenceStatus } from '../absences/entities/absence-status.enum';
+import { AdminService } from '../admin/admin.service';
 
 describe('CapacityService', () => {
   let service: CapacityService;
@@ -17,6 +18,7 @@ describe('CapacityService', () => {
   let mockAbsenceQueryBuilder: Record<string, jest.Mock>;
   let mockAnalyticsService: Record<string, jest.Mock>;
   let mockTeamsService: Record<string, jest.Mock>;
+  let mockAdminService: Record<string, jest.Mock>;
 
   const buildQueryBuilder = (result: unknown[]): Record<string, jest.Mock> => {
     const qb: Record<string, jest.Mock> = {};
@@ -49,6 +51,9 @@ describe('CapacityService', () => {
     mockTeamsService = {
       getMembers: jest.fn(),
     };
+    mockAdminService = {
+      getSettings: jest.fn().mockResolvedValue({ underallocationThresholdPercentage: 80 }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -58,6 +63,7 @@ describe('CapacityService', () => {
         { provide: getRepositoryToken(AbsenceRequest), useValue: mockAbsenceRepo },
         { provide: AnalyticsService, useValue: mockAnalyticsService },
         { provide: TeamsService, useValue: mockTeamsService },
+        { provide: AdminService, useValue: mockAdminService },
       ],
     }).compile();
 

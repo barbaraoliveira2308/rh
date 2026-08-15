@@ -6,6 +6,7 @@ import { ContractsService } from './contracts.service';
 import { Contract, ContractStatus } from '../entities/contract.entity';
 import { ContractRenewal } from '../entities/contract-renewal.entity';
 import { Employee } from '../../users/entities/employee.entity';
+import { AdminService } from '../../admin/admin.service';
 
 describe('ContractsService', () => {
   let service: ContractsService;
@@ -13,6 +14,7 @@ describe('ContractsService', () => {
   let mockRenewalRepo: Record<string, jest.Mock>;
   let mockEmployeeRepo: Record<string, jest.Mock>;
   let mockEventEmitter: Record<string, jest.Mock>;
+  let mockAdminService: Record<string, jest.Mock>;
 
   beforeEach(async () => {
     mockContractRepo = {
@@ -32,6 +34,9 @@ describe('ContractsService', () => {
     mockEventEmitter = {
       emit: jest.fn(),
     };
+    mockAdminService = {
+      getSettings: jest.fn().mockResolvedValue({ contractExpiryAlertDays: 30 }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -40,6 +45,7 @@ describe('ContractsService', () => {
         { provide: getRepositoryToken(ContractRenewal), useValue: mockRenewalRepo },
         { provide: getRepositoryToken(Employee), useValue: mockEmployeeRepo },
         { provide: EventEmitter2, useValue: mockEventEmitter },
+        { provide: AdminService, useValue: mockAdminService },
       ],
     }).compile();
 

@@ -21,6 +21,7 @@ import { TimesheetRejectedEvent } from '../events/timesheet-rejected.event';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
 import { CalendarService } from '../../calendar/services/calendar.service';
 import { RbacService } from '../../rbac/services/rbac.service';
+import { AdminService } from '../../admin/admin.service';
 
 interface AbsenceRow {
   id: string;
@@ -49,6 +50,7 @@ export class TimesheetsService {
     private readonly eventEmitter: EventEmitter2,
     private readonly calendarService: CalendarService,
     private readonly rbacService: RbacService,
+    private readonly adminService: AdminService,
   ) {}
 
   async generateMonthlyPeriods(year: number, month: number): Promise<number> {
@@ -58,6 +60,7 @@ export class TimesheetsService {
 
     let createdCount = 0;
     const holidays = await this.holidayRepository.find();
+    const settings = await this.adminService.getSettings();
 
     for (const employee of employees) {
       const existing = await this.periodRepository.findOne({
@@ -95,7 +98,7 @@ export class TimesheetsService {
           plannedHours = 0;
         } else {
           entryType = EntryType.WORK;
-          plannedHours = 8;
+          plannedHours = settings.defaultDailyHours;
         }
 
         const entry = this.entryRepository.create({

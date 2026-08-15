@@ -7,6 +7,7 @@ import { AuthService } from './auth.service';
 import { JwtService } from './jwt.service';
 import { MfaService } from './mfa.service';
 import { CacheService } from '../../cache/cache.service';
+import { AdminService } from '../../admin/admin.service';
 import { User } from '../entities/user.entity';
 import { Session } from '../entities/session.entity';
 import { UserRole } from '../entities/user-role.entity';
@@ -22,6 +23,7 @@ describe('AuthService', () => {
   let mockMfaService: Record<string, jest.Mock>;
   let mockCacheService: Record<string, jest.Mock>;
   let mockConfigService: Record<string, jest.Mock>;
+  let mockAdminService: Record<string, jest.Mock>;
 
   const testEmail = 'joana@bridge351.pt';
 
@@ -74,6 +76,9 @@ describe('AuthService', () => {
     mockConfigService = {
       get: jest.fn().mockReturnValue('http://localhost:3000'),
     };
+    mockAdminService = {
+      getSettings: jest.fn().mockResolvedValue({ maxLoginAttempts: 5, lockoutPeriodMinutes: 15 }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -85,6 +90,7 @@ describe('AuthService', () => {
         { provide: MfaService, useValue: mockMfaService },
         { provide: CacheService, useValue: mockCacheService },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: AdminService, useValue: mockAdminService },
       ],
     }).compile();
 
