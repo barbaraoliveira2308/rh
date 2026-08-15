@@ -121,8 +121,8 @@ O processo tem 8 fases (0–7), pensadas para correr sequencialmente — cada fa
 - [ ] Bucket `srh-documents` no MinIO/S3: política de acesso privada por omissão, `STORAGE_USE_SSL=true` em produção
 - [ ] Backups de PostgreSQL: existe rotina agendada, e já foi feito um teste de restauro nos últimos 90 dias
 - [ ] RabbitMQ: fila de `report_jobs` com dead-letter queue ou reprocessamento definido para jobs falhados
-- [ ] `pnpm audit` (ou equivalente) corrido sobre backend e frontend — sem vulnerabilidades críticas/altas por resolver
-- [ ] Confirmar se existe scanning automático de dependências (Dependabot/Renovate) — **atualmente não há workflow configurado**; decidir se se adiciona nesta ronda
+- [x] `pnpm audit` (ou equivalente) corrido sobre backend e frontend — **corrido em P-042**: 21 vulnerabilidades (4 moderate, 17 high), 2 altas de runtime corrigidas (`multer` 2.1.1→2.2.0 via `pnpm.overrides` em `package.json`, `react-router-dom` 7.18.1→7.18.2), as restantes ~15 são só em ferramentas de build/dev (eslint/tailwind/vite — nanoid, postcss, brace-expansion, js-yaml, fast-uri, nunca correm em produção), deixadas para o Dependabot resolver ao longo do tempo (decisão P042-03)
+- [x] Scanning automático de dependências (Dependabot) — **configurado em P-042**: `.github/dependabot.yml`, ecossistemas `npm` (workspace pnpm) e `github-actions`, atualizações semanais agrupadas por minor/patch (decisão P042-01/02); imagens Docker (`Dockerfile`/`docker-compose.*.yml`) deixadas fora do âmbito nesta ronda
 - [ ] Keycloak: realm de produção não usa as credenciais admin por omissão
 
 **Entregável:** lista de segredos/configuração que ainda dependem de valores de exemplo ou processo manual.
