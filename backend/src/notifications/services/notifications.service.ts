@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { OnEvent } from '@nestjs/event-emitter';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import * as nodemailer from 'nodemailer';
 import * as Handlebars from 'handlebars';
 import { Notification } from '../entities/notification.entity';
@@ -178,6 +179,16 @@ export class NotificationsService {
     });
 
     return { items, total };
+  }
+
+  async countUnread(userId: string): Promise<number> {
+    return this.notificationRepository.count({
+      where: {
+        recipientId: userId,
+        channel: NotificationChannel.IN_APP,
+        status: NotificationStatus.SENT,
+      },
+    });
   }
 
   async getPreferences(userId: string): Promise<NotificationPreference[]> {
@@ -523,6 +534,7 @@ export class NotificationsService {
     );
   }
 
+  @Cron(CronExpression.EVERY_DAY_AT_2AM)
   async cleanupExpiredNotifications(): Promise<void> {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 90);

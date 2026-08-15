@@ -98,6 +98,9 @@ const ReportsPage = React.lazy(() =>
 const GdprPage = React.lazy(() =>
   import('@/pages/GdprPage').then((m) => ({ default: m.GdprPage })),
 );
+const NotificationsPage = React.lazy(() =>
+  import('@/pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })),
+);
 const TicketDetailPage = React.lazy(() =>
   import('@/pages/TicketDetailPage').then((m) => ({ default: m.TicketDetailPage })),
 );
@@ -181,6 +184,7 @@ export function App(): React.JSX.Element {
                 <Route path="/training" element={<TrainingPage />} />
                 <Route path="/reports" element={<ReportsPage />} />
                 <Route path="/gdpr" element={<GdprPage />} />
+                <Route path="/notifications" element={<NotificationsPage />} />
               </Route>
 
               <Route path="*" element={<NotFoundPage />} />

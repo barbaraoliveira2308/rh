@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUiStore } from '@/stores/ui.store';
 import { fetchWorkflowInboxCount } from '@/api/workflow.api';
+import { fetchUnreadCount } from '@/api/notifications.api';
 
 interface NavItem {
   label: string;
@@ -51,6 +52,7 @@ const navItems: NavItem[] = [
   { label: 'Formação', href: '/training', icon: <GraduationCap className="h-4 w-4" /> },
   { label: 'Relatórios', href: '/reports', icon: <FileBarChart className="h-4 w-4" /> },
   { label: 'Privacidade', href: '/gdpr', icon: <ShieldCheck className="h-4 w-4" /> },
+  { label: 'Notificações', href: '/notifications', icon: <Bell className="h-4 w-4" /> },
   { label: 'Administração', href: '/admin/settings', icon: <Settings className="h-4 w-4" /> },
 ];
 
@@ -68,6 +70,12 @@ export function AppLayout(): React.JSX.Element {
   const { data: inboxCount } = useQuery({
     queryKey: ['workflow-count'],
     queryFn: () => fetchWorkflowInboxCount(),
+    refetchInterval: 60000,
+  });
+
+  const { data: unreadCount } = useQuery({
+    queryKey: ['notifications-unread-count'],
+    queryFn: () => fetchUnreadCount(),
     refetchInterval: 60000,
   });
 
@@ -122,8 +130,20 @@ export function AppLayout(): React.JSX.Element {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative"
+              onClick={() => {
+                void navigate('/notifications');
+              }}
+            >
               <Bell className="h-5 w-5" />
+              {(unreadCount?.count ?? 0) > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-brand-800 text-[10px] text-white">
+                  {(unreadCount?.count ?? 0) > 9 ? '9+' : String(unreadCount?.count ?? 0)}
+                </span>
+              )}
             </Button>
             <Button variant="ghost" size="icon" onClick={() => void handleLogout()}>
               <LogOut className="h-5 w-5" />

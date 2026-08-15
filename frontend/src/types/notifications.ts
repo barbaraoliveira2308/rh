@@ -19,3 +19,31 @@ export interface NotificationListResponse {
   items: Notification[];
   total: number;
 }
+
+export interface NotificationPreference {
+  id: string;
+  employeeId: string;
+  notificationType: string;
+  emailEnabled: boolean;
+  inAppEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdatePreferencePayload {
+  notificationType: string;
+  emailEnabled?: boolean;
+  inAppEnabled?: boolean;
+}
+
+export const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
+  'timesheet.submitted': 'Timesheet submetida',
+  'timesheet.approved': 'Timesheet aprovada',
+  'timesheet.rejected': 'Timesheet rejeitada',
+  'absence.requested': 'Pedido de ausência submetido',
+  'absence.approved': 'Pedido de ausência aprovado',
+  'absence.rejected': 'Pedido de ausência rejeitado',
+  'contract.expiring-soon': 'Contrato a expirar',
+  'project.ending-alert': 'Projeto próximo do fim',
+  'project.allocation-ending-alert': 'Alocação próxima do fim',
+};

@@ -81,3 +81,26 @@ Gerir o envio de notificações automáticas e alertas para utilizadores em resp
 - Fila de mensagens: RabbitMQ ou Apache Kafka
 - Email: SMTP configurável (Sendgrid/SES compatível)
 - Templates: Handlebars ou MJML
+
+## Notas de Implementação (P-015 backend, P-041 backend fixes + frontend)
+
+**Desvios face a este documento confirmados em P-041 (implementação real desde P-015):**
+
+- Prefixo de rota real é `/api/notifications/...`, sem `/v1`, consistente com o resto do backend.
+- `GET/PUT /notification-preferences` (recurso de topo, spec) é na realidade `GET/PATCH /notifications/preferences` (aninhado sob `notifications`, `PATCH` em vez de `PUT`). O corpo de `PATCH` é um array de `{ notificationType, emailEnabled?, inAppEnabled? }` — uma preferência **por tipo de evento** (`notification_type`), não uma preferência global de "canal/frequência" como a spec sugere vagamente; não existe nenhum conceito de frequência/digest.
+- Só 9 dos ~11 eventos da tabela "Eventos que Geram Notificações" têm handler `@OnEvent` implementado (`timesheet.submitted/approved/rejected`, `absence.requested/approved/rejected`, `contract.expiring-soon`, `project.ending-alert`, `project.allocation-ending-alert`). **Despesa aprovada/rejeitada, Sobrealocação detetada, Submissão de horas em atraso e Fim de alocação sem projeto não têm handler** — nunca geram notificação. Não corrigido nesta fase (decisão do utilizador P041-03): implicaria emitir eventos novos a partir de Expenses/Capacity/Timesheets/Projects, âmbito maior do que construir o frontend de Notificações.
+- Canal `push` existe no enum mas não tem nenhuma implementação (só `email`/`in_app` funcionam).
+
+**Correções de backend em P-041 (aprovadas pelo utilizador):**
+
+- **BR-NOT-003 (expirar notificações in-app ao fim de 90 dias) corrigida (decisão P041-02, "corrigir agora")**: `NotificationsService.cleanupExpiredNotifications()` já existia desde P-015 mas nunca estava ligado a nenhum agendador — nunca corria. Adicionado `@Cron(CronExpression.EVERY_DAY_AT_2AM)`.
+- **Novo endpoint `GET /notifications/unread-count` (decisão P041-01, "adicionar contagem + ligar o sino")**: antes desta fase não existia nenhuma forma de contar notificações por ler sem paginar a lista completa — necessário para o badge do sino na sidebar. Conta notificações `channel=in_app AND status=sent` do utilizador autenticado.
+- 2 novos testes unitários em `notifications.service.spec.ts` (196/196 total, antes 194/194).
+
+## Frontend (P-041)
+
+Nova `frontend/src/pages/NotificationsPage.tsx` na rota `/notifications`, item "Notificações" na sidebar sem restrição de papel — escolhido pelo utilizador como último módulo com backend pronto e frontend em falta. O sino no cabeçalho (antes puramente decorativo, sem contagem nem clique — o badge existente pertence à Caixa de Entrada/Workflow, uma entidade `WorkflowItem` sem relação com `Notification`) passa a mostrar um badge com a contagem real de não lidas (`GET /notifications/unread-count`, poll a cada 60s, mesmo padrão do contador da Caixa de Entrada) e a navegar para `/notifications` ao clicar.
+
+Duas abas: "Notificações" — lista com paginação do lado do servidor (`page`/`limit`/`total` da API, sem reaproveitar o `DataTable` partilhado porque este só pagina em memória — não existia nenhum padrão de paginação server-side na base de código antes desta fase), indicador visual "Nova" para não lidas, botão "Marcar como lida" por item e "Marcar todas como lidas"; "Preferências" — tabela com um tipo de notificação por linha (dos 9 tipos realmente implementados) e checkboxes In-App/Email, `PATCH /notifications/preferences` por alteração.
+
+Tipos e cliente API já existiam parcialmente de uma sessão anterior (`frontend/src/types/notifications.ts`, `frontend/src/api/notifications.api.ts` com `fetchNotifications`/`markNotificationRead`/`markAllNotificationsRead`); completados com `NotificationPreference`, `fetchUnreadCount`, `fetchNotificationPreferences`, `updateNotificationPreferences`. `pnpm run lint` (0 erros) e `pnpm run build` (raiz) green; 196/196 testes unitários do backend. **Verificação em browser real completa via Playwright contra a stack Docker completa**: badge do sino a mostrar a contagem correta (2 notificações de teste inseridas via fixture), navegação por clique no sino, marcar uma notificação como lida, marcar todas como lidas (badge volta a 0), alternar uma preferência In-App (persistida e confirmada via novo pedido) — 0 erros de consola em todos os passos.

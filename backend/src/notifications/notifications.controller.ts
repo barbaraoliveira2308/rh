@@ -46,6 +46,16 @@ export class NotificationsController {
     });
   }
 
+  @Get('notifications/unread-count')
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
+  @ApiOperation({ summary: 'Contar notificações in-app por ler' })
+  @HttpCode(HttpStatus.OK)
+  async countUnread(@Req() req: Request): Promise<{ count: number }> {
+    const user = req.user as JwtPayload;
+    const count = await this.notificationsService.countUnread(user.sub);
+    return { count };
+  }
+
   @Patch('notifications/:id/read')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
   @ApiOperation({ summary: 'Marcar notificação como lida' })

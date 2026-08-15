@@ -9,6 +9,7 @@ import { TimesheetPeriod } from '../../timesheets/entities/timesheet-period.enti
 import { AbsenceRequest } from '../../absences/entities/absence-request.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { NotificationStatus } from '../entities/notification-status.enum';
+import { NotificationChannel } from '../entities/notification-channel.enum';
 
 describe('NotificationsService', () => {
   let service: NotificationsService;
@@ -24,6 +25,7 @@ describe('NotificationsService', () => {
       save: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      count: jest.fn(),
     };
 
     mockTemplateRepo = {
@@ -114,6 +116,33 @@ describe('NotificationsService', () => {
       });
 
       await expect(service.markAsRead('notif-1', 'emp-1')).rejects.toThrow();
+    });
+  });
+
+  describe('countUnread', () => {
+    it('deve contar notificações in-app por ler', async () => {
+      mockNotificationRepo.count.mockResolvedValue(3);
+
+      const result = await service.countUnread('emp-1');
+
+      expect(result).toBe(3);
+      expect(mockNotificationRepo.count).toHaveBeenCalledWith({
+        where: {
+          recipientId: 'emp-1',
+          channel: NotificationChannel.IN_APP,
+          status: NotificationStatus.SENT,
+        },
+      });
+    });
+  });
+
+  describe('cleanupExpiredNotifications', () => {
+    it('deve eliminar notificações in-app com mais de 90 dias', async () => {
+      await service.cleanupExpiredNotifications();
+
+      expect(mockNotificationRepo.delete).toHaveBeenCalledWith(
+        expect.objectContaining({ channel: NotificationChannel.IN_APP }),
+      );
     });
   });
 });
