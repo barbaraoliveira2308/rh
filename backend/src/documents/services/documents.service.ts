@@ -1,17 +1,22 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, LessThan } from 'typeorm';
+import { Cron } from '@nestjs/schedule';
 import { Document, DocumentFileType } from '../entities/document.entity';
 import { UploadDocumentDto } from '../dto/upload-document.dto';
 import { StorageService } from '../../storage/services/storage.service';
+import { AdminService } from '../../admin/admin.service';
 import type { Readable } from 'stream';
 
 @Injectable()
 export class DocumentsService {
+  private readonly logger = new Logger(DocumentsService.name);
+
   constructor(
     @InjectRepository(Document)
     private readonly documentRepository: Repository<Document>,
     private readonly storageService: StorageService,
+    private readonly adminService: AdminService,
   ) {}
 
   async upload(
@@ -91,6 +96,25 @@ export class DocumentsService {
 
     await this.storageService.delete(document.storagePath);
     await this.documentRepository.remove(document);
+  }
+
+  @Cron('0 4 * * *')
+  async purgeExpiredTrash(): Promise<void> {
+    const settings = await this.adminService.getSettings();
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - settings.documentsTrashRetentionDays);
+
+    const expired = await this.documentRepository.find({
+      where: { deletedAt: LessThan(cutoff) },
+    });
+
+    for (const document of expired) {
+      await this.purge(document.id);
+    }
+
+    if (expired.length > 0) {
+      this.logger.log(`Purgados ${String(expired.length)} documentos da lixeira`);
+    }
   }
 
   async findOne(id: string): Promise<Document> {

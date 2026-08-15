@@ -4,11 +4,13 @@ import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
 import { Document } from '../entities/document.entity';
 import { StorageService } from '../../storage/services/storage.service';
+import { AdminService } from '../../admin/admin.service';
 
 describe('DocumentsService', () => {
   let service: DocumentsService;
   let mockDocumentRepo: Record<string, jest.Mock>;
   let mockStorageService: Record<string, jest.Mock>;
+  let mockAdminService: Record<string, jest.Mock>;
 
   beforeEach(async () => {
     mockDocumentRepo = {
@@ -23,12 +25,16 @@ describe('DocumentsService', () => {
       getObjectStream: jest.fn(),
       delete: jest.fn().mockResolvedValue(undefined),
     };
+    mockAdminService = {
+      getSettings: jest.fn().mockResolvedValue({ documentsTrashRetentionDays: 30 }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DocumentsService,
         { provide: getRepositoryToken(Document), useValue: mockDocumentRepo },
         { provide: StorageService, useValue: mockStorageService },
+        { provide: AdminService, useValue: mockAdminService },
       ],
     }).compile();
 
@@ -182,6 +188,36 @@ describe('DocumentsService', () => {
 
       expect(mockStorageService.delete).toHaveBeenCalledWith('documents/x');
       expect(mockDocumentRepo.remove).toHaveBeenCalledWith(document);
+    });
+  });
+
+  describe('purgeExpiredTrash', () => {
+    it('deve purgar documentos cujo deletedAt ultrapassa documentsTrashRetentionDays', async () => {
+      mockAdminService.getSettings.mockResolvedValue({ documentsTrashRetentionDays: 30 });
+      const expiredDocs = [
+        { id: 'd-1', storagePath: 'documents/d-1' },
+        { id: 'd-2', storagePath: 'documents/d-2' },
+      ];
+      mockDocumentRepo.find.mockResolvedValue(expiredDocs);
+      mockDocumentRepo.findOne.mockImplementation(({ where }: { where: { id: string } }) =>
+        Promise.resolve(expiredDocs.find((doc) => doc.id === where.id) ?? null),
+      );
+
+      await service.purgeExpiredTrash();
+
+      expect(mockAdminService.getSettings).toHaveBeenCalled();
+      expect(mockStorageService.delete).toHaveBeenCalledWith('documents/d-1');
+      expect(mockStorageService.delete).toHaveBeenCalledWith('documents/d-2');
+      expect(mockDocumentRepo.remove).toHaveBeenCalledTimes(2);
+    });
+
+    it('não deve chamar purge quando não há documentos expirados', async () => {
+      mockDocumentRepo.find.mockResolvedValue([]);
+
+      await service.purgeExpiredTrash();
+
+      expect(mockStorageService.delete).not.toHaveBeenCalled();
+      expect(mockDocumentRepo.remove).not.toHaveBeenCalled();
     });
   });
 
