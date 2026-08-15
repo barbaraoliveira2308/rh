@@ -399,20 +399,21 @@ Feature: Folha de Horas Mensal
 - Não existe entidade de banco de horas; o saldo fica apenas no campo calculado `hoursBalance` da `TimesheetPeriod`.
 - O endpoint `GET /timesheets/export` (CSV) foi adicionado e não consta da especificação original.
 - Não foram implementados endpoints para `work-schedules`, `holiday-calendars` nem `attendance`.
+- **RF-TS-012 (P-056)**: `alertPendingSubmissions()` (`@Cron('0 9 * * 1')`) só emite `timesheet.pending-submission` para períodos cujo prazo de submissão (`SystemSetting.timesheetSubmissionDeadlineDay`, dia do mês seguinte ao período) já passou — detalhe completo em `specs/admin/SPEC.md` (secção "Wiring de Admin Settings ao runtime — Grupo C, timesheetSubmissionDeadlineDay").
 
 ### Testes
 
-- **Unitários:** existe `timesheets.service.spec.ts` com cobertura parcial dos métodos `syncAbsences` e `bulkApprove`.
+- **Unitários:** existe `timesheets.service.spec.ts` com cobertura parcial dos métodos `syncAbsences` e `bulkApprove`, e cobertura completa de `alertPendingSubmissions` (P-056).
 - **e2e:** `test/timesheets.e2e-spec.ts` cobre listagem, consulta, edição de entrada, submissão, aprovação, rejeição, bulk-approve e exportação CSV.
 
 ---
 
 ## Questões em Aberto
 
-| ID       | Questão                                                                         | Prioridade |
-| -------- | ------------------------------------------------------------------------------- | ---------- |
-| Q-TS-001 | Qual o prazo máximo para submissão (ex: dia 5 do mês seguinte)? É configurável? | Alta       |
-| Q-TS-002 | O banco de horas tem limite máximo acumulável?                                  | Média      |
-| Q-TS-003 | As horas extraordinárias têm compensação financeira ou só banco de horas?       | Alta       |
-| Q-TS-004 | O relógio de ponto é obrigatório para todos ou opcional?                        | Alta       |
-| Q-TS-005 | Existe integração com sistema de controlo de acesso físico?                     | Baixa      |
+| ID       | Questão                                                                                                                                                                                                                                                                    | Prioridade |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| Q-TS-001 | ~~Qual o prazo máximo para submissão (ex: dia 5 do mês seguinte)? É configurável?~~ **Resolvido em P-056**: configurável via `SystemSetting.timesheetSubmissionDeadlineDay` (dia do mês seguinte ao período, default 5), ligado ao runtime em `alertPendingSubmissions()`. | ~~Alta~~   |
+| Q-TS-002 | O banco de horas tem limite máximo acumulável?                                                                                                                                                                                                                             | Média      |
+| Q-TS-003 | As horas extraordinárias têm compensação financeira ou só banco de horas?                                                                                                                                                                                                  | Alta       |
+| Q-TS-004 | O relógio de ponto é obrigatório para todos ou opcional?                                                                                                                                                                                                                   | Alta       |
+| Q-TS-005 | Existe integração com sistema de controlo de acesso físico?                                                                                                                                                                                                                | Baixa      |

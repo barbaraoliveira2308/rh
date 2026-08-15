@@ -467,16 +467,30 @@ export class TimesheetsService {
 
   @Cron('0 9 * * 1')
   async alertPendingSubmissions(): Promise<void> {
+    const settings = await this.adminService.getSettings();
     const periods = await this.periodRepository.find({
       where: { status: TimesheetStatus.IN_PROGRESS },
       relations: ['employee'],
     });
 
+    const now = new Date();
     for (const period of periods) {
+      if (!this.isSubmissionOverdue(period, settings.timesheetSubmissionDeadlineDay, now)) {
+        continue;
+      }
+
       this.eventEmitter.emit('timesheet.pending-submission', {
         periodId: period.id,
         employeeId: period.employeeId,
       });
     }
+  }
+
+  private isSubmissionOverdue(period: TimesheetPeriod, deadlineDay: number, now: Date): boolean {
+    const deadlineYear = period.periodMonth === 12 ? period.periodYear + 1 : period.periodYear;
+    const deadlineMonthIndex = period.periodMonth === 12 ? 0 : period.periodMonth;
+    const deadline = new Date(deadlineYear, deadlineMonthIndex, deadlineDay + 1);
+
+    return now >= deadline;
   }
 }

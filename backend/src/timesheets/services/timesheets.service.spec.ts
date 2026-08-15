@@ -169,6 +169,35 @@ describe('TimesheetsService', () => {
     });
   });
 
+  describe('alertPendingSubmissions', () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('não emite alerta se o prazo de submissão (timesheetSubmissionDeadlineDay) ainda não passou', async () => {
+      jest.useFakeTimers().setSystemTime(new Date(2026, 7, 5));
+      mockAdminService.getSettings.mockResolvedValue({ timesheetSubmissionDeadlineDay: 5 });
+      mockPeriodRepo.find.mockResolvedValue([mockPeriod]);
+
+      await service.alertPendingSubmissions();
+
+      expect(mockEventEmitter.emit).not.toHaveBeenCalled();
+    });
+
+    it('emite timesheet.pending-submission depois de ultrapassado o prazo', async () => {
+      jest.useFakeTimers().setSystemTime(new Date(2026, 7, 6));
+      mockAdminService.getSettings.mockResolvedValue({ timesheetSubmissionDeadlineDay: 5 });
+      mockPeriodRepo.find.mockResolvedValue([mockPeriod]);
+
+      await service.alertPendingSubmissions();
+
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith('timesheet.pending-submission', {
+        periodId: mockPeriod.id,
+        employeeId: mockPeriod.employeeId,
+      });
+    });
+  });
+
   describe('syncAbsences', () => {
     it('deve lançar erro se período não existir', async () => {
       mockPeriodRepo.findOne.mockResolvedValue(null);
