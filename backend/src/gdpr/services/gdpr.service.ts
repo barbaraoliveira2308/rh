@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, LessThan } from 'typeorm';
+import { Repository, DataSource, LessThan, Between, In } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron } from '@nestjs/schedule';
 import * as nodemailer from 'nodemailer';
@@ -489,6 +489,78 @@ export class GdprService {
       criticalIncidentsPendingAuthority: incidents72h.length,
       activeRetentionPolicies: activePolicies,
     };
+  }
+
+  async getConsentsReport(): Promise<ConsentRecord[]> {
+    return this.consentRepository.find({
+      where: { isActive: true },
+      relations: ['subject'],
+      order: { subjectId: 'ASC', purpose: 'ASC' },
+    });
+  }
+
+  async getAccessHistoryReport(startDate?: string, endDate?: string): Promise<AuditLog[]> {
+    return this.auditLogRepository.find({
+      where:
+        startDate && endDate ? { timestamp: Between(new Date(startDate), new Date(endDate)) } : {},
+      relations: ['user'],
+      order: { timestamp: 'DESC' },
+    });
+  }
+
+  async getErasureAndAnonymizationReport(): Promise<{
+    requests: DataSubjectRequest[];
+    automaticAnonymizations: AuditLog[];
+  }> {
+    const requests = await this.requestRepository.find({
+      where: { requestType: DataSubjectRequestType.ERASURE },
+      relations: ['subject'],
+      order: { requestedAt: 'DESC' },
+    });
+
+    const automaticAnonymizations = await this.auditLogRepository
+      .createQueryBuilder('audit')
+      .where('audit.action = :action', { action: 'ANONYMIZE' })
+      .andWhere('audit.entityType = :entityType', { entityType: 'Employee' })
+      .andWhere("audit.new_values->>'triggeredBy' = :triggeredBy", { triggeredBy: 'retention' })
+      .orderBy('audit.timestamp', 'DESC')
+      .getMany();
+
+    return { requests, automaticAnonymizations };
+  }
+
+  async getExportsReport(): Promise<DataSubjectRequest[]> {
+    return this.requestRepository.find({
+      where: {
+        requestType: In([DataSubjectRequestType.ACCESS, DataSubjectRequestType.PORTABILITY]),
+        status: DataSubjectRequestStatus.COMPLETED,
+      },
+      relations: ['subject'],
+      order: { completedAt: 'DESC' },
+    });
+  }
+
+  async getAuditByModuleReport(
+    startDate?: string,
+    endDate?: string,
+  ): Promise<{ module: string; count: number }[]> {
+    const query = this.auditLogRepository
+      .createQueryBuilder('audit')
+      .select('audit.module', 'module')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('audit.module')
+      .orderBy('audit.module', 'ASC');
+
+    if (startDate && endDate) {
+      query.where('audit.timestamp BETWEEN :startDate AND :endDate', {
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+      });
+    }
+
+    const rows = await query.getRawMany<{ module: string; count: string }>();
+
+    return rows.map((row) => ({ module: row.module, count: Number(row.count) }));
   }
 
   private async collectSubjectData(subjectId: string): Promise<Record<string, unknown>> {

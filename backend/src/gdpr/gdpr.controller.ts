@@ -5,6 +5,7 @@ import {
   Patch,
   Param,
   Body,
+  Query,
   UseGuards,
   Req,
   ForbiddenException,
@@ -32,6 +33,7 @@ import { ConsentRecord } from './entities/consent-record.entity';
 import { DataSubjectRequest } from './entities/data-subject-request.entity';
 import { RetentionPolicy } from './entities/retention-policy.entity';
 import { SecurityIncident } from './entities/security-incident.entity';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 
 interface RequestWithUser extends Request {
   user?: { sub: string; roles: string[] };
@@ -173,6 +175,55 @@ export class GdprController {
   @ApiOperation({ summary: 'Relatório de conformidade GDPR' })
   async getComplianceReport(): Promise<Record<string, unknown>> {
     return this.gdprService.getComplianceReport();
+  }
+
+  @Get('reports/consents')
+  @Roles(RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Relatório: consentimentos ativos por titular e finalidade' })
+  async getConsentsReport(): Promise<ConsentRecord[]> {
+    return this.gdprService.getConsentsReport();
+  }
+
+  @Get('reports/access-history')
+  @Roles(RoleEnum.ADMIN)
+  @ApiOperation({
+    summary:
+      'Relatório: histórico de alterações a dados pessoais, por utilizador e período (aproximação via AuditLog — só regista mutações, não leituras)',
+  })
+  async getAccessHistoryReport(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ): Promise<AuditLog[]> {
+    return this.gdprService.getAccessHistoryReport(startDate, endDate);
+  }
+
+  @Get('reports/erasure-anonymization')
+  @Roles(RoleEnum.ADMIN)
+  @ApiOperation({
+    summary: 'Relatório: pedidos de eliminação e anonimizações automáticas (estado e prazo)',
+  })
+  async getErasureAndAnonymizationReport(): Promise<{
+    requests: DataSubjectRequest[];
+    automaticAnonymizations: AuditLog[];
+  }> {
+    return this.gdprService.getErasureAndAnonymizationReport();
+  }
+
+  @Get('reports/exports')
+  @Roles(RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Relatório: exportações de dados pessoais realizadas' })
+  async getExportsReport(): Promise<DataSubjectRequest[]> {
+    return this.gdprService.getExportsReport();
+  }
+
+  @Get('reports/audit-by-module')
+  @Roles(RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Relatório: auditoria GDPR geral, conformidade por módulo' })
+  async getAuditByModuleReport(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ): Promise<{ module: string; count: number }[]> {
+    return this.gdprService.getAuditByModuleReport(startDate, endDate);
   }
 
   private async ensureSelfOrAdmin(employeeId: string, req: RequestWithUser): Promise<void> {

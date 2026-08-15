@@ -16,18 +16,36 @@ import { User } from '../../auth/entities/user.entity';
 import { AuditLog } from '../../audit/entities/audit-log.entity';
 import { AdminService } from '../../admin/admin.service';
 
+function createMockQueryBuilder(
+  overrides: Record<string, jest.Mock> = {},
+): Record<string, jest.Mock> {
+  return {
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    groupBy: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    getMany: jest.fn().mockResolvedValue([]),
+    getRawMany: jest.fn().mockResolvedValue([]),
+    ...overrides,
+  };
+}
+
 const createMockRepository = (): {
   findOne: jest.Mock;
   find: jest.Mock;
   save: jest.Mock;
   create: jest.Mock;
   count: jest.Mock;
+  createQueryBuilder: jest.Mock;
 } => ({
   findOne: jest.fn(),
   find: jest.fn().mockResolvedValue([]),
   save: jest.fn().mockImplementation((entity: unknown) => Promise.resolve(entity)),
   create: jest.fn().mockImplementation((dto: unknown) => dto),
   count: jest.fn().mockResolvedValue(0),
+  createQueryBuilder: jest.fn().mockReturnValue(createMockQueryBuilder()),
 });
 
 const mockDataSource = {
@@ -53,6 +71,7 @@ describe('GdprService', () => {
   let requestRepository: ReturnType<typeof createMockRepository>;
   let incidentRepository: ReturnType<typeof createMockRepository>;
   let retentionRepository: ReturnType<typeof createMockRepository>;
+  let consentRepository: ReturnType<typeof createMockRepository>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -78,6 +97,7 @@ describe('GdprService', () => {
     requestRepository = module.get(getRepositoryToken(DataSubjectRequest));
     incidentRepository = module.get(getRepositoryToken(SecurityIncident));
     retentionRepository = module.get(getRepositoryToken(RetentionPolicy));
+    consentRepository = module.get(getRepositoryToken(ConsentRecord));
 
     jest.clearAllMocks();
   });
@@ -335,5 +355,79 @@ describe('GdprService', () => {
       'gdpr.data.exported',
       expect.objectContaining({ subjectId: 'emp-1', requestType: DataSubjectRequestType.ACCESS }),
     );
+  });
+
+  it('getConsentsReport deve listar só consentimentos ativos', async () => {
+    consentRepository.find.mockResolvedValue([{ id: 'consent-1', isActive: true }]);
+
+    const result = await service.getConsentsReport();
+
+    expect(consentRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { isActive: true } }),
+    );
+    expect(result).toEqual([{ id: 'consent-1', isActive: true }]);
+  });
+
+  it('getAccessHistoryReport deve filtrar por período quando startDate/endDate são fornecidos', async () => {
+    auditLogRepository.find.mockResolvedValue([{ id: 'log-1' }]);
+
+    const result = await service.getAccessHistoryReport('2026-01-01', '2026-01-31');
+
+    const [callArg] = auditLogRepository.find.mock.calls[0] as [{ where: { timestamp?: unknown } }];
+    expect(callArg.where.timestamp).toBeDefined();
+    expect(result).toEqual([{ id: 'log-1' }]);
+  });
+
+  it('getAccessHistoryReport deve devolver tudo quando não há filtro de período', async () => {
+    auditLogRepository.find.mockResolvedValue([{ id: 'log-1' }, { id: 'log-2' }]);
+
+    const result = await service.getAccessHistoryReport();
+
+    expect(auditLogRepository.find).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+    expect(result).toHaveLength(2);
+  });
+
+  it('getErasureAndAnonymizationReport deve combinar pedidos ERASURE e anonimizações automáticas de retenção', async () => {
+    requestRepository.find.mockResolvedValue([{ id: 'req-1', requestType: 'erasure' }]);
+    const queryBuilder = createMockQueryBuilder({
+      getMany: jest.fn().mockResolvedValue([{ id: 'log-1', action: 'ANONYMIZE' }]),
+    });
+    auditLogRepository.createQueryBuilder.mockReturnValue(queryBuilder);
+
+    const result = await service.getErasureAndAnonymizationReport();
+
+    expect(result.requests).toEqual([{ id: 'req-1', requestType: 'erasure' }]);
+    expect(result.automaticAnonymizations).toEqual([{ id: 'log-1', action: 'ANONYMIZE' }]);
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      "audit.new_values->>'triggeredBy' = :triggeredBy",
+      { triggeredBy: 'retention' },
+    );
+  });
+
+  it('getExportsReport deve listar pedidos ACCESS/PORTABILITY completados', async () => {
+    requestRepository.find.mockResolvedValue([{ id: 'req-2', requestType: 'access' }]);
+
+    const result = await service.getExportsReport();
+
+    const [callArg] = requestRepository.find.mock.calls[0] as [{ where: { status: string } }];
+    expect(callArg.where.status).toBe(DataSubjectRequestStatus.COMPLETED);
+    expect(result).toEqual([{ id: 'req-2', requestType: 'access' }]);
+  });
+
+  it('getAuditByModuleReport deve agregar contagens por módulo', async () => {
+    const queryBuilder = createMockQueryBuilder({
+      getRawMany: jest.fn().mockResolvedValue([
+        { module: 'gdpr', count: '3' },
+        { module: 'absences', count: '1' },
+      ]),
+    });
+    auditLogRepository.createQueryBuilder.mockReturnValue(queryBuilder);
+
+    const result = await service.getAuditByModuleReport();
+
+    expect(result).toEqual([
+      { module: 'gdpr', count: 3 },
+      { module: 'absences', count: 1 },
+    ]);
   });
 });
