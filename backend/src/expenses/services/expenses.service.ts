@@ -20,6 +20,7 @@ import { ExpenseApprovedEvent } from '../events/expense-approved.event';
 import { ExpenseRejectedEvent } from '../events/expense-rejected.event';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
 import { RbacService } from '../../rbac/services/rbac.service';
+import { AdminService } from '../../admin/admin.service';
 
 @Injectable()
 export class ExpensesService {
@@ -36,6 +37,7 @@ export class ExpensesService {
     private readonly employeeRepository: Repository<Employee>,
     private readonly eventEmitter: EventEmitter2,
     private readonly rbacService: RbacService,
+    private readonly adminService: AdminService,
   ) {}
 
   async createReport(employeeId: string, dto: CreateExpenseReportDto): Promise<ExpenseReport> {
@@ -53,6 +55,8 @@ export class ExpensesService {
       throw new BadRequestException('Data de fim não pode ser anterior à data de início');
     }
 
+    const settings = await this.adminService.getSettings();
+
     const report = this.reportRepository.create({
       employeeId,
       title: dto.title,
@@ -60,7 +64,7 @@ export class ExpensesService {
       periodEnd: dto.periodEnd,
       status: ExpenseReportStatus.DRAFT,
       totalAmount: 0,
-      currency: dto.items?.[0]?.currency ?? 'EUR',
+      currency: dto.items?.[0]?.currency ?? settings.defaultCurrency,
       projectId: dto.projectId ?? null,
       notes: dto.notes ?? null,
     });
@@ -104,12 +108,14 @@ export class ExpensesService {
       throw new NotFoundException('Categoria de despesa não encontrada ou inativa');
     }
 
+    const settings = await this.adminService.getSettings();
+
     const item = this.itemRepository.create({
       reportId,
       categoryId: itemDto.categoryId,
       description: itemDto.description,
       amount: itemDto.amount,
-      currency: itemDto.currency ?? 'EUR',
+      currency: itemDto.currency ?? settings.defaultCurrency,
       expenseDate: itemDto.expenseDate,
       receiptUrl: itemDto.receiptUrl ?? null,
       isDuplicate: false,

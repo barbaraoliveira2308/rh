@@ -12,6 +12,7 @@ import { TeamMember } from '../../teams/entities/team-member.entity';
 import { CreatePublicHolidayDto } from '../dto/create-public-holiday.dto';
 import { CreateCompanyEventDto } from '../dto/create-company-event.dto';
 import { CreateBlockedPeriodDto } from '../dto/create-blocked-period.dto';
+import { AdminService } from '../../admin/admin.service';
 
 interface NagerHolidayDto {
   date: string;
@@ -50,6 +51,7 @@ export class CalendarService {
     private readonly absenceRepository: Repository<AbsenceRequest>,
     @InjectRepository(TeamMember)
     private readonly teamMemberRepository: Repository<TeamMember>,
+    private readonly adminService: AdminService,
   ) {}
 
   @Cron('0 6 1 1 *')
@@ -94,8 +96,10 @@ export class CalendarService {
     return importedCount;
   }
 
-  async findHolidays(year?: number, countryCode = 'PT'): Promise<PublicHoliday[]> {
-    const where: Record<string, unknown> = { countryCode };
+  async findHolidays(year?: number, countryCode?: string): Promise<PublicHoliday[]> {
+    const resolvedCountryCode =
+      countryCode ?? (await this.adminService.getSettings()).defaultCountry;
+    const where: Record<string, unknown> = { countryCode: resolvedCountryCode };
 
     if (year) {
       where.holidayDate = Between(String(year) + '-01-01', String(year) + '-12-31');

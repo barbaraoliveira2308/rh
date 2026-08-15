@@ -7,6 +7,7 @@ import { BlockedPeriod, BlockedPeriodScope } from '../entities/blocked-period.en
 import { Employee } from '../../users/entities/employee.entity';
 import { AbsenceRequest } from '../../absences/entities/absence-request.entity';
 import { TeamMember } from '../../teams/entities/team-member.entity';
+import { AdminService } from '../../admin/admin.service';
 
 describe('CalendarService', () => {
   let service: CalendarService;
@@ -16,6 +17,7 @@ describe('CalendarService', () => {
   let mockEmployeeRepo: Record<string, jest.Mock>;
   let mockAbsenceRepo: Record<string, jest.Mock>;
   let mockTeamMemberRepo: Record<string, jest.Mock>;
+  let mockAdminService: Record<string, jest.Mock>;
 
   beforeEach(async () => {
     mockHolidayRepo = {
@@ -54,6 +56,10 @@ describe('CalendarService', () => {
       find: jest.fn(),
     };
 
+    mockAdminService = {
+      getSettings: jest.fn().mockResolvedValue({ defaultCountry: 'PT' }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CalendarService,
@@ -63,10 +69,40 @@ describe('CalendarService', () => {
         { provide: getRepositoryToken(Employee), useValue: mockEmployeeRepo },
         { provide: getRepositoryToken(AbsenceRequest), useValue: mockAbsenceRepo },
         { provide: getRepositoryToken(TeamMember), useValue: mockTeamMemberRepo },
+        { provide: AdminService, useValue: mockAdminService },
       ],
     }).compile();
 
     service = module.get<CalendarService>(CalendarService);
+  });
+
+  describe('findHolidays', () => {
+    it('deve usar defaultCountry de SystemSetting quando countryCode não é passado', async () => {
+      mockHolidayRepo.find.mockResolvedValue([]);
+      mockAdminService.getSettings.mockResolvedValue({ defaultCountry: 'ES' });
+
+      await service.findHolidays(2026);
+
+      expect(mockAdminService.getSettings).toHaveBeenCalled();
+      expect(mockHolidayRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ countryCode: 'ES' }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    it('deve usar o countryCode explícito quando fornecido, sem consultar SystemSetting', async () => {
+      mockHolidayRepo.find.mockResolvedValue([]);
+
+      await service.findHolidays(2026, 'FR');
+
+      expect(mockAdminService.getSettings).not.toHaveBeenCalled();
+      expect(mockHolidayRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ countryCode: 'FR' }) as Record<string, unknown>,
+        }),
+      );
+    });
   });
 
   describe('isWorkingDay', () => {

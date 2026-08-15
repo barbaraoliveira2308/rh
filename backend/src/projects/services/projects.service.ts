@@ -19,6 +19,7 @@ import { ProjectEndingAlertEvent } from '../events/project-ending-alert.event';
 import { AllocationEndingAlertEvent } from '../events/allocation-ending-alert.event';
 import { OverallocationDetectedEvent } from '../events/overallocation-detected.event';
 import { Employee } from '../../users/entities/employee.entity';
+import { AdminService } from '../../admin/admin.service';
 
 @Injectable()
 export class ProjectsService {
@@ -30,11 +31,16 @@ export class ProjectsService {
     @InjectRepository(Employee)
     private readonly employeeRepository: Repository<Employee>,
     private readonly eventEmitter: EventEmitter2,
+    private readonly adminService: AdminService,
   ) {}
 
   async create(dto: CreateProjectDto): Promise<Project> {
+    const settings = await this.adminService.getSettings();
     const project = this.projectRepository.create(
-      Object.assign(Object.assign({}, dto), { status: ProjectStatus.DRAFT }),
+      Object.assign(Object.assign({}, dto), {
+        status: ProjectStatus.DRAFT,
+        alertDaysBeforeEnd: dto.alertDaysBeforeEnd ?? settings.projectEndAlertDays,
+      }),
     );
     return this.projectRepository.save(project);
   }
@@ -161,6 +167,7 @@ export class ProjectsService {
       throw new ConflictException('Colaborador já tem alocação ativa neste projeto');
     }
 
+    const settings = await this.adminService.getSettings();
     let warning: string | undefined;
 
     if (dto.allocationType === AllocationType.PERCENTAGE) {
@@ -192,7 +199,7 @@ export class ProjectsService {
       endDate: dto.endDate ?? null,
       roleInProject: dto.roleInProject ?? null,
       hourlyRateOverride: dto.hourlyRateOverride ?? null,
-      alertDaysBeforeEnd: dto.alertDaysBeforeEnd ?? 15,
+      alertDaysBeforeEnd: dto.alertDaysBeforeEnd ?? settings.projectEndAlertDays,
       notes: dto.notes ?? null,
     });
 

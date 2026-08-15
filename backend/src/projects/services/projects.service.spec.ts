@@ -8,6 +8,7 @@ import { ProjectAllocation, AllocationType } from '../entities/project-allocatio
 import { ProjectTeamAllocation } from '../entities/project-team-allocation.entity';
 import { Employee } from '../../users/entities/employee.entity';
 import { AllocateEmployeeDto } from '../dto/allocate-employee.dto';
+import { AdminService } from '../../admin/admin.service';
 
 describe('ProjectsService', () => {
   let service: ProjectsService;
@@ -15,6 +16,7 @@ describe('ProjectsService', () => {
   let mockProjectRepo: Record<string, jest.Mock>;
   let mockEmployeeRepo: Record<string, jest.Mock>;
   let mockEventEmitter: Record<string, jest.Mock>;
+  let mockAdminService: Record<string, jest.Mock>;
 
   const mockProject = {
     id: 'proj-1',
@@ -61,6 +63,10 @@ describe('ProjectsService', () => {
       emit: jest.fn(),
     };
 
+    mockAdminService = {
+      getSettings: jest.fn().mockResolvedValue({ projectEndAlertDays: 30 }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProjectsService,
@@ -84,10 +90,40 @@ describe('ProjectsService', () => {
           provide: EventEmitter2,
           useValue: mockEventEmitter,
         },
+        {
+          provide: AdminService,
+          useValue: mockAdminService,
+        },
       ],
     }).compile();
 
     service = module.get<ProjectsService>(ProjectsService);
+  });
+
+  describe('create', () => {
+    it('deve usar projectEndAlertDays de SystemSetting quando alertDaysBeforeEnd não é fornecido', async () => {
+      mockAdminService.getSettings.mockResolvedValue({ projectEndAlertDays: 45 });
+      mockProjectRepo.create.mockImplementation((data: unknown) => data);
+      mockProjectRepo.save.mockImplementation((data: unknown) => Promise.resolve(data));
+
+      const result = await service.create({ name: 'Projeto Beta' } as never);
+
+      expect(mockAdminService.getSettings).toHaveBeenCalled();
+      expect((result as unknown as { alertDaysBeforeEnd: number }).alertDaysBeforeEnd).toBe(45);
+    });
+
+    it('deve respeitar alertDaysBeforeEnd explícito do DTO em vez do setting', async () => {
+      mockAdminService.getSettings.mockResolvedValue({ projectEndAlertDays: 45 });
+      mockProjectRepo.create.mockImplementation((data: unknown) => data);
+      mockProjectRepo.save.mockImplementation((data: unknown) => Promise.resolve(data));
+
+      const result = await service.create({
+        name: 'Projeto Gamma',
+        alertDaysBeforeEnd: 10,
+      } as never);
+
+      expect((result as unknown as { alertDaysBeforeEnd: number }).alertDaysBeforeEnd).toBe(10);
+    });
   });
 
   describe('allocateEmployee', () => {
@@ -138,6 +174,23 @@ describe('ProjectsService', () => {
       expect(result.allocation.id).toBe('alloc-1');
       expect(result.warning).toBeUndefined();
       expect(mockEventEmitter.emit).toHaveBeenCalledWith('allocation.created', expect.any(Object));
+    });
+
+    it('deve usar projectEndAlertDays de SystemSetting quando a alocação não define alertDaysBeforeEnd', async () => {
+      mockAdminService.getSettings.mockResolvedValue({ projectEndAlertDays: 20 });
+      mockProjectRepo.findOne.mockResolvedValue(mockProject);
+      mockEmployeeRepo.findOne.mockResolvedValue(mockEmployee);
+      mockAllocationRepo.findOne.mockResolvedValue(null);
+      mockAllocationRepo.find.mockResolvedValue([]);
+      mockAllocationRepo.create.mockImplementation((data: unknown) => data);
+      mockAllocationRepo.save.mockImplementation((data: unknown) => Promise.resolve(data));
+
+      const result = await service.allocateEmployee('proj-1', dto);
+
+      expect(mockAdminService.getSettings).toHaveBeenCalled();
+      expect(
+        (result.allocation as unknown as { alertDaysBeforeEnd: number }).alertDaysBeforeEnd,
+      ).toBe(20);
     });
 
     it('deve emitir warning de sobrealocação quando total ultrapassa 100%', async () => {
