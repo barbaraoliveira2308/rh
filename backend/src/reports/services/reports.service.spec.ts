@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -161,5 +161,86 @@ describe('ReportsService', () => {
     );
 
     await expect(service.getJobFile('job-1')).rejects.toThrow(BadRequestException);
+  });
+
+  describe('resolveEmployeeScope', () => {
+    const employeeRepo = mockDataSource.getRepository() as {
+      findOne: jest.Mock;
+      find: jest.Mock;
+    };
+
+    afterEach(() => {
+      employeeRepo.findOne.mockResolvedValue(null);
+      employeeRepo.find.mockResolvedValue([]);
+    });
+
+    it('should return the explicit employeeId unrestricted for ADMIN', async () => {
+      const result = await service.resolveEmployeeScope(['admin'], 'user-1', 'emp-5');
+
+      expect(result).toEqual({ employeeId: 'emp-5' });
+      expect(employeeRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('should return no restriction for ADMIN without an explicit employeeId', async () => {
+      const result = await service.resolveEmployeeScope(['admin'], 'user-1', '');
+
+      expect(result).toEqual({});
+    });
+
+    it('should throw when the authenticated user has no Employee record', async () => {
+      employeeRepo.findOne.mockResolvedValueOnce(null);
+
+      await expect(service.resolveEmployeeScope(['employee'], 'user-x', '')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('should resolve the caller Employee.id from the JWT userId for EMPLOYEE role', async () => {
+      employeeRepo.findOne.mockResolvedValueOnce({ id: 'emp-1', userId: 'user-1' });
+
+      const result = await service.resolveEmployeeScope(['employee'], 'user-1', '');
+
+      expect(employeeRepo.findOne).toHaveBeenCalledWith({ where: { userId: 'user-1' } });
+      expect(result).toEqual({ employeeId: 'emp-1' });
+    });
+
+    it('should deny an EMPLOYEE requesting another colaborador data', async () => {
+      employeeRepo.findOne.mockResolvedValueOnce({ id: 'emp-1', userId: 'user-1' });
+
+      await expect(service.resolveEmployeeScope(['employee'], 'user-1', 'emp-2')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('should scope a MANAGER without an explicit employeeId to themself and direct reports', async () => {
+      employeeRepo.findOne.mockResolvedValueOnce({ id: 'mgr-1', userId: 'user-mgr' });
+      employeeRepo.find.mockResolvedValueOnce([{ id: 'emp-2' }, { id: 'emp-3' }]);
+
+      const result = await service.resolveEmployeeScope(['manager'], 'user-mgr', '');
+
+      expect(employeeRepo.find).toHaveBeenCalledWith({
+        where: { managerId: 'mgr-1' },
+        select: ['id'],
+      });
+      expect(result).toEqual({ employeeIds: ['mgr-1', 'emp-2', 'emp-3'] });
+    });
+
+    it('should allow a MANAGER to request an explicit direct report', async () => {
+      employeeRepo.findOne.mockResolvedValueOnce({ id: 'mgr-1', userId: 'user-mgr' });
+      employeeRepo.find.mockResolvedValueOnce([{ id: 'emp-2' }]);
+
+      const result = await service.resolveEmployeeScope(['manager'], 'user-mgr', 'emp-2');
+
+      expect(result).toEqual({ employeeId: 'emp-2' });
+    });
+
+    it('should deny a MANAGER requesting an employee outside their team', async () => {
+      employeeRepo.findOne.mockResolvedValueOnce({ id: 'mgr-1', userId: 'user-mgr' });
+      employeeRepo.find.mockResolvedValueOnce([{ id: 'emp-2' }]);
+
+      await expect(service.resolveEmployeeScope(['manager'], 'user-mgr', 'emp-99')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
   });
 });

@@ -1,6 +1,12 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, Between, LessThanOrEqual } from 'typeorm';
+import { Repository, DataSource, Between, LessThanOrEqual, In } from 'typeorm';
+import { RoleEnum } from '../../rbac/enums/role.enum';
 import { ReportJob } from '../entities/report-job.entity';
 import { ReportType } from '../entities/report-type.enum';
 import { ReportJobStatus } from '../entities/report-job-status.enum';
@@ -42,6 +48,47 @@ export class ReportsService {
     private readonly rabbitmq: ReportsRabbitmqService,
     private readonly storage: StorageService,
   ) {}
+
+  async resolveEmployeeScope(
+    roles: string[],
+    callerUserId: string,
+    requestedEmployeeId: string,
+  ): Promise<{ employeeId?: string; employeeIds?: string[] }> {
+    if (roles.includes(RoleEnum.ADMIN)) {
+      return requestedEmployeeId ? { employeeId: requestedEmployeeId } : {};
+    }
+
+    const caller = await this.dataSource
+      .getRepository(Employee)
+      .findOne({ where: { userId: callerUserId } });
+
+    if (!caller) {
+      throw new ForbiddenException('Colaborador não encontrado para o utilizador autenticado');
+    }
+
+    if (roles.includes(RoleEnum.MANAGER)) {
+      const directReports = await this.dataSource.getRepository(Employee).find({
+        where: { managerId: caller.id },
+        select: ['id'],
+      });
+      const teamIds = [caller.id, ...directReports.map((employee) => employee.id)];
+
+      if (requestedEmployeeId) {
+        if (!teamIds.includes(requestedEmployeeId)) {
+          throw new ForbiddenException('Sem acesso aos dados deste colaborador');
+        }
+        return { employeeId: requestedEmployeeId };
+      }
+
+      return { employeeIds: teamIds };
+    }
+
+    if (requestedEmployeeId && requestedEmployeeId !== caller.id) {
+      throw new ForbiddenException('Sem acesso aos dados deste colaborador');
+    }
+
+    return { employeeId: caller.id };
+  }
 
   async generateReport(
     reportType: ReportType,
@@ -158,6 +205,7 @@ export class ReportsService {
     const from = this.asString(filters.from);
     const to = this.asString(filters.to);
     const employeeId = this.asString(filters.employeeId);
+    const employeeIds = this.asStringArray(filters.employeeIds);
     const projectId = this.asString(filters.projectId);
 
     const query = this.dataSource
@@ -170,6 +218,8 @@ export class ReportsService {
 
     if (employeeId) {
       query.andWhere('tp.employee_id = :employeeId', { employeeId });
+    } else if (employeeIds.length > 0) {
+      query.andWhere('tp.employee_id IN (:...employeeIds)', { employeeIds });
     }
 
     if (projectId) {
@@ -214,6 +264,7 @@ export class ReportsService {
     const from = this.asString(filters.from);
     const to = this.asString(filters.to);
     const employeeId = this.asString(filters.employeeId);
+    const employeeIds = this.asStringArray(filters.employeeIds);
     const typeId = this.asString(filters.typeId);
 
     const where: Record<string, unknown> = {};
@@ -224,6 +275,8 @@ export class ReportsService {
 
     if (employeeId) {
       where.employeeId = employeeId;
+    } else if (employeeIds.length > 0) {
+      where.employeeId = In(employeeIds);
     }
 
     if (typeId) {
@@ -253,12 +306,15 @@ export class ReportsService {
     const from = this.asString(filters.from);
     const to = this.asString(filters.to);
     const employeeId = this.asString(filters.employeeId);
+    const employeeIds = this.asStringArray(filters.employeeIds);
     const categoryId = this.asString(filters.categoryId);
 
     const reportWhere: Record<string, unknown> = {};
 
     if (employeeId) {
       reportWhere.employeeId = employeeId;
+    } else if (employeeIds.length > 0) {
+      reportWhere.employeeId = In(employeeIds);
     }
 
     const reports = await this.dataSource.getRepository(ExpenseReport).find({
@@ -725,6 +781,14 @@ export class ReportsService {
     }
 
     return '';
+  }
+
+  private asStringArray(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value.filter((item): item is string => typeof item === 'string');
   }
 
   private async exportBuffer(

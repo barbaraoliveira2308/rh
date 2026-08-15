@@ -4,6 +4,7 @@ import { Repository, IsNull } from 'typeorm';
 import { Document, DocumentFileType } from '../entities/document.entity';
 import { UploadDocumentDto } from '../dto/upload-document.dto';
 import { StorageService } from '../../storage/services/storage.service';
+import type { Readable } from 'stream';
 
 @Injectable()
 export class DocumentsService {
@@ -39,14 +40,22 @@ export class DocumentsService {
     return this.documentRepository.save(document);
   }
 
-  async getPresignedUrl(documentId: string, expiresIn = 300): Promise<string> {
+  async getFileStream(
+    documentId: string,
+  ): Promise<{ stream: Readable; contentType: string; filename: string }> {
     const document = await this.findOne(documentId);
 
     if (document.deletedAt) {
       throw new NotFoundException('Documento não encontrado');
     }
 
-    return this.storageService.getPresignedUrl(document.storagePath, expiresIn);
+    const object = await this.storageService.getObjectStream(document.storagePath);
+
+    return {
+      stream: object.body,
+      contentType: object.contentType ?? 'application/octet-stream',
+      filename: document.name,
+    };
   }
 
   async moveToTrash(documentId: string): Promise<void> {

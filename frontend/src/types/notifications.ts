@@ -46,4 +46,8 @@ export const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   'contract.expiring-soon': 'Contrato a expirar',
   'project.ending-alert': 'Projeto próximo do fim',
   'project.allocation-ending-alert': 'Alocação próxima do fim',
+  'expense.approved': 'Despesa aprovada',
+  'expense.rejected': 'Despesa rejeitada',
+  'allocation.overallocation-detected': 'Sobrealocação detetada',
+  'timesheet.pending-submission': 'Timesheet por submeter',
 };

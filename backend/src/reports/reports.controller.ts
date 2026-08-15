@@ -5,6 +5,7 @@ import {
   Delete,
   Param,
   Query,
+  Req,
   Res,
   Body,
   UseGuards,
@@ -13,7 +14,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { ReportsService } from './services/reports.service';
 import { ScheduledReportsService } from './services/scheduled-reports.service';
 import { CreateScheduledReportDto } from './dto/create-scheduled-report.dto';
@@ -25,6 +26,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../rbac/guards/roles.guard';
 import { Roles } from '../rbac/decorators/roles.decorator';
 import { RoleEnum } from '../rbac/enums/role.enum';
+import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 
 function parseFormat(format?: string): ReportFormat {
   const value = format ?? 'json';
@@ -47,7 +49,7 @@ export class ReportsController {
   ) {}
 
   @Get('timesheets')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.EMPLOYEE)
   @ApiOperation({ summary: 'Relatório de horas por colaborador/projeto/período' })
   @HttpCode(HttpStatus.OK)
   async getTimesheetsReport(
@@ -56,15 +58,18 @@ export class ReportsController {
     @Query('employeeId') employeeId: string,
     @Query('projectId') projectId: string,
     @Query('format') format: string,
+    @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
+    const user = req.user as JwtPayload;
+    const scope = await this.reportsService.resolveEmployeeScope(user.roles, user.sub, employeeId);
     const result = await this.reportsService.generateReport(
       ReportType.TIMESHEETS,
       {
         from,
         to,
-        employeeId,
         projectId,
+        ...scope,
       },
       parseFormat(format),
     );
@@ -73,7 +78,7 @@ export class ReportsController {
   }
 
   @Get('absences')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.EMPLOYEE)
   @ApiOperation({ summary: 'Relatório de ausências por tipo/colaborador/período' })
   @HttpCode(HttpStatus.OK)
   async getAbsencesReport(
@@ -82,15 +87,18 @@ export class ReportsController {
     @Query('employeeId') employeeId: string,
     @Query('typeId') typeId: string,
     @Query('format') format: string,
+    @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
+    const user = req.user as JwtPayload;
+    const scope = await this.reportsService.resolveEmployeeScope(user.roles, user.sub, employeeId);
     const result = await this.reportsService.generateReport(
       ReportType.ABSENCES,
       {
         from,
         to,
-        employeeId,
         typeId,
+        ...scope,
       },
       parseFormat(format),
     );
@@ -99,7 +107,7 @@ export class ReportsController {
   }
 
   @Get('expenses')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.EMPLOYEE)
   @ApiOperation({ summary: 'Relatório de despesas por categoria/colaborador/período' })
   @HttpCode(HttpStatus.OK)
   async getExpensesReport(
@@ -108,15 +116,18 @@ export class ReportsController {
     @Query('employeeId') employeeId: string,
     @Query('categoryId') categoryId: string,
     @Query('format') format: string,
+    @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
+    const user = req.user as JwtPayload;
+    const scope = await this.reportsService.resolveEmployeeScope(user.roles, user.sub, employeeId);
     const result = await this.reportsService.generateReport(
       ReportType.EXPENSES,
       {
         from,
         to,
-        employeeId,
         categoryId,
+        ...scope,
       },
       parseFormat(format),
     );

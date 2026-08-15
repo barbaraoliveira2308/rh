@@ -60,6 +60,30 @@ const templates: TemplateDefinition[] = [
     subject: 'Projeto próximo do fim',
     file: 'project-ending.hbs',
   },
+  {
+    code: 'expense-approved',
+    name: 'Despesa Aprovada',
+    subject: 'A tua despesa foi aprovada',
+    file: 'expense-approved.hbs',
+  },
+  {
+    code: 'expense-rejected',
+    name: 'Despesa Rejeitada',
+    subject: 'A tua despesa foi rejeitada',
+    file: 'expense-rejected.hbs',
+  },
+  {
+    code: 'overallocation-detected',
+    name: 'Sobrealocação Detetada',
+    subject: 'Sobrealocação detetada num colaborador',
+    file: 'overallocation-detected.hbs',
+  },
+  {
+    code: 'timesheet-pending',
+    name: 'Timesheet por Submeter',
+    subject: 'A tua timesheet ainda não foi submetida',
+    file: 'timesheet-pending.hbs',
+  },
 ];
 
 export async function run(dataSource: DataSource): Promise<void> {

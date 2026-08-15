@@ -23,6 +23,14 @@ import { AbsenceRejectedEvent } from '../../absences/events/absence-rejected.eve
 import { ContractExpiringSoonEvent } from '../../contracts/events/contract-expiring-soon.event';
 import { ProjectEndingAlertEvent } from '../../projects/events/project-ending-alert.event';
 import { AllocationEndingAlertEvent } from '../../projects/events/allocation-ending-alert.event';
+import { OverallocationDetectedEvent } from '../../projects/events/overallocation-detected.event';
+import { ExpenseApprovedEvent } from '../../expenses/events/expense-approved.event';
+import { ExpenseRejectedEvent } from '../../expenses/events/expense-rejected.event';
+
+interface TimesheetPendingSubmissionEvent {
+  periodId: string;
+  employeeId: string;
+}
 
 @Injectable()
 export class NotificationsService {
@@ -531,6 +539,103 @@ export class NotificationsService {
       },
       event.allocationId,
       'ProjectAllocation',
+    );
+  }
+
+  @OnEvent('expense.approved')
+  async handleExpenseApproved(event: ExpenseApprovedEvent): Promise<void> {
+    const employee = await this.employeeRepository.findOne({ where: { id: event.employeeId } });
+
+    if (!employee) return;
+
+    await this.notify(
+      event.employeeId,
+      'expense.approved',
+      'Despesa aprovada',
+      'O teu relatório de despesas foi aprovado',
+      'expense-approved',
+      {
+        employeeName: employee.firstName,
+        link: '/expenses/' + event.reportId,
+      },
+      event.reportId,
+      'ExpenseReport',
+    );
+  }
+
+  @OnEvent('expense.rejected')
+  async handleExpenseRejected(event: ExpenseRejectedEvent): Promise<void> {
+    const employee = await this.employeeRepository.findOne({ where: { id: event.employeeId } });
+
+    if (!employee) return;
+
+    await this.notify(
+      event.employeeId,
+      'expense.rejected',
+      'Despesa rejeitada',
+      'O teu relatório de despesas foi rejeitado',
+      'expense-rejected',
+      {
+        employeeName: employee.firstName,
+        reason: event.reason,
+        link: '/expenses/' + event.reportId,
+      },
+      event.reportId,
+      'ExpenseReport',
+    );
+  }
+
+  @OnEvent('allocation.overallocation-detected')
+  async handleOverallocationDetected(event: OverallocationDetectedEvent): Promise<void> {
+    const employee = await this.employeeRepository.findOne({ where: { id: event.employeeId } });
+
+    if (!employee?.managerId) return;
+
+    await this.notify(
+      employee.managerId,
+      'allocation.overallocation-detected',
+      'Sobrealocação detetada',
+      employee.firstName +
+        ' ' +
+        employee.lastName +
+        ' está alocado a ' +
+        String(event.totalPercentage) +
+        '% (acima de 100%)',
+      'overallocation-detected',
+      {
+        employeeName: employee.firstName + ' ' + employee.lastName,
+        totalPercentage: event.totalPercentage,
+        link: '/projects/' + event.projectId,
+      },
+      event.projectId,
+      'Project',
+    );
+  }
+
+  @OnEvent('timesheet.pending-submission')
+  async handleTimesheetPendingSubmission(event: TimesheetPendingSubmissionEvent): Promise<void> {
+    const period = await this.timesheetPeriodRepository.findOne({
+      where: { id: event.periodId },
+      relations: ['employee'],
+    });
+
+    if (!period?.employee) return;
+
+    const monthKey = String(period.periodYear) + '-' + String(period.periodMonth).padStart(2, '0');
+
+    await this.notify(
+      event.employeeId,
+      'timesheet.pending-submission',
+      'Timesheet por submeter',
+      'A tua timesheet de ' + monthKey + ' ainda não foi submetida',
+      'timesheet-pending',
+      {
+        employeeName: period.employee.firstName,
+        period: monthKey,
+        link: '/timesheets/' + event.periodId,
+      },
+      event.periodId,
+      'TimesheetPeriod',
     );
   }
 

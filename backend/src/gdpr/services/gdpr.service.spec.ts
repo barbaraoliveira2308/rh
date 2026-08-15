@@ -9,6 +9,8 @@ import { DataSubjectRequestStatus } from '../entities/data-subject-request-statu
 import { RetentionPolicy } from '../entities/retention-policy.entity';
 import { SecurityIncident } from '../entities/security-incident.entity';
 import { SecurityIncidentStatus } from '../entities/security-incident-status.enum';
+import { SecurityIncidentSeverity } from '../entities/security-incident-severity.enum';
+import { DataSubjectRequestType } from '../entities/data-subject-request-type.enum';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
 import { User } from '../../auth/entities/user.entity';
 import { AuditLog } from '../../audit/entities/audit-log.entity';
@@ -218,6 +220,72 @@ describe('GdprService', () => {
 
     await expect(service.updateRetentionPolicy('unknown', { isActive: false })).rejects.toThrow(
       'Política de retenção não encontrada',
+    );
+  });
+
+  it('should emit gdpr.request.completed when completing a request', async () => {
+    const request = new DataSubjectRequest();
+    request.id = 'req-1';
+    request.subjectId = 'emp-1';
+    request.requestType = DataSubjectRequestType.RECTIFICATION;
+    request.status = DataSubjectRequestStatus.PENDING;
+
+    requestRepository.findOne.mockResolvedValue(request);
+
+    await service.completeRequest('req-1', 'Concluído');
+
+    expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+      'gdpr.request.completed',
+      expect.objectContaining({ requestId: 'req-1', subjectId: 'emp-1' }),
+    );
+  });
+
+  it('should emit gdpr.incident.escalated for a CRITICAL incident without SMTP configured', async () => {
+    const result = await service.reportIncident({
+      title: 'Acesso indevido',
+      severity: SecurityIncidentSeverity.CRITICAL,
+    });
+
+    expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+      'gdpr.incident.escalated',
+      expect.objectContaining({
+        incidentId: result.id,
+        severity: SecurityIncidentSeverity.CRITICAL,
+      }),
+    );
+  });
+
+  it('should not emit gdpr.incident.escalated for a LOW severity incident', async () => {
+    await service.reportIncident({
+      title: 'Evento menor',
+      severity: SecurityIncidentSeverity.LOW,
+    });
+
+    expect(mockEventEmitter.emit).not.toHaveBeenCalledWith(
+      'gdpr.incident.escalated',
+      expect.anything(),
+    );
+  });
+
+  it('should emit gdpr.data.exported when an ACCESS request is created', async () => {
+    const employee = new Employee();
+    employee.id = 'emp-1';
+    employeeRepository.findOne.mockResolvedValue(employee);
+    requestRepository.findOne.mockResolvedValue({
+      id: 'req-1',
+      subjectId: 'emp-1',
+      requestType: DataSubjectRequestType.ACCESS,
+      status: DataSubjectRequestStatus.PENDING,
+    });
+
+    await service.createDataRequest({
+      subjectId: 'emp-1',
+      requestType: DataSubjectRequestType.ACCESS,
+    });
+
+    expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+      'gdpr.data.exported',
+      expect.objectContaining({ subjectId: 'emp-1', requestType: DataSubjectRequestType.ACCESS }),
     );
   });
 });

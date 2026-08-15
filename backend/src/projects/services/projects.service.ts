@@ -297,7 +297,7 @@ export class ProjectsService {
 
       if (daysRemaining <= allocation.alertDaysBeforeEnd && daysRemaining > 0) {
         this.eventEmitter.emit(
-          'allocation.ending-alert',
+          'project.allocation-ending-alert',
           new AllocationEndingAlertEvent(
             allocation.projectId,
             allocation.id,

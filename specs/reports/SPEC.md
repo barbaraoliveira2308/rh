@@ -42,14 +42,14 @@ Gerar relatórios operacionais exportáveis sobre férias, ocupação, horas tra
 - GET /api/v1/reports/jobs/:job_id (estado da geração)
 - GET /api/v1/reports/jobs/:job_id/download
 
-## Notas de Implementação (P-017 backend, P-039 backend fixes + frontend)
+## Notas de Implementação (P-017 backend, P-039 backend fixes + frontend, P-044 scoping)
 
 **Desvios face a este documento (implementação real desde P-017, confirmados em P-039):**
 
 - Prefixo de rota real é `/api/reports/...`, sem `/v1` — consistente com todos os outros módulos do backend (`app.setGlobalPrefix('api')`), não é uma particularidade deste módulo.
 - Não existe uma rota genérica `GET /reports/:type/generate`. Em vez disso há 8 rotas dedicadas: `GET /reports/timesheets`, `/absences`, `/expenses`, `/projects/:id/hours`, `/teams/:id/occupancy`, `/financials/margins`, `/contracts/expiring`, `/audit`.
 - O catálogo de relatórios implementado (enum `ReportType`) não corresponde ao catálogo REP-001..008 desta tabela: não existem relatórios distintos de "férias por colaborador/equipa" nem "ocupação individual"; em vez disso existem `project_hours` (não listado aqui) e `margins`/`audit` (também não listados aqui). O frontend (P-039) foi construído sobre os 8 tipos reais, não sobre REP-001..008 (decisão do utilizador P039-03).
-- Permissões reais: todas as rotas de relatórios exigem `ADMIN` ou `MANAGER` (exceto `/audit` e `/schedules/*`, só `ADMIN`); não há scoping automático de um Gestor à sua própria equipa (aceita `employeeId`/`teamId`/`projectId` livres); o papel `EMPLOYEE` não tem acesso a nenhum relatório — o nível "Próprios dados" da matriz de permissões acima não está implementado. Gap conhecido, não corrigido nesta fase (decisão do utilizador P039-02, ver `specs/GLOBAL-TASKS-RISKS.md`).
+- Permissões reais: `GET /reports/timesheets`, `/absences`, `/expenses` exigem `ADMIN`, `MANAGER` ou `EMPLOYEE` (`/projects/:id/hours`, `/teams/:id/occupancy`, `/financials/margins`, `/contracts/expiring` continuam `ADMIN`/`MANAGER`; `/audit` e `/schedules/*` continuam só `ADMIN`) — o gap "papel EMPLOYEE sem acesso a relatórios próprios" documentado em P039-02 foi corrigido em **P-044**, limitado aos 3 tipos com filtro `employeeId`. **Scoping (P-044)**: `ReportsService.resolveEmployeeScope(roles, callerUserId, requestedEmployeeId)` resolve o `Employee` do chamador a partir do `userId` do JWT (nunca compara `sub` diretamente com `Employee.id` — ver `R-038` em `specs/GLOBAL-TASKS-RISKS.md`); ADMIN sem restrição; MANAGER sem `employeeId` fica limitado a si próprio + subordinados diretos (`Employee.managerId`, novo filtro `employeeIds` com `IN`), com `employeeId` explícito só se pertencer à equipa (403 caso contrário); EMPLOYEE sempre limitado aos próprios dados (403 se pedir outro `employeeId`). `project_hours`/`team_occupancy`/`margins`/`contracts_expiring`/`audit` continuam sem scoping de equipa — gap conhecido, não corrigido (decisão P044-01, ver `specs/GLOBAL-TASKS-RISKS.md`).
 - `/reports/schedules` (GET/POST) e `/reports/schedules/:id` (DELETE) existem e são geridos pelo frontend, mas não têm equivalente nesta spec; não existe `PATCH` para editar um agendamento (só criar/listar/apagar) — gap conhecido, não corrigido nesta fase (decisão P039-02).
 
 **Correções de backend em P-039 (aprovadas pelo utilizador, decisão P039-01 — "corrigir agora"):**

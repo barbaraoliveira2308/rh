@@ -28,6 +28,9 @@ import { ConsentRevokedEvent } from '../events/consent-revoked.event';
 import { DataSubjectRequestCreatedEvent } from '../events/data-subject-request-created.event';
 import { DataAnonymizedEvent } from '../events/data-anonymized.event';
 import { SecurityIncidentRegisteredEvent } from '../events/security-incident-registered.event';
+import { DataSubjectRequestCompletedEvent } from '../events/data-subject-request-completed.event';
+import { SecurityIncidentEscalatedEvent } from '../events/security-incident-escalated.event';
+import { PersonalDataExportedEvent } from '../events/personal-data-exported.event';
 
 const DEADLINE_DAYS = 30;
 
@@ -183,9 +186,17 @@ export class GdprService {
     } else if (dto.requestType === DataSubjectRequestType.ACCESS) {
       const payload = await this.collectSubjectData(dto.subjectId);
       await this.completeRequest(saved.id, 'Relatório de acesso gerado', payload);
+      this.eventEmitter.emit(
+        'gdpr.data.exported',
+        new PersonalDataExportedEvent(saved.subjectId, saved.id, saved.requestType),
+      );
     } else if (dto.requestType === DataSubjectRequestType.PORTABILITY) {
       const payload = await this.collectSubjectData(dto.subjectId);
       await this.completeRequest(saved.id, 'Dados exportados para portabilidade', payload);
+      this.eventEmitter.emit(
+        'gdpr.data.exported',
+        new PersonalDataExportedEvent(saved.subjectId, saved.id, saved.requestType),
+      );
     }
 
     return this.requestRepository.findOne({
@@ -210,7 +221,14 @@ export class GdprService {
     request.responseNotes = notes ?? request.responseNotes;
     request.responsePayload = payload ?? request.responsePayload;
 
-    return this.requestRepository.save(request);
+    const saved = await this.requestRepository.save(request);
+
+    this.eventEmitter.emit(
+      'gdpr.request.completed',
+      new DataSubjectRequestCompletedEvent(saved.id, saved.subjectId, saved.requestType),
+    );
+
+    return saved;
   }
 
   async findRequests(): Promise<DataSubjectRequest[]> {
@@ -358,6 +376,10 @@ export class GdprService {
       saved.severity === SecurityIncidentSeverity.CRITICAL
     ) {
       await this.notifyDpo(saved);
+      this.eventEmitter.emit(
+        'gdpr.incident.escalated',
+        new SecurityIncidentEscalatedEvent(saved.id, saved.severity),
+      );
     }
 
     this.eventEmitter.emit(

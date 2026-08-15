@@ -69,11 +69,13 @@ export class DocumentsController {
 
   @Get('documents/:id/download')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
-  @ApiOperation({ summary: 'Download de documento (redirect para presigned URL)' })
-  @HttpCode(HttpStatus.FOUND)
+  @ApiOperation({ summary: 'Download de documento (transmitido diretamente pelo backend)' })
+  @HttpCode(HttpStatus.OK)
   async download(@Param('id') id: string, @Res() res: Response): Promise<void> {
-    const url = await this.documentsService.getPresignedUrl(id);
-    res.redirect(HttpStatus.FOUND, url);
+    const file = await this.documentsService.getFileStream(id);
+    res.setHeader('Content-Disposition', 'attachment; filename="' + file.filename + '"');
+    res.setHeader('Content-Type', file.contentType);
+    file.stream.pipe(res);
   }
 
   @Delete('documents/:id')

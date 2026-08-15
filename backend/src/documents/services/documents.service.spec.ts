@@ -20,7 +20,7 @@ describe('DocumentsService', () => {
     };
     mockStorageService = {
       upload: jest.fn().mockResolvedValue('documents/u-1/key'),
-      getPresignedUrl: jest.fn().mockResolvedValue('https://presigned-url'),
+      getObjectStream: jest.fn(),
       delete: jest.fn().mockResolvedValue(undefined),
     };
 
@@ -80,7 +80,7 @@ describe('DocumentsService', () => {
     });
   });
 
-  describe('getPresignedUrl', () => {
+  describe('getFileStream', () => {
     it('deve lançar NotFoundException se o documento estiver na lixeira', async () => {
       mockDocumentRepo.findOne.mockResolvedValue({
         id: 'd-1',
@@ -88,20 +88,48 @@ describe('DocumentsService', () => {
         storagePath: 'documents/x',
       });
 
-      await expect(service.getPresignedUrl('d-1')).rejects.toThrow(NotFoundException);
+      await expect(service.getFileStream('d-1')).rejects.toThrow(NotFoundException);
     });
 
-    it('deve devolver o URL assinado do storage', async () => {
+    it('deve devolver o stream do storage com o nome e content-type do documento', async () => {
       mockDocumentRepo.findOne.mockResolvedValue({
         id: 'd-1',
         deletedAt: null,
         storagePath: 'documents/x',
+        name: 'Contrato.pdf',
+      });
+      const stream = { pipe: jest.fn() };
+      mockStorageService.getObjectStream.mockResolvedValue({
+        body: stream,
+        contentType: 'application/pdf',
       });
 
-      const result = await service.getPresignedUrl('d-1', 600);
+      const result = await service.getFileStream('d-1');
 
-      expect(mockStorageService.getPresignedUrl).toHaveBeenCalledWith('documents/x', 600);
-      expect(result).toBe('https://presigned-url');
+      expect(mockStorageService.getObjectStream).toHaveBeenCalledWith('documents/x');
+      expect(result).toEqual({
+        stream,
+        contentType: 'application/pdf',
+        filename: 'Contrato.pdf',
+      });
+    });
+
+    it('deve usar application/octet-stream quando o storage não devolve content-type', async () => {
+      mockDocumentRepo.findOne.mockResolvedValue({
+        id: 'd-1',
+        deletedAt: null,
+        storagePath: 'documents/x',
+        name: 'Contrato.pdf',
+      });
+      const stream = { pipe: jest.fn() };
+      mockStorageService.getObjectStream.mockResolvedValue({
+        body: stream,
+        contentType: undefined,
+      });
+
+      const result = await service.getFileStream('d-1');
+
+      expect(result.contentType).toBe('application/octet-stream');
     });
   });
 
