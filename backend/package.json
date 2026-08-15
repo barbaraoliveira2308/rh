@@ -62,7 +62,7 @@
     "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "typeorm": "^0.3.20",
+    "typeorm": "^0.3.31",
     "winston": "^3.17.0"
   },
   "devDependencies": {
