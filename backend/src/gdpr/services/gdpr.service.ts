@@ -29,6 +29,7 @@ import { DataSubjectRequestCreatedEvent } from '../events/data-subject-request-c
 import { DataAnonymizedEvent } from '../events/data-anonymized.event';
 import { SecurityIncidentRegisteredEvent } from '../events/security-incident-registered.event';
 import { DataSubjectRequestCompletedEvent } from '../events/data-subject-request-completed.event';
+import { AdminService } from '../../admin/admin.service';
 import { SecurityIncidentEscalatedEvent } from '../events/security-incident-escalated.event';
 import { PersonalDataExportedEvent } from '../events/personal-data-exported.event';
 
@@ -56,6 +57,7 @@ export class GdprService {
     private readonly auditLogRepository: Repository<AuditLog>,
     private readonly dataSource: DataSource,
     private readonly eventEmitter: EventEmitter2,
+    private readonly adminService: AdminService,
   ) {
     const smtpHost = process.env.SMTP_HOST;
     const smtpPort = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587;
@@ -311,45 +313,52 @@ export class GdprService {
 
   @Cron('0 3 1 * *')
   async runRetentionPolicies(): Promise<number> {
+    const settings = await this.adminService.getSettings();
+
+    let anonymizedCount = await this.anonymizeInactiveEmployeesPastCutoff(
+      settings.gdprPostExitRetentionYears,
+    );
+
     const policies = await this.retentionRepository.find({
       where: { isActive: true },
     });
-
-    if (policies.length === 0) {
-      this.logger.log('Nenhuma política de retenção ativa configurada; skipping');
-      return 0;
-    }
-
-    let anonymizedCount = 0;
 
     for (const policy of policies) {
       if (policy.actionAfterRetention !== RetentionAction.ANONYMIZE) {
         continue;
       }
 
-      const cutoff = new Date();
-      cutoff.setFullYear(cutoff.getFullYear() - policy.retentionYears);
-      const cutoffStr = cutoff.toISOString().split('T')[0];
+      anonymizedCount += await this.anonymizeInactiveEmployeesPastCutoff(policy.retentionYears);
+    }
 
-      const employees = await this.employeeRepository.find({
-        where: {
-          status: EmployeeStatus.INACTIVE,
-          employmentEndDate: LessThan(cutoffStr),
-        },
-      });
+    return anonymizedCount;
+  }
 
-      for (const employee of employees) {
-        try {
-          await this.anonymizeEmployee(employee.id, 'retention');
-          anonymizedCount++;
-        } catch (error) {
-          this.logger.error(
-            'Failed to anonymize employee ' +
-              employee.id +
-              ': ' +
-              (error instanceof Error ? error.message : String(error)),
-          );
-        }
+  private async anonymizeInactiveEmployeesPastCutoff(retentionYears: number): Promise<number> {
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - retentionYears);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+
+    const employees = await this.employeeRepository.find({
+      where: {
+        status: EmployeeStatus.INACTIVE,
+        employmentEndDate: LessThan(cutoffStr),
+      },
+    });
+
+    let anonymizedCount = 0;
+
+    for (const employee of employees) {
+      try {
+        await this.anonymizeEmployee(employee.id, 'retention');
+        anonymizedCount++;
+      } catch (error) {
+        this.logger.error(
+          'Failed to anonymize employee ' +
+            employee.id +
+            ': ' +
+            (error instanceof Error ? error.message : String(error)),
+        );
       }
     }
 

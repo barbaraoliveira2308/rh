@@ -14,6 +14,7 @@ import { DataSubjectRequestType } from '../entities/data-subject-request-type.en
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
 import { User } from '../../auth/entities/user.entity';
 import { AuditLog } from '../../audit/entities/audit-log.entity';
+import { AdminService } from '../../admin/admin.service';
 
 const createMockRepository = (): {
   findOne: jest.Mock;
@@ -40,6 +41,10 @@ const mockEventEmitter = {
   emit: jest.fn(),
 };
 
+const mockAdminService = {
+  getSettings: jest.fn().mockResolvedValue({ gdprPostExitRetentionYears: 5 }),
+};
+
 describe('GdprService', () => {
   let service: GdprService;
   let employeeRepository: ReturnType<typeof createMockRepository>;
@@ -62,6 +67,7 @@ describe('GdprService', () => {
         { provide: getRepositoryToken(AuditLog), useValue: createMockRepository() },
         { provide: DataSource, useValue: mockDataSource },
         { provide: EventEmitter2, useValue: mockEventEmitter },
+        { provide: AdminService, useValue: mockAdminService },
       ],
     }).compile();
 
@@ -132,7 +138,7 @@ describe('GdprService', () => {
     );
   });
 
-  it('should skip retention run when no active policies exist', async () => {
+  it('should return 0 when there are no active policies and no employees past the implicit gdprPostExitRetentionYears cutoff', async () => {
     const retentionRepository = createMockRepository();
     retentionRepository.find.mockResolvedValue([]);
 
@@ -148,13 +154,55 @@ describe('GdprService', () => {
         { provide: getRepositoryToken(AuditLog), useValue: createMockRepository() },
         { provide: DataSource, useValue: mockDataSource },
         { provide: EventEmitter2, useValue: mockEventEmitter },
+        { provide: AdminService, useValue: mockAdminService },
       ],
     }).compile();
 
     const testService = module.get<GdprService>(GdprService);
     const count = await testService.runRetentionPolicies();
 
+    expect(mockAdminService.getSettings).toHaveBeenCalled();
     expect(count).toBe(0);
+  });
+
+  it('should anonymize inactive employees past gdprPostExitRetentionYears with no explicit RetentionPolicy configured', async () => {
+    const retentionRepository = createMockRepository();
+    retentionRepository.find.mockResolvedValue([]);
+    const employeeRepository = createMockRepository();
+    const pastDueEmployee = new Employee();
+    pastDueEmployee.id = 'emp-past-due';
+    pastDueEmployee.userId = 'user-past-due';
+    pastDueEmployee.status = EmployeeStatus.INACTIVE;
+    pastDueEmployee.user = new User();
+    pastDueEmployee.user.id = 'user-past-due';
+    employeeRepository.find.mockResolvedValue([pastDueEmployee]);
+    employeeRepository.findOne.mockResolvedValue(pastDueEmployee);
+    const userRepository = createMockRepository();
+    const auditLogRepository = createMockRepository();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        GdprService,
+        { provide: getRepositoryToken(ConsentRecord), useValue: createMockRepository() },
+        { provide: getRepositoryToken(DataSubjectRequest), useValue: createMockRepository() },
+        { provide: getRepositoryToken(RetentionPolicy), useValue: retentionRepository },
+        { provide: getRepositoryToken(SecurityIncident), useValue: createMockRepository() },
+        { provide: getRepositoryToken(Employee), useValue: employeeRepository },
+        { provide: getRepositoryToken(User), useValue: userRepository },
+        { provide: getRepositoryToken(AuditLog), useValue: auditLogRepository },
+        { provide: DataSource, useValue: mockDataSource },
+        { provide: EventEmitter2, useValue: mockEventEmitter },
+        { provide: AdminService, useValue: mockAdminService },
+      ],
+    }).compile();
+
+    const testService = module.get<GdprService>(GdprService);
+    const count = await testService.runRetentionPolicies();
+
+    expect(count).toBe(1);
+    expect(employeeRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'emp-past-due', status: EmployeeStatus.INACTIVE }),
+    );
   });
 
   it('should reject a pending request with notes', async () => {
