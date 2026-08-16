@@ -118,6 +118,27 @@ describe('ContractsService', () => {
     });
   });
 
+  describe('terminate', () => {
+    it('deve lançar BadRequestException se o contrato não estiver ativo', async () => {
+      mockContractRepo.findOne.mockResolvedValue({ id: 'c-1', status: ContractStatus.DRAFT });
+
+      await expect(service.terminate('c-1', { reason: 'Fim de projeto' })).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('deve rescindir o contrato, registando data e motivo', async () => {
+      const contract = { id: 'c-1', status: ContractStatus.ACTIVE } as Contract;
+      mockContractRepo.findOne.mockResolvedValue(contract);
+
+      const result = await service.terminate('c-1', { reason: 'Fim de projeto' });
+
+      expect(result.status).toBe(ContractStatus.TERMINATED);
+      expect(result.terminationReason).toBe('Fim de projeto');
+      expect(result.terminatedAt).toBeInstanceOf(Date);
+    });
+  });
+
   describe('findExpiringSoon', () => {
     it('deve procurar contratos ativos com data de fim antes do limite calculado', async () => {
       await service.findExpiringSoon(15);

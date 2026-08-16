@@ -166,3 +166,15 @@ Investigação prévia confirmou que `RbacService.assignRole()`/`revokeRole()` (
 **Verificação em ambiente real completa**: atribuição e revogação de um perfil (`manager`) a um colaborador de teste real confirmadas via `psql` em `hr.user_roles`; `hr.audit_logs` confirmado a registar `PermissionChanged`/`RoleChanged` com `entity_type: 'User'` e `entity_id` = o `User.id` correto (não o `Employee.id` da URL). Dados de teste eliminados, `hr.audit_logs` limpa no fecho da sessão.
 
 **Restam por ligar**: os 2 eventos remanescentes — Contracts `Terminated` (colunas existem, nada as define), Admin `UserCreated` (sem fluxo admin de criação de conta). Ver `specs/GLOBAL-TASKS-RISKS.md` (`R-044`) para o detalhe atualizado.
+
+### Wiring parcial — Contracts Terminated (P-067)
+
+Ao contrário do caso RBAC (P-066), este já estava totalmente especificado em `specs/contracts/SPEC.md`: `POST /contracts/:id/terminate` listado nas APIs, BR-CON-004 ("A rescisão de contrato deve registar motivo e data"), diagrama de estados (`Active → Terminated`, única transição válida) e tabela de permissões (só Administrador). A secção "Simplificações/Decisões" da própria spec já assinalava explicitamente este gap. Sem ambiguidade genuína — implementado diretamente.
+
+Novo `ContractsService.terminate(id, dto)` (valida `status === ACTIVE`, mesmo padrão de `renew()`); novo `POST /contracts/:id/terminate` decorado com `@Audit('Terminated', 'Contract')`, `RoleEnum.ADMIN` apenas. Consistente com `create()`/`renew()` (que não emitem os eventos `ContractCreated`/`ContractActivated` da tabela "Eventos do Sistema" do módulo), `terminate()` também não emite `ContractTerminated` via `EventEmitter2` — decisão de manter o padrão já existente, não uma omissão nova.
+
+2 novos testes unitários (`contracts.service.spec.ts`). 421/421 testes unitários (antes 419/419). `pnpm run lint` (0 erros) e `pnpm run build` (raiz) green. Suite e2e 7/7 (51/51), sem alteração.
+
+**Verificação em ambiente real completa**: contrato de teste real criado (`draft`); `terminate` tentado antes de ativar corretamente rejeitado (400, máquina de estados); contrato ativado via `PATCH`; `terminate` confirmado a definir `status: terminated`, `terminatedAt` e `terminationReason`; `hr.audit_logs` confirmado via `psql` a registar `Created`/`Updated`/`Terminated` para o contrato de teste. Dados de teste eliminados, `hr.audit_logs` limpa no fecho da sessão.
+
+**Restam por ligar**: só 1 evento — Admin `UserCreated` (sem fluxo admin de criação de conta `User`, só provisionamento JIT via Keycloak no primeiro login SSO). Ver `specs/GLOBAL-TASKS-RISKS.md` (`R-044`) para o detalhe atualizado.

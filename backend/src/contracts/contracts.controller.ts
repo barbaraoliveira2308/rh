@@ -16,6 +16,7 @@ import { ContractsService } from './services/contracts.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
 import { RenewContractDto } from './dto/renew-contract.dto';
+import { TerminateContractDto } from './dto/terminate-contract.dto';
 import { Contract, ContractStatus } from './entities/contract.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../rbac/guards/roles.guard';
@@ -75,6 +76,15 @@ export class ContractsController {
   @HttpCode(HttpStatus.OK)
   async renew(@Param('id') id: string, @Body() dto: RenewContractDto): Promise<Contract> {
     return this.contractsService.renew(id, dto);
+  }
+
+  @Post('contracts/:id/terminate')
+  @Roles(RoleEnum.ADMIN)
+  @Audit('Terminated', 'Contract')
+  @ApiOperation({ summary: 'Rescindir contrato' })
+  @HttpCode(HttpStatus.OK)
+  async terminate(@Param('id') id: string, @Body() dto: TerminateContractDto): Promise<Contract> {
+    return this.contractsService.terminate(id, dto);
   }
 
   @Get('contracts/:id/document')

@@ -92,13 +92,14 @@ stateDiagram-v2
 
 - **Entidades:** `Contract` (TypeORM) com os campos definidos na spec, incluindo `terminatedAt` e `terminationReason`; entidade `ContractRenewal` para histórico de renovações.
 - **DTOs:** `CreateContractDto`, `UpdateContractDto`, `RenewContractDto`.
-- **Service:** `ContractsService` com métodos `create`, `findAll`, `findOne`, `update`, `renew`, `findExpiringSoon`, `scheduleExpirationAlerts`, `getDocumentPresignedUrl`.
+- **Service:** `ContractsService` com métodos `create`, `findAll`, `findOne`, `update`, `renew`, `terminate` (P-067), `findExpiringSoon`, `scheduleExpirationAlerts`, `getDocumentPresignedUrl`.
 - **Controller:** `ContractsController` expõe os endpoints:
   - `GET /contracts` (com filtros opcionais `status` e `employeeId`)
   - `GET /contracts/:id`
   - `POST /contracts`
   - `PATCH /contracts/:id`
   - `POST /contracts/:id/renew`
+  - `POST /contracts/:id/terminate` (P-067)
   - `GET /contracts/:id/document`
 - **Eventos:** `ContractExpiringSoonEvent` emitido via `EventEmitter2` no tópico `contract.expiring-soon`.
 - **Cron jobs:** `scheduleExpirationAlerts` executa diariamente às 08:00 — emite eventos para contratos que expiram em até 30 dias e marca contratos com `endDate` ultrapassado como `expired`.
@@ -108,7 +109,7 @@ stateDiagram-v2
 
 ### Simplificações/Decisões
 
-- Não existe endpoint `POST /contracts/:id/terminate`; os campos `terminatedAt` e `terminationReason` estão no modelo mas não são preenchidos por nenhum fluxo atual.
+- **`POST /contracts/:id/terminate` implementado em P-067** (descoberto ao investigar como ligar o evento de auditoria `Contracts: Terminated`, `R-044` — ver `specs/audit/SPEC.md` e `specs/GLOBAL-TASKS-RISKS.md`): `ContractsService.terminate(id, dto)` valida que o contrato está `ACTIVE` (mesmo padrão de validação de `renew()`), define `status: TERMINATED`, `terminatedAt: now()` e `terminationReason: dto.reason` (`TerminateContractDto`, campo `reason` obrigatório, alinhado com BR-CON-004). Endpoint restrito a `RoleEnum.ADMIN` (tabela de permissões: "Rescindir contrato" só Administrador). Ao contrário de `renew()`, decorado com `@Audit('Terminated', 'Contract')`. Consistente com `create()`/`renew()` (nenhum dos dois emite os eventos `ContractCreated`/`ContractActivated` listados na tabela "Eventos do Sistema"), `terminate()` também não emite `ContractTerminated` via `EventEmitter2` — decisão deliberada de manter o padrão já existente no módulo, não uma omissão.
 - Não existe endpoint `GET /employees/:id/contracts`.
 - A criação de contrato valida que o colaborador não tem outro contrato `active`, mas não valida transição de estados (p.ex. `draft` → `active`).
 - O campo `value` é guardado em claro; não existe mascaramento GDPR nem controlo de permissão específico para o seu acesso.
@@ -119,7 +120,7 @@ stateDiagram-v2
 
 ### Testes
 
-- Não existem testes unitários nem E2E para o módulo `contracts`.
+- `backend/src/contracts/services/contracts.service.spec.ts` cobre `create`, `findOne`, `renew`, `terminate` (P-067), `findExpiringSoon`, `scheduleExpirationAlerts`, `getDocumentPresignedUrl`. Não existem testes unitários para o controller nem testes E2E para o módulo.
 
 ## Questões em Aberto
 

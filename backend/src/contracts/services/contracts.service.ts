@@ -13,6 +13,7 @@ import { ContractRenewal } from '../entities/contract-renewal.entity';
 import { CreateContractDto } from '../dto/create-contract.dto';
 import { UpdateContractDto } from '../dto/update-contract.dto';
 import { RenewContractDto } from '../dto/renew-contract.dto';
+import { TerminateContractDto } from '../dto/terminate-contract.dto';
 import { ContractExpiringSoonEvent } from '../events/contract-expiring-soon.event';
 import { Employee } from '../../users/entities/employee.entity';
 import { AdminService } from '../../admin/admin.service';
@@ -102,6 +103,20 @@ export class ContractsService {
     await this.renewalRepository.save(renewal);
 
     contract.endDate = dto.newEndDate;
+    return this.contractRepository.save(contract);
+  }
+
+  async terminate(id: string, dto: TerminateContractDto): Promise<Contract> {
+    const contract = await this.findOne(id);
+
+    if (contract.status !== ContractStatus.ACTIVE) {
+      throw new BadRequestException('Apenas contratos ativos podem ser rescindidos');
+    }
+
+    contract.status = ContractStatus.TERMINATED;
+    contract.terminatedAt = new Date();
+    contract.terminationReason = dto.reason;
+
     return this.contractRepository.save(contract);
   }
 
