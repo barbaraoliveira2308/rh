@@ -2,11 +2,13 @@
 
 ## Resumo Executivo
 
-Auditoria completa dos 23 módulos do sistema HR Suite, comparando especificações técnicas com código real. Estado atual: 439/439 testes unitários a passar, 51/51 testes e2e a passar. Foram encontrados **4 achados Críticos**, **13 achados Altos**, **18 achados Médios** e **17 achados Baixos**. O padrão mais comum são permissões de controlo de acesso desalinhadas da spec (Managers/Approvers com acesso mais amplo do que documentado) e funcionalidade documentada na spec mas não implementada (Password reset, API Keys, bulk-approve workflow, flusos multi-etapa). Nenhum código órfão do tipo `@InjectRepository` nunca utilizado foi encontrado nesta ronda — o padrão já corrigido em fases anteriores (R-047, R-038) não se repetiu.
+Auditoria completa dos 23 módulos do sistema HR Suite, comparando especificações técnicas com código real. Estado atual: 439/439 testes unitários a passar, 51/51 testes e2e a passar. Foram encontrados **4 achados Críticos**, **13 achados Altos**, **24 achados Médios** e **14 achados Baixos**. O padrão mais comum são permissões de controlo de acesso desalinhadas da spec (Managers/Approvers com acesso mais amplo do que documentado) e funcionalidade documentada na spec mas não implementada (Password reset, API Keys, bulk-approve workflow, flusos multi-etapa). Nenhum código órfão do tipo `@InjectRepository` nunca utilizado foi encontrado nesta ronda — o padrão já corrigido em fases anteriores (R-047, R-038) não se repetiu.
 
 **Atualização 2026-08-17 00:17:** os 4 achados Críticos foram corrigidos (ver secção abaixo). 451/451 testes unitários e 51/51 e2e a passar após as correções.
 
 **Atualização 2026-08-17 00:22:** a contagem original de "12 achados Altos" estava desalinhada com o conteúdo do relatório — a secção consolidada só listava 11, e 2 achados Altos existiam apenas nas secções "Por Módulo" (Teams, Financials) sem terem sido trazidos para a lista consolidada. Corrigido para **13 achados Altos** (contagem real após consolidação). Adicionalmente, o achado "3/5 regras de negócio e ApprovalFlow não implementadas" (Workflow) estava classificado como Crítico na secção "Por Módulo" mas como Alto na secção consolidada — resolvido a favor de Alto, por ser funcionalidade documentada não implementada e não um bypass de segurança/permissões ou perda de dados (ver definição de severidade acima de cada secção).
+
+**Atualização 2026-08-17 00:40:** contagens de Médios e Baixos também estavam desalinhadas com o conteúdo real do relatório. Duas causas: (1) 6 achados existiam só na secção "Por Módulo", nunca trazidos para a lista consolidada — [Users] Gestor edita qualquer employee, [Projects] upload/calendário não implementados, [Dashboard] sem endpoint de alertas, [Notifications] cobertura de testes limitada (todos Médio), [Reports] PII em relatório e [GDPR] BR-GDPR-002 parcial (Baixo) — mesmo tipo de gap já corrigido para os Altos em 2026-08-17 00:22; (2) 4 achados tinham severidade diferente entre as duas secções — Training/Helpdesk "apenas 8 testes unitários" e Audit BR-AUD-005 estavam Médio em "Por Módulo" mas Baixo na consolidada, e BR-GDPR-006 estava atribuído ao módulo errado ([Notifications] em vez de [GDPR]) e também como Baixo. Resolvido a favor de Médio nestes 4 casos — gap de testes em caminho crítico / regra de negócio de auditoria parcialmente aplicada, conforme a definição de severidade de cada secção, mesmo padrão já usado para BR-AUD-003/BR-CON-002/BR-TEAM-002 — exceto **[Audit] Sem frontend para visualização**, mantido Baixo (limitação cosmética de UI, não gap de testes nem inconsistência de código), cuja classificação em "Por Módulo" foi corrigida de Médio para Baixo para condizer. Corrigido para **24 achados Médios** e **14 achados Baixos** (52 → 55 achados no total).
 
 ## Estado dos Testes
 
@@ -91,6 +93,22 @@ Todos os 4 achados desta secção foram corrigidos em 2026-08-17 00:17.
 
 - **[Helpdesk] BR-HD-003 (notificação em mudanças de estado) não implementado.** Nenhum mecanismo de notificação no módulo Helpdesk. Evidência: `backend/src/helpdesk/services/helpdesk.service.ts` — sem emitEvent/notify. Impacto: utilizadores não são notificados de mudanças nos seus tickets.
 
+- **[Users] Gestor pode editar qualquer employee, não só da equipa.** Não existe restrição de âmbito em `PATCH /users/:id` para o papel MANAGER. Evidência: `backend/src/users/`. Impacto: um gestor pode alterar dados de colaboradores fora do seu âmbito de gestão. _(Achado só documentado na secção "Por Módulo" na versão original deste relatório; consolidado aqui em 2026-08-17.)_
+
+- **[Projects] Upload de documentos e vista calendário não implementados.** Funcionalidade descrita na spec do módulo sem implementação correspondente. Evidência: `backend/src/projects/`. Impacto: gap funcional face à spec. _(Achado só documentado na secção "Por Módulo" na versão original deste relatório; consolidado aqui em 2026-08-17.)_
+
+- **[Dashboard] Sem endpoint de alertas nem indicadores específicos (ausências do dia, contratos a expirar).** Evidência: `backend/src/analytics/controllers/analytics.controller.ts`. Impacto: indicadores documentados na spec indisponíveis. _(Achado só documentado na secção "Por Módulo" na versão original deste relatório; consolidado aqui em 2026-08-17.)_
+
+- **[Notifications] Cobertura de testes limitada (10 testes, sem handlers de eventos).** Evidência: `backend/src/notifications/`. Impacto: gap de testes num caminho crítico (handlers de eventos disparam notificações reais). _(Achado só documentado na secção "Por Módulo" na versão original deste relatório; consolidado aqui em 2026-08-17.)_
+
+- **[GDPR] BR-GDPR-006 (retenção de logs para auditoria) não implementado.** Partilhado com módulo Audit (ver BR-AUD-003 acima). Evidência: `backend/src/gdpr/`. Impacto: regra de negócio de retenção não aplicada. _(Na versão original deste relatório este achado estava incorretamente atribuído a [Notifications] e classificado como Baixo na secção consolidada; corrigido em 2026-08-17 — o módulo correto é GDPR (nome da regra BR-GDPR-006), conforme já indicado corretamente na secção "Por Módulo", e a severidade foi alinhada com o padrão já usado para outras regras de negócio não aplicadas neste relatório — ex. BR-AUD-003, BR-CON-002, BR-TEAM-002, todas Médio.)_
+
+- **[Training] Apenas 8 testes unitários.** Cobertura insuficiente para métodos como `findCourses`, `createReview`, `getCompetencyMatrix` — caminho crítico (submissão/gestão de avaliações). _(Classificado como Baixo na secção consolidada original deste relatório mas como Médio na secção "Por Módulo"; corrigido aqui em 2026-08-17 a favor de Médio — gap de testes em caminho crítico, conforme a definição de severidade desta secção.)_
+
+- **[Helpdesk] Apenas 8 testes unitários.** Sem cobertura de `create`, `findAll`, `findOne`, `assign`, `escalate`, `close` — ciclo de vida completo do ticket, caminho crítico. _(Classificado como Baixo na secção consolidada original deste relatório mas como Médio na secção "Por Módulo"; corrigido aqui em 2026-08-17 a favor de Médio, mesma razão do achado equivalente em Training.)_
+
+- **[Audit] BR-AUD-005 parcialmente implementado.** Apenas mutações logadas, não leituras. Evidência: `backend/src/audit/`. _(Classificado como Baixo na secção consolidada original deste relatório mas como Médio na secção "Por Módulo"; corrigido aqui em 2026-08-17 a favor de Médio — regra de negócio de auditoria parcialmente aplicada, mesmo padrão de BR-AUD-003 acima, já Médio.)_
+
 ### Baixo (cosmético, gap de testes em caminho não crítico, documentação desatualizada)
 
 - **[Auth] MFA obrigatório só para Admin, spec diz Admin + Gestor (BR-AUTH-001).** Decisão P059-01 documentada, mas diverge da BR-AUTH-001.
@@ -111,19 +129,15 @@ Todos os 4 achados desta secção foram corrigidos em 2026-08-17 00:17.
 
 - **[Reports] Sem testes e2e.** Cobertura limitada a unitários.
 
-- **[Training] Apenas 8 testes unitários.** Cobertura insuficiente para métodos como `findCourses`, `createReview`, `getCompetencyMatrix`.
-
-- **[Helpdesk] Apenas 8 testes unitários.** Sem cobertura de `create`, `findAll`, `findOne`, `assign`, `escalate`, `close`.
-
 - **[Audit] Sem frontend para visualização/exportação de logs.** API funcional mas sem UI.
-
-- **[Audit] BR-AUD-005 parcialmente implementado.** Apenas mutações logadas, não leituras. Documentado como limitação.
-
-- **[Notifications] BR-GDPR-006 (retenção de logs para auditoria) não implementado.** Partilhado com módulo Audit.
 
 - **[Admin] PUT vs PATCH para legal entities.** Documentado como decisão de consistência.
 
 - **[Auth] SSO callback é GET em vez de POST.** Documentado nas Notas de Implementação.
+
+- **[Reports] Audit report pode expor PII (admin only, aceitável).** Evidência: `backend/src/reports/`. Impacto: baixo, risco aceite (acesso já restrito a Admin). _(Achado só documentado na secção "Por Módulo" na versão original deste relatório; consolidado aqui em 2026-08-17.)_
+
+- **[GDPR] BR-GDPR-002 parcial (revogação sem enforcement downstream).** Evidência: `backend/src/gdpr/`. Impacto: revogação de consentimento não propaga automaticamente para sistemas a jusante. _(Achado só documentado na secção "Por Módulo" na versão original deste relatório; consolidado aqui em 2026-08-17.)_
 
 ## Por Módulo
 
@@ -311,7 +325,7 @@ Estado: Achados menores
 - Médio: BR-AUD-003 (retenção de logs) não implementado
 - Médio: BR-AUD-005 parcial (só mutações, não leituras)
 - Médio: CSV export sem escaping
-- Médio: Sem frontend para visualização
+- Baixo: Sem frontend para visualização _(corrigido de Médio para Baixo em 2026-08-17, para condizer com a reconciliação da secção consolidada)_
 - Testes: ✅ Unitários (8+11 testes), ❌ Sem e2e
 
 ### 22 — GDPR & Conformidade
