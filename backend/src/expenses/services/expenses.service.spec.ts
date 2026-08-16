@@ -78,6 +78,7 @@ describe('ExpensesService', () => {
       approvedAt: null,
       approvedBy: null,
       rejectionReason: null,
+      paidAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       items: reportItems,
@@ -368,6 +369,77 @@ describe('ExpensesService', () => {
       const result = await service.detectDuplicates('emp-1', 50, today, 'cat-1');
 
       expect(result).toHaveLength(1);
+    });
+  });
+
+  describe('sendForPayment', () => {
+    it('deve enviar para pagamento um relatório aprovado', async () => {
+      const report = createMockReport('rep-1', 'emp-1', []);
+      report.status = ExpenseReportStatus.APPROVED;
+      mockReportRepo.findOne.mockResolvedValue(report);
+      mockReportRepo.save.mockImplementation((r: ExpenseReport) => Promise.resolve(r));
+
+      const result = await service.sendForPayment('rep-1');
+
+      expect(result.status).toBe(ExpenseReportStatus.SENT_FOR_PAYMENT);
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        'expense.sent_for_payment',
+        expect.objectContaining({ reportId: 'rep-1', employeeId: 'emp-1' }),
+      );
+    });
+
+    it('deve rejeitar quando o relatório não existe', async () => {
+      mockReportRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.sendForPayment('rep-1')).rejects.toThrow(
+        'Relatório de despesas não encontrado',
+      );
+    });
+
+    it('deve rejeitar quando o relatório não está aprovado', async () => {
+      const report = createMockReport('rep-1', 'emp-1', []);
+      report.status = ExpenseReportStatus.PENDING;
+      mockReportRepo.findOne.mockResolvedValue(report);
+
+      await expect(service.sendForPayment('rep-1')).rejects.toThrow(
+        'Apenas relatórios aprovados podem ser enviados para pagamento',
+      );
+    });
+  });
+
+  describe('markPaid', () => {
+    it('deve marcar como pago um relatório enviado para pagamento', async () => {
+      const report = createMockReport('rep-1', 'emp-1', []);
+      report.status = ExpenseReportStatus.SENT_FOR_PAYMENT;
+      mockReportRepo.findOne.mockResolvedValue(report);
+      mockReportRepo.save.mockImplementation((r: ExpenseReport) => Promise.resolve(r));
+
+      const result = await service.markPaid('rep-1');
+
+      expect(result.status).toBe(ExpenseReportStatus.PAID);
+      expect(result.paidAt).toBeInstanceOf(Date);
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        'expense.paid',
+        expect.objectContaining({ reportId: 'rep-1', employeeId: 'emp-1' }),
+      );
+    });
+
+    it('deve rejeitar quando o relatório não existe', async () => {
+      mockReportRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.markPaid('rep-1')).rejects.toThrow(
+        'Relatório de despesas não encontrado',
+      );
+    });
+
+    it('deve rejeitar quando o relatório não foi enviado para pagamento', async () => {
+      const report = createMockReport('rep-1', 'emp-1', []);
+      report.status = ExpenseReportStatus.APPROVED;
+      mockReportRepo.findOne.mockResolvedValue(report);
+
+      await expect(service.markPaid('rep-1')).rejects.toThrow(
+        'Apenas relatórios enviados para pagamento podem ser marcados como pagos',
+      );
     });
   });
 });

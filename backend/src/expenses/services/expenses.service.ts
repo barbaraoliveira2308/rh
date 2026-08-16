@@ -18,6 +18,8 @@ import { CreateExpenseItemDto } from '../dto/create-expense-item.dto';
 import { ExpenseSubmittedEvent } from '../events/expense-submitted.event';
 import { ExpenseApprovedEvent } from '../events/expense-approved.event';
 import { ExpenseRejectedEvent } from '../events/expense-rejected.event';
+import { ExpenseSentForPaymentEvent } from '../events/expense-sent-for-payment.event';
+import { ExpensePaidEvent } from '../events/expense-paid.event';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
 import { RbacService } from '../../rbac/services/rbac.service';
 import { AdminService } from '../../admin/admin.service';
@@ -279,6 +281,54 @@ export class ExpensesService {
       'expense.rejected',
       new ExpenseRejectedEvent(saved.id, report.employeeId, approverId, reason),
     );
+
+    return saved;
+  }
+
+  async sendForPayment(reportId: string): Promise<ExpenseReport> {
+    const report = await this.reportRepository.findOne({ where: { id: reportId } });
+
+    if (!report) {
+      throw new NotFoundException('Relatório de despesas não encontrado');
+    }
+
+    if (report.status !== ExpenseReportStatus.APPROVED) {
+      throw new BadRequestException(
+        'Apenas relatórios aprovados podem ser enviados para pagamento',
+      );
+    }
+
+    report.status = ExpenseReportStatus.SENT_FOR_PAYMENT;
+
+    const saved = await this.reportRepository.save(report);
+
+    this.eventEmitter.emit(
+      'expense.sent_for_payment',
+      new ExpenseSentForPaymentEvent(saved.id, report.employeeId),
+    );
+
+    return saved;
+  }
+
+  async markPaid(reportId: string): Promise<ExpenseReport> {
+    const report = await this.reportRepository.findOne({ where: { id: reportId } });
+
+    if (!report) {
+      throw new NotFoundException('Relatório de despesas não encontrado');
+    }
+
+    if (report.status !== ExpenseReportStatus.SENT_FOR_PAYMENT) {
+      throw new BadRequestException(
+        'Apenas relatórios enviados para pagamento podem ser marcados como pagos',
+      );
+    }
+
+    report.status = ExpenseReportStatus.PAID;
+    report.paidAt = new Date();
+
+    const saved = await this.reportRepository.save(report);
+
+    this.eventEmitter.emit('expense.paid', new ExpensePaidEvent(saved.id, report.employeeId));
 
     return saved;
   }

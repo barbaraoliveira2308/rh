@@ -229,4 +229,21 @@ export class ExpensesController {
     const approverId = await this.employeeIdentity.resolveEmployeeId(user.sub);
     return this.expensesService.reject(id, approverId, dto.reason);
   }
+
+  @Post('expenses/:id/send-for-payment')
+  @Roles(RoleEnum.ADMIN)
+  @ApiOperation({ summary: 'Enviar relatório de despesas aprovado para pagamento (admin only)' })
+  @HttpCode(HttpStatus.OK)
+  async sendForPayment(@Param('id') id: string): Promise<ExpenseReport> {
+    return this.expensesService.sendForPayment(id);
+  }
+
+  @Post('expenses/:id/mark-paid')
+  @Roles(RoleEnum.ADMIN)
+  @Audit('Paid', 'ExpenseReport')
+  @ApiOperation({ summary: 'Marcar relatório de despesas como pago (admin only)' })
+  @HttpCode(HttpStatus.OK)
+  async markPaid(@Param('id') id: string): Promise<ExpenseReport> {
+    return this.expensesService.markPaid(id);
+  }
 }
