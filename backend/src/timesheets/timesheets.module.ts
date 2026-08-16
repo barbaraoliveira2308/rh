@@ -8,6 +8,7 @@ import { TimesheetApproval } from './entities/timesheet-approval.entity';
 import { HolidayCalendar } from './entities/holiday-calendar.entity';
 import { Employee } from '../users/entities/employee.entity';
 import { CalendarModule } from '../calendar/calendar.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { CalendarModule } from '../calendar/calendar.module';
       Employee,
     ]),
     CalendarModule,
+    AuditModule,
   ],
   controllers: [TimesheetsController],
   providers: [TimesheetsService],

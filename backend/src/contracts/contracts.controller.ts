@@ -7,6 +7,7 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -20,10 +21,13 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../rbac/guards/roles.guard';
 import { Roles } from '../rbac/decorators/roles.decorator';
 import { RoleEnum } from '../rbac/enums/role.enum';
+import { Audit } from '../audit/decorators';
+import { AuditInterceptor } from '../audit/interceptors/audit.interceptor';
 
 @Controller()
 @ApiTags('Contracts')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@UseInterceptors(AuditInterceptor)
 @ApiBearerAuth()
 export class ContractsController {
   constructor(private readonly contractsService: ContractsService) {}
@@ -49,6 +53,7 @@ export class ContractsController {
 
   @Post('contracts')
   @Roles(RoleEnum.ADMIN)
+  @Audit('Created', 'Contract')
   @ApiOperation({ summary: 'Criar contrato' })
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateContractDto): Promise<Contract> {
@@ -57,6 +62,7 @@ export class ContractsController {
 
   @Patch('contracts/:id')
   @Roles(RoleEnum.ADMIN)
+  @Audit('Updated', 'Contract')
   @ApiOperation({ summary: 'Atualizar contrato' })
   @HttpCode(HttpStatus.OK)
   async update(@Param('id') id: string, @Body() dto: UpdateContractDto): Promise<Contract> {

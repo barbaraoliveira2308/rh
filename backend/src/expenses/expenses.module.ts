@@ -7,6 +7,7 @@ import { ExpenseReport } from './entities/expense-report.entity';
 import { ExpenseItem } from './entities/expense-item.entity';
 import { ExpenseApproval } from './entities/expense-approval.entity';
 import { Employee } from '../users/entities/employee.entity';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { Employee } from '../users/entities/employee.entity';
       ExpenseApproval,
       Employee,
     ]),
+    AuditModule,
   ],
   controllers: [ExpensesController],
   providers: [ExpensesService],

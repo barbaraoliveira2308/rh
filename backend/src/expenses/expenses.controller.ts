@@ -8,6 +8,7 @@ import {
   Req,
   Res,
   UseGuards,
+  UseInterceptors,
   ForbiddenException,
   HttpCode,
   HttpStatus,
@@ -30,10 +31,13 @@ import { Roles } from '../rbac/decorators/roles.decorator';
 import { RoleEnum } from '../rbac/enums/role.enum';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { EmployeeIdentityService } from '../auth/services/employee-identity.service';
+import { Audit } from '../audit/decorators';
+import { AuditInterceptor } from '../audit/interceptors/audit.interceptor';
 
 @Controller()
 @ApiTags('Expenses')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@UseInterceptors(AuditInterceptor)
 @ApiBearerAuth()
 export class ExpensesController {
   constructor(
@@ -181,6 +185,7 @@ export class ExpensesController {
 
   @Post('expenses/:id/submit')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
+  @Audit('Submitted', 'ExpenseReport')
   @ApiOperation({ summary: 'Submeter relatório de despesas' })
   @HttpCode(HttpStatus.OK)
   async submit(@Param('id') id: string, @Req() req: Request): Promise<ExpenseReport> {
@@ -197,6 +202,7 @@ export class ExpensesController {
 
   @Post('expenses/:id/approve')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER)
+  @Audit('Approved', 'ExpenseReport')
   @ApiOperation({ summary: 'Aprovar relatório de despesas' })
   @HttpCode(HttpStatus.OK)
   async approve(
@@ -211,6 +217,7 @@ export class ExpensesController {
 
   @Post('expenses/:id/reject')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER)
+  @Audit('Rejected', 'ExpenseReport')
   @ApiOperation({ summary: 'Rejeitar relatório de despesas' })
   @HttpCode(HttpStatus.OK)
   async reject(

@@ -7,6 +7,7 @@ import {
   Body,
   Query,
   UseGuards,
+  UseInterceptors,
   Req,
   ForbiddenException,
   HttpCode,
@@ -34,6 +35,8 @@ import { DataSubjectRequest } from './entities/data-subject-request.entity';
 import { RetentionPolicy } from './entities/retention-policy.entity';
 import { SecurityIncident } from './entities/security-incident.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
+import { Audit } from '../audit/decorators';
+import { AuditInterceptor } from '../audit/interceptors/audit.interceptor';
 
 interface RequestWithUser extends Request {
   user?: { sub: string; roles: string[] };
@@ -42,6 +45,7 @@ interface RequestWithUser extends Request {
 @ApiTags('GDPR')
 @Controller('gdpr')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@UseInterceptors(AuditInterceptor)
 @ApiBearerAuth()
 export class GdprController {
   constructor(
@@ -61,6 +65,7 @@ export class GdprController {
 
   @Post('consents/:employeeId/revoke')
   @HttpCode(HttpStatus.OK)
+  @Audit('ConsentChanged', 'ConsentRecord')
   @ApiOperation({ summary: 'Revogar consentimento de um colaborador' })
   async revokeConsent(
     @Param('employeeId') employeeId: string,
@@ -74,6 +79,7 @@ export class GdprController {
   @Post('consents')
   @Roles(RoleEnum.ADMIN)
   @HttpCode(HttpStatus.CREATED)
+  @Audit('ConsentChanged', 'ConsentRecord')
   @ApiOperation({ summary: 'Registar consentimento (admin)' })
   async recordConsent(
     @Body() dto: RecordConsentDto,

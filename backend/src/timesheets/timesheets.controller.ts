@@ -8,6 +8,7 @@ import {
   Query,
   Req,
   UseGuards,
+  UseInterceptors,
   ForbiddenException,
   HttpCode,
   HttpStatus,
@@ -29,10 +30,13 @@ import { Roles } from '../rbac/decorators/roles.decorator';
 import { RoleEnum } from '../rbac/enums/role.enum';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { EmployeeIdentityService } from '../auth/services/employee-identity.service';
+import { Audit } from '../audit/decorators';
+import { AuditInterceptor } from '../audit/interceptors/audit.interceptor';
 
 @Controller()
 @ApiTags('Timesheets')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@UseInterceptors(AuditInterceptor)
 @ApiBearerAuth()
 export class TimesheetsController {
   constructor(
@@ -137,6 +141,7 @@ export class TimesheetsController {
 
   @Post('timesheets/:id/submit')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
+  @Audit('Submitted', 'TimesheetPeriod')
   @ApiOperation({ summary: 'Submeter folha de horas para aprovação' })
   @HttpCode(HttpStatus.OK)
   async submit(@Param('id') id: string, @Req() req: Request): Promise<TimesheetPeriod> {
@@ -147,6 +152,7 @@ export class TimesheetsController {
 
   @Post('timesheets/:id/approve')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER)
+  @Audit('Approved', 'TimesheetPeriod')
   @ApiOperation({ summary: 'Aprovar folha de horas' })
   @HttpCode(HttpStatus.OK)
   async approve(
@@ -161,6 +167,7 @@ export class TimesheetsController {
 
   @Post('timesheets/:id/reject')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER)
+  @Audit('Rejected', 'TimesheetPeriod')
   @ApiOperation({ summary: 'Rejeitar folha de horas' })
   @HttpCode(HttpStatus.OK)
   async reject(

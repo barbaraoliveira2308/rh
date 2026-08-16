@@ -1,4 +1,15 @@
-import { Controller, Get, Put, Post, Patch, Param, Body, UseGuards, Header } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Put,
+  Post,
+  Patch,
+  Param,
+  Body,
+  UseGuards,
+  UseInterceptors,
+  Header,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../rbac/guards/roles.guard';
@@ -8,9 +19,12 @@ import { AdminService } from './admin.service';
 import { UpdateSystemSettingsDto } from './dto/update-system-settings.dto';
 import { CreateLegalEntityDto } from './dto/create-legal-entity.dto';
 import { UpdateLegalEntityDto } from './dto/update-legal-entity.dto';
+import { Audit } from '../audit/decorators';
+import { AuditInterceptor } from '../audit/interceptors/audit.interceptor';
 
 @ApiTags('Admin')
 @Controller('admin')
+@UseInterceptors(AuditInterceptor)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
@@ -40,6 +54,7 @@ export class AdminController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
   @Roles(RoleEnum.ADMIN)
+  @Audit('ConfigChanged', 'SystemSetting')
   @ApiOperation({ summary: 'Atualizar configurações globais do sistema (admin)' })
   async updateSettings(@Body() dto: UpdateSystemSettingsDto) {
     return this.adminService.updateSettings(dto);

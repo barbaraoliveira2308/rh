@@ -9,6 +9,7 @@ import { SecurityIncident } from './entities/security-incident.entity';
 import { Employee } from '../users/entities/employee.entity';
 import { User } from '../auth/entities/user.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { AuditLog } from '../audit/entities/audit-log.entity';
       User,
       AuditLog,
     ]),
+    AuditModule,
   ],
   controllers: [GdprController],
   providers: [GdprService],

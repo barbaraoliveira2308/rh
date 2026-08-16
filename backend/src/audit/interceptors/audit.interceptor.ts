@@ -1,4 +1,11 @@
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Scope } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NestInterceptor,
+  ExecutionContext,
+  CallHandler,
+  Scope,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Observable, from, switchMap, tap } from 'rxjs';
 import { Request } from 'express';
@@ -15,6 +22,8 @@ interface RequestWithUser extends Request {
 
 @Injectable({ scope: Scope.REQUEST })
 export class AuditInterceptor implements NestInterceptor {
+  private readonly logger = new Logger(AuditInterceptor.name);
+
   constructor(
     private readonly auditService: AuditService,
     private readonly reflector: Reflector,
@@ -63,11 +72,20 @@ export class AuditInterceptor implements NestInterceptor {
               }
             }
 
+            const resolvedEntityId = entityId ?? this.extractIdFromResponse(responseBody);
+
+            if (!resolvedEntityId) {
+              this.logger.warn(
+                `[Audit] Skipped "${action}" on ${entityType}: no entity id in route params or response body`,
+              );
+              return;
+            }
+
             const entry: CreateAuditLogDto = {
               userId: user?.sub,
               action,
               entityType,
-              entityId: entityId ?? 'unknown',
+              entityId: resolvedEntityId,
               oldValues: oldValues ? this.removeSensitiveFields(entityType, oldValues) : undefined,
               newValues: newValues ? this.removeSensitiveFields(entityType, newValues) : undefined,
               ipAddress: request.ip,
@@ -85,6 +103,14 @@ export class AuditInterceptor implements NestInterceptor {
   private extractEntityId(request: Request): string | undefined {
     const params = request.params as Record<string, string | undefined>;
     return params.id ?? params.entityId;
+  }
+
+  private extractIdFromResponse(responseBody: unknown): string | undefined {
+    if (!responseBody || typeof responseBody !== 'object') {
+      return undefined;
+    }
+    const id = (responseBody as Record<string, unknown>).id;
+    return typeof id === 'string' ? id : undefined;
   }
 
   private async fetchOldValues(

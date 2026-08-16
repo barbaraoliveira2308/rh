@@ -7,6 +7,7 @@ import {
   Query,
   Req,
   UseGuards,
+  UseInterceptors,
   ForbiddenException,
   HttpCode,
   HttpStatus,
@@ -27,10 +28,13 @@ import { Roles } from '../rbac/decorators/roles.decorator';
 import { RoleEnum } from '../rbac/enums/role.enum';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { EmployeeIdentityService } from '../auth/services/employee-identity.service';
+import { Audit } from '../audit/decorators';
+import { AuditInterceptor } from '../audit/interceptors/audit.interceptor';
 
 @Controller()
 @ApiTags('Absences')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@UseInterceptors(AuditInterceptor)
 @ApiBearerAuth()
 export class AbsencesController {
   constructor(
@@ -75,6 +79,7 @@ export class AbsencesController {
 
   @Post('absences')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
+  @Audit('Requested', 'AbsenceRequest')
   @ApiOperation({ summary: 'Criar pedido de ausência' })
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateAbsenceDto, @Req() req: Request): Promise<AbsenceRequest> {
@@ -123,6 +128,7 @@ export class AbsencesController {
 
   @Post('absences/:id/approve')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER)
+  @Audit('Approved', 'AbsenceRequest')
   @ApiOperation({ summary: 'Aprovar pedido de ausência' })
   @HttpCode(HttpStatus.OK)
   async approve(
@@ -137,6 +143,7 @@ export class AbsencesController {
 
   @Post('absences/:id/reject')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER)
+  @Audit('Rejected', 'AbsenceRequest')
   @ApiOperation({ summary: 'Rejeitar pedido de ausência' })
   @HttpCode(HttpStatus.OK)
   async reject(
@@ -151,6 +158,7 @@ export class AbsencesController {
 
   @Post('absences/:id/cancel')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
+  @Audit('Cancelled', 'AbsenceRequest')
   @ApiOperation({ summary: 'Cancelar pedido de ausência' })
   @HttpCode(HttpStatus.OK)
   async cancel(@Param('id') id: string, @Req() req: Request): Promise<AbsenceRequest> {

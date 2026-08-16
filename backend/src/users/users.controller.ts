@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
   Req,
   ForbiddenException,
   HttpCode,
@@ -32,10 +33,13 @@ import { Roles } from '../rbac/decorators/roles.decorator';
 import { RoleEnum } from '../rbac/enums/role.enum';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { EmployeeIdentityService } from '../auth/services/employee-identity.service';
+import { Audit } from '../audit/decorators';
+import { AuditInterceptor } from '../audit/interceptors/audit.interceptor';
 
 @Controller()
 @ApiTags('Users')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@UseInterceptors(AuditInterceptor)
 @ApiBearerAuth()
 export class UsersController {
   constructor(
@@ -63,6 +67,7 @@ export class UsersController {
 
   @Post('users')
   @Roles(RoleEnum.ADMIN)
+  @Audit('Created', 'Employee')
   @ApiOperation({ summary: 'Criar colaborador (admin only)' })
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateEmployeeDto): Promise<Employee> {
@@ -71,6 +76,7 @@ export class UsersController {
 
   @Patch('users/:id')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.EMPLOYEE)
+  @Audit('Updated', 'Employee')
   @ApiOperation({ summary: 'Atualizar colaborador' })
   @HttpCode(HttpStatus.OK)
   async update(
@@ -94,6 +100,7 @@ export class UsersController {
 
   @Delete('users/:id')
   @Roles(RoleEnum.ADMIN)
+  @Audit('Deactivated', 'Employee')
   @ApiOperation({ summary: 'Desativar colaborador (soft delete)' })
   @HttpCode(HttpStatus.OK)
   async deactivate(@Param('id') id: string, @Body('endDate') endDate?: string): Promise<Employee> {

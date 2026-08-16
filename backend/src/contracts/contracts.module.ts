@@ -5,9 +5,10 @@ import { ContractsService } from './services/contracts.service';
 import { Contract } from './entities/contract.entity';
 import { ContractRenewal } from './entities/contract-renewal.entity';
 import { Employee } from '../users/entities/employee.entity';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Contract, ContractRenewal, Employee])],
+  imports: [TypeOrmModule.forFeature([Contract, ContractRenewal, Employee]), AuditModule],
   controllers: [ContractsController],
   providers: [ContractsService],
   exports: [ContractsService, TypeOrmModule],
