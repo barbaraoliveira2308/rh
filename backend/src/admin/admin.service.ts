@@ -1,12 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as client from 'prom-client';
 import { SystemSetting } from './entities/system-setting.entity';
 import { LegalEntity } from './entities/legal-entity.entity';
+import { User } from '../auth/entities/user.entity';
 import { UpdateSystemSettingsDto } from './dto/update-system-settings.dto';
 import { CreateLegalEntityDto } from './dto/create-legal-entity.dto';
 import { UpdateLegalEntityDto } from './dto/update-legal-entity.dto';
+import { CreateUserDto } from './dto/create-user.dto';
+import { RbacService } from '../rbac/services/rbac.service';
+import { RoleEnum } from '../rbac/enums/role.enum';
 
 @Injectable()
 export class AdminService {
@@ -17,6 +21,9 @@ export class AdminService {
     private readonly settingsRepository: Repository<SystemSetting>,
     @InjectRepository(LegalEntity)
     private readonly legalEntityRepository: Repository<LegalEntity>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    private readonly rbacService: RbacService,
   ) {
     this.registry = new client.Registry();
     client.collectDefaultMetrics({ register: this.registry });
@@ -60,6 +67,31 @@ export class AdminService {
     }
     Object.assign(entity, dto);
     return this.legalEntityRepository.save(entity);
+  }
+
+  async createUser(dto: CreateUserDto, assignedBy: string): Promise<User> {
+    const existingByEmail = await this.userRepository.findOneBy({ email: dto.email });
+    if (existingByEmail) {
+      throw new ConflictException('Já existe um utilizador com este email');
+    }
+
+    const username = dto.username ?? dto.email.split('@')[0];
+    const existingByUsername = await this.userRepository.findOneBy({ username });
+    if (existingByUsername) {
+      throw new ConflictException('Nome de utilizador já existe');
+    }
+
+    const user = this.userRepository.create({
+      email: dto.email,
+      username,
+      passwordHash: '',
+      isActive: true,
+    });
+    const saved = await this.userRepository.save(user);
+
+    await this.rbacService.assignRoleByName(saved.id, RoleEnum.EMPLOYEE, assignedBy);
+
+    return saved;
   }
 
   health(): { status: string; timestamp: string } {

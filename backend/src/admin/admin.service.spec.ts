@@ -1,14 +1,19 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, ConflictException } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { SystemSetting } from './entities/system-setting.entity';
 import { LegalEntity } from './entities/legal-entity.entity';
+import { User } from '../auth/entities/user.entity';
+import { RbacService } from '../rbac/services/rbac.service';
+import { RoleEnum } from '../rbac/enums/role.enum';
 
 describe('AdminService', () => {
   let service: AdminService;
   let mockSettingsRepo: Record<string, jest.Mock>;
   let mockLegalEntityRepo: Record<string, jest.Mock>;
+  let mockUserRepo: Record<string, jest.Mock>;
+  let mockRbacService: Record<string, jest.Mock>;
 
   beforeEach(async () => {
     mockSettingsRepo = {
@@ -21,12 +26,22 @@ describe('AdminService', () => {
       create: jest.fn((data: Partial<LegalEntity>) => data),
       save: jest.fn((data: Partial<LegalEntity>) => Promise.resolve(data)),
     };
+    mockUserRepo = {
+      findOneBy: jest.fn(),
+      create: jest.fn((data: Partial<User>) => data),
+      save: jest.fn((data: Partial<User>) => Promise.resolve({ id: 'u-new', ...data })),
+    };
+    mockRbacService = {
+      assignRoleByName: jest.fn().mockResolvedValue(undefined),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdminService,
         { provide: getRepositoryToken(SystemSetting), useValue: mockSettingsRepo },
         { provide: getRepositoryToken(LegalEntity), useValue: mockLegalEntityRepo },
+        { provide: getRepositoryToken(User), useValue: mockUserRepo },
+        { provide: RbacService, useValue: mockRbacService },
       ],
     }).compile();
 
@@ -96,6 +111,62 @@ describe('AdminService', () => {
       const result = await service.updateLegalEntity('le-1', { isActive: false });
 
       expect(result.isActive).toBe(false);
+    });
+  });
+
+  describe('createUser', () => {
+    it('deve criar utilizador com username derivado do email e atribuir o perfil EMPLOYEE', async () => {
+      mockUserRepo.findOneBy.mockResolvedValue(null);
+
+      const result = await service.createUser(
+        { email: 'nova.conta@bridge351.com' },
+        'admin-user-id',
+      );
+
+      expect(result.id).toBe('u-new');
+      expect(mockUserRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'nova.conta@bridge351.com',
+          username: 'nova.conta',
+          passwordHash: '',
+          isActive: true,
+        }),
+      );
+      expect(mockRbacService.assignRoleByName).toHaveBeenCalledWith(
+        'u-new',
+        RoleEnum.EMPLOYEE,
+        'admin-user-id',
+      );
+    });
+
+    it('deve usar o username explícito quando fornecido', async () => {
+      mockUserRepo.findOneBy.mockResolvedValue(null);
+
+      await service.createUser({ email: 'a@b.com', username: 'custom' }, 'admin-user-id');
+
+      expect(mockUserRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ username: 'custom' }),
+      );
+    });
+
+    it('deve lançar ConflictException se o email já existir', async () => {
+      mockUserRepo.findOneBy.mockResolvedValueOnce({ id: 'existing', email: 'a@b.com' });
+
+      await expect(service.createUser({ email: 'a@b.com' }, 'admin-user-id')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockRbacService.assignRoleByName).not.toHaveBeenCalled();
+    });
+
+    it('deve lançar ConflictException se o username derivado já existir', async () => {
+      mockUserRepo.findOneBy
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'existing', username: 'a' });
+
+      await expect(service.createUser({ email: 'a@b.com' }, 'admin-user-id')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockRbacService.assignRoleByName).not.toHaveBeenCalled();
     });
   });
 

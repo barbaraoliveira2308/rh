@@ -4,11 +4,12 @@ import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { SystemSetting } from './entities/system-setting.entity';
 import { LegalEntity } from './entities/legal-entity.entity';
+import { User } from '../auth/entities/user.entity';
 import { AuditModule } from '../audit/audit.module';
 
 @Global()
 @Module({
-  imports: [TypeOrmModule.forFeature([SystemSetting, LegalEntity]), AuditModule],
+  imports: [TypeOrmModule.forFeature([SystemSetting, LegalEntity, User]), AuditModule],
   controllers: [AdminController],
   providers: [AdminService],
   exports: [AdminService],
