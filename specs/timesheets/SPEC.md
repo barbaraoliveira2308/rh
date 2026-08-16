@@ -366,6 +366,8 @@ Feature: Folha de Horas Mensal
 
 **Gap descoberto em P-045, corrigido em P-046 (`R-039`)**: `TimesheetsService.validateApprover()` tinha um bypass de admin quebrado (`const isAdmin = approver.userId === 'admin'; // simplified admin check`, comparação de UUID contra string literal, nunca verdadeiro) — na prática ADMIN só conseguia aprovar/rejeitar folhas de colaboradores dos quais fosse `managerId` direto. Corrigido substituindo pela verificação real via novo `RbacService.isAdmin(userId)`. O mesmo padrão foi corrigido em `AbsencesService`/`ExpensesService`.
 
+**Gap descoberto e corrigido em P-061 (`R-045`)**: `TimesheetsService.syncAbsences(periodId)` já existia (sincroniza ausências aprovadas como entradas `absence` na folha de horas do mês correspondente) mas **não tinha nenhum caller em todo o backend** — apesar de `T-029` ("Sincronização com ausências") estar marcada como Concluído desde as fases iniciais, o método nunca era invocado; a aprovação de uma ausência nunca sincronizava a timesheet. Descoberto ao corrigir o e2e `absences-flow.e2e-spec.ts` (o próprio nome do teste, "check timesheet synced", já indicava o comportamento esperado). Corrigido com novo `TimesheetsService.handleAbsenceApproved()` (`@OnEvent('absence.approved')`) — resolve os meses cobertos pelo intervalo de datas da ausência aprovada e chama `syncAbsences()` para cada `TimesheetPeriod` já existente do colaborador nesses meses (ignora silenciosamente meses sem período ainda gerado, ex. ausência aprovada antes do cron mensal de geração correr). Verificado em ambiente real: ausência aprovada via API fez as datas correspondentes passarem de `entry_type: work` para `entry_type: absence` no período real. Ver `specs/GLOBAL-TASKS-RISKS.md` (`R-045`) para o detalhe completo.
+
 ### Entregue
 
 - **Entidades implementadas:** `TimesheetPeriod`, `TimesheetEntry`, `TimesheetApproval`, `HolidayCalendar`; enums `TimesheetStatus` e `EntryType`. Não existe entidade `AbsenceRequest` neste módulo — a `syncAbsences` consulta a tabela `hr.absence_requests` diretamente.
@@ -380,7 +382,7 @@ Feature: Folha de Horas Mensal
   - `POST /timesheets/:id/reject`
   - `POST /timesheets/bulk-approve`
   - `GET /timesheets/export` (CSV)
-- **Eventos:** `TimesheetSubmittedEvent`, `TimesheetApprovedEvent`, `TimesheetRejectedEvent`; evento inline `timesheet.pending-submission` emitido pelo cron de alertas.
+- **Eventos:** `TimesheetSubmittedEvent`, `TimesheetApprovedEvent`, `TimesheetRejectedEvent`; evento inline `timesheet.pending-submission` emitido pelo cron de alertas. Consumidor: `handleAbsenceApproved()` (`@OnEvent('absence.approved')`, P-061) sincroniza a folha de horas quando uma ausência de Absences é aprovada.
 - **Cron jobs:**
   - `generateNextMonthPeriods` — dia 1 de cada mês às 08:00.
   - `alertPendingSubmissions` — toda segunda-feira às 09:00.

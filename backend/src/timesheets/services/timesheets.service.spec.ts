@@ -13,6 +13,7 @@ import { HolidayCalendar } from '../entities/holiday-calendar.entity';
 import { TimesheetStatus } from '../entities/timesheet-status.enum';
 import { EntryType } from '../entities/entry-type.enum';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
+import { AbsenceApprovedEvent } from '../../absences/events/absence-approved.event';
 
 describe('TimesheetsService', () => {
   let service: TimesheetsService;
@@ -275,6 +276,57 @@ describe('TimesheetsService', () => {
         entryType: EntryType.ABSENCE,
         workedHours: 8,
       });
+    });
+  });
+
+  describe('handleAbsenceApproved', () => {
+    it('não faz nada se a ausência não for encontrada', async () => {
+      mockEntityManager.query.mockResolvedValue([]);
+      const syncSpy = jest.spyOn(service, 'syncAbsences');
+
+      await service.handleAbsenceApproved(new AbsenceApprovedEvent('abs-1', 'emp-1', 'admin-1'));
+
+      expect(syncSpy).not.toHaveBeenCalled();
+    });
+
+    it('sincroniza o período correspondente ao mês da ausência', async () => {
+      mockEntityManager.query.mockResolvedValue([
+        { start_date: '2026-04-15', end_date: '2026-04-17' },
+      ]);
+      mockPeriodRepo.findOne.mockResolvedValue(mockPeriod);
+      const syncSpy = jest.spyOn(service, 'syncAbsences').mockResolvedValue(2);
+
+      await service.handleAbsenceApproved(new AbsenceApprovedEvent('abs-1', 'emp-1', 'admin-1'));
+
+      expect(mockPeriodRepo.findOne).toHaveBeenCalledWith({
+        where: { employeeId: 'emp-1', periodYear: 2026, periodMonth: 4 },
+      });
+      expect(syncSpy).toHaveBeenCalledWith('period-1');
+    });
+
+    it('não chama syncAbsences quando não existe período para o mês da ausência', async () => {
+      mockEntityManager.query.mockResolvedValue([
+        { start_date: '2026-04-15', end_date: '2026-04-17' },
+      ]);
+      mockPeriodRepo.findOne.mockResolvedValue(null);
+      const syncSpy = jest.spyOn(service, 'syncAbsences');
+
+      await service.handleAbsenceApproved(new AbsenceApprovedEvent('abs-1', 'emp-1', 'admin-1'));
+
+      expect(syncSpy).not.toHaveBeenCalled();
+    });
+
+    it('sincroniza os dois períodos quando a ausência atravessa a fronteira do mês', async () => {
+      mockEntityManager.query.mockResolvedValue([
+        { start_date: '2026-01-30', end_date: '2026-02-02' },
+      ]);
+      mockPeriodRepo.findOne.mockResolvedValue(mockPeriod);
+      const syncSpy = jest.spyOn(service, 'syncAbsences').mockResolvedValue(1);
+
+      await service.handleAbsenceApproved(new AbsenceApprovedEvent('abs-1', 'emp-1', 'admin-1'));
+
+      expect(mockPeriodRepo.findOne).toHaveBeenCalledTimes(2);
+      expect(syncSpy).toHaveBeenCalledTimes(2);
     });
   });
 

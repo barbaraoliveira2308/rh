@@ -44,7 +44,10 @@ describe('Absence Full Cycle (e2e)', () => {
     if (!adminUser) throw new Error('Admin user not seeded');
 
     const adminPassHash = await hash('Admin123!');
-    await userRepo.update(adminUser.id, { passwordHash: adminPassHash });
+    await userRepo.update(adminUser.id, {
+      passwordHash: adminPassHash,
+      email: 'admin-abs@test.com',
+    });
 
     const adminEmployee = employeeRepo.create({
       id: adminUser.id,
@@ -201,6 +204,10 @@ describe('Absence Full Cycle (e2e)', () => {
       .expect(200);
 
     expect(approveRes.body.status).toBe('approved');
+
+    // Absence-approved side effects (timesheet sync, notifications) run via a fire-and-forget
+    // event handler — give it a moment to finish before asserting on its effects below.
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
     // 4. Verify balance decremented after approval
     const balanceAfter = await request(app.getHttpServer())

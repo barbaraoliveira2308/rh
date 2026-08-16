@@ -37,7 +37,10 @@ describe('GDPR Erasure (e2e)', () => {
     if (!adminUser) throw new Error('Admin user not seeded');
 
     const adminPassHash = await hash('Admin123!');
-    await userRepo.update(adminUser.id, { passwordHash: adminPassHash });
+    await userRepo.update(adminUser.id, {
+      passwordHash: adminPassHash,
+      email: 'admin-gdpr@test.com',
+    });
 
     const adminEmployee = employeeRepo.create({
       id: adminUser.id,

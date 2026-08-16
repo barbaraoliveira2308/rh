@@ -7,7 +7,7 @@ import {
 import { InjectRepository, InjectEntityManager } from '@nestjs/typeorm';
 import { Repository, EntityManager } from 'typeorm';
 import { Cron } from '@nestjs/schedule';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { TimesheetPeriod } from '../entities/timesheet-period.entity';
 import { TimesheetEntry } from '../entities/timesheet-entry.entity';
 import { TimesheetApproval } from '../entities/timesheet-approval.entity';
@@ -19,6 +19,7 @@ import { TimesheetSubmittedEvent } from '../events/timesheet-submitted.event';
 import { TimesheetApprovedEvent } from '../events/timesheet-approved.event';
 import { TimesheetRejectedEvent } from '../events/timesheet-rejected.event';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
+import { AbsenceApprovedEvent } from '../../absences/events/absence-approved.event';
 import { CalendarService } from '../../calendar/services/calendar.service';
 import { RbacService } from '../../rbac/services/rbac.service';
 import { AdminService } from '../../admin/admin.service';
@@ -454,6 +455,39 @@ export class TimesheetsService {
     }
 
     return syncedCount;
+  }
+
+  @OnEvent('absence.approved')
+  async handleAbsenceApproved(event: AbsenceApprovedEvent): Promise<void> {
+    const rows: Pick<AbsenceRow, 'start_date' | 'end_date'>[] = await this.entityManager.query(
+      `SELECT start_date, end_date FROM hr.absence_requests WHERE id = $1`,
+      [event.absenceId],
+    );
+    if (rows.length === 0) {
+      return;
+    }
+    const absence = rows[0];
+
+    const start = new Date(absence.start_date);
+    const end = new Date(absence.end_date);
+    const months = new Set<string>();
+    for (
+      let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+      cursor <= end;
+      cursor.setMonth(cursor.getMonth() + 1)
+    ) {
+      months.add(`${String(cursor.getFullYear())}-${String(cursor.getMonth() + 1)}`);
+    }
+
+    for (const key of months) {
+      const [year, month] = key.split('-').map(Number);
+      const period = await this.periodRepository.findOne({
+        where: { employeeId: event.employeeId, periodYear: year, periodMonth: month },
+      });
+      if (period) {
+        await this.syncAbsences(period.id);
+      }
+    }
   }
 
   @Cron('0 8 1 * *')

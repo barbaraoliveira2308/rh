@@ -13,6 +13,7 @@ import { AllocationType } from '../src/projects/entities/project-allocation.enti
 import { TimesheetsService } from '../src/timesheets/services/timesheets.service';
 import { TimesheetPeriod } from '../src/timesheets/entities/timesheet-period.entity';
 import { TimesheetStatus } from '../src/timesheets/entities/timesheet-status.enum';
+import { Notification } from '../src/notifications/entities/notification.entity';
 
 process.env.MFA_ENCRYPTION_KEY = 'change_me_mfa_key_32_bytes';
 
@@ -26,6 +27,7 @@ describe('Timesheet Full Cycle (e2e)', () => {
   let empEmployeeId: string;
   let projectId: string;
   let periodId: string;
+  let clientId: string;
 
   beforeAll(async () => {
     dataSource = new DataSource({
@@ -48,7 +50,10 @@ describe('Timesheet Full Cycle (e2e)', () => {
     if (!adminUser) throw new Error('Admin user not seeded');
 
     const adminPassHash = await hash('Admin123!');
-    await userRepo.update(adminUser.id, { passwordHash: adminPassHash });
+    await userRepo.update(adminUser.id, {
+      passwordHash: adminPassHash,
+      email: 'admin-flow@test.com',
+    });
 
     const adminEmployee = employeeRepo.create({
       id: adminUser.id,
@@ -104,7 +109,8 @@ describe('Timesheet Full Cycle (e2e)', () => {
       status: ClientStatus.ACTIVE,
       responsibleId: adminEmployeeId,
     });
-    await clientRepo.save(client);
+    const savedClient = await clientRepo.save(client);
+    clientId = savedClient.id;
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -153,7 +159,7 @@ describe('Timesheet Full Cycle (e2e)', () => {
       .set('Authorization', 'Bearer ' + adminToken)
       .send({
         name: 'Flow Test Project',
-        clientId: '',
+        clientId,
         managerId: adminEmployeeId,
         startDate: '2026-01-01',
         endDate: '2026-12-31',
@@ -235,16 +241,18 @@ describe('Timesheet Full Cycle (e2e)', () => {
 
     expect(approveRes.body.status).toBe(TimesheetStatus.APPROVED);
 
+    // Timesheet-approved notifications run via a fire-and-forget event handler — give it a
+    // moment to finish before asserting on its effects below.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
     // 8. Check notification was created for the employee
-    const notifRepo = dataSource.getRepository('Notification');
+    const notifRepo = dataSource.getRepository(Notification);
     const notifications = await notifRepo.find({
       where: { recipientId: empEmployeeId },
     });
 
     expect(notifications.length).toBeGreaterThan(0);
-    const timesheetNotif = notifications.find(
-      (n: { type: string }) => n.type === 'timesheet.approved',
-    );
+    const timesheetNotif = notifications.find((n) => n.type === 'timesheet.approved');
     expect(timesheetNotif).toBeDefined();
     if (timesheetNotif) {
       expect(timesheetNotif.status).toBe('sent');
