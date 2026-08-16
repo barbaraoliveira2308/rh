@@ -96,6 +96,12 @@ const templates: TemplateDefinition[] = [
     subject: 'Os teus dados pessoais foram exportados',
     file: 'gdpr-data-exported.hbs',
   },
+  {
+    code: 'password-reset',
+    name: 'Reset de Password',
+    subject: 'Recuperação de password',
+    file: 'password-reset.hbs',
+  },
 ];
 
 export async function run(dataSource: DataSource): Promise<void> {

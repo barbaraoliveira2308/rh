@@ -1,14 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { In } from 'typeorm';
+import { NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
 import { Document } from '../entities/document.entity';
+import { Employee } from '../../users/entities/employee.entity';
 import { StorageService } from '../../storage/services/storage.service';
 import { AdminService } from '../../admin/admin.service';
+import { RoleEnum } from '../../rbac/enums/role.enum';
 
 describe('DocumentsService', () => {
   let service: DocumentsService;
   let mockDocumentRepo: Record<string, jest.Mock>;
+  let mockEmployeeRepo: Record<string, jest.Mock>;
   let mockStorageService: Record<string, jest.Mock>;
   let mockAdminService: Record<string, jest.Mock>;
 
@@ -19,6 +23,10 @@ describe('DocumentsService', () => {
       find: jest.fn(),
       findOne: jest.fn(),
       remove: jest.fn(),
+    };
+    mockEmployeeRepo = {
+      find: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn(),
     };
     mockStorageService = {
       upload: jest.fn().mockResolvedValue('documents/u-1/key'),
@@ -33,6 +41,7 @@ describe('DocumentsService', () => {
       providers: [
         DocumentsService,
         { provide: getRepositoryToken(Document), useValue: mockDocumentRepo },
+        { provide: getRepositoryToken(Employee), useValue: mockEmployeeRepo },
         { provide: StorageService, useValue: mockStorageService },
         { provide: AdminService, useValue: mockAdminService },
       ],
@@ -94,7 +103,9 @@ describe('DocumentsService', () => {
         storagePath: 'documents/x',
       });
 
-      await expect(service.getFileStream('d-1')).rejects.toThrow(NotFoundException);
+      await expect(service.getFileStream('d-1', [RoleEnum.ADMIN], 'u-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('deve devolver o stream do storage com o nome e content-type do documento', async () => {
@@ -103,6 +114,7 @@ describe('DocumentsService', () => {
         deletedAt: null,
         storagePath: 'documents/x',
         name: 'Contrato.pdf',
+        isPublic: true,
       });
       const stream = { pipe: jest.fn() };
       mockStorageService.getObjectStream.mockResolvedValue({
@@ -110,7 +122,7 @@ describe('DocumentsService', () => {
         contentType: 'application/pdf',
       });
 
-      const result = await service.getFileStream('d-1');
+      const result = await service.getFileStream('d-1', [RoleEnum.ADMIN], 'u-1');
 
       expect(mockStorageService.getObjectStream).toHaveBeenCalledWith('documents/x');
       expect(result).toEqual({
@@ -126,6 +138,7 @@ describe('DocumentsService', () => {
         deletedAt: null,
         storagePath: 'documents/x',
         name: 'Contrato.pdf',
+        isPublic: true,
       });
       const stream = { pipe: jest.fn() };
       mockStorageService.getObjectStream.mockResolvedValue({
@@ -133,9 +146,25 @@ describe('DocumentsService', () => {
         contentType: undefined,
       });
 
-      const result = await service.getFileStream('d-1');
+      const result = await service.getFileStream('d-1', [RoleEnum.ADMIN], 'u-1');
 
       expect(result.contentType).toBe('application/octet-stream');
+    });
+
+    it('deve lançar NotFoundException ao tentar descarregar documento privado de outro colaborador', async () => {
+      mockDocumentRepo.findOne.mockResolvedValue({
+        id: 'd-1',
+        deletedAt: null,
+        storagePath: 'documents/x',
+        name: 'Contrato.pdf',
+        isPublic: false,
+        ownerId: 'e-owner',
+      });
+      mockEmployeeRepo.findOne.mockResolvedValue({ id: 'e-2', managerId: null });
+
+      await expect(service.getFileStream('d-1', [RoleEnum.EMPLOYEE], 'u-2')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -222,10 +251,10 @@ describe('DocumentsService', () => {
   });
 
   describe('findAll', () => {
-    it('deve filtrar por categoria e proprietário quando fornecidos', async () => {
+    it('deve filtrar por categoria e proprietário quando fornecidos (Admin vê tudo)', async () => {
       mockDocumentRepo.find.mockResolvedValue([]);
 
-      await service.findAll({ category: 'contract', ownerId: 'e-1' });
+      await service.findAll({ category: 'contract', ownerId: 'e-1' }, [RoleEnum.ADMIN], 'u-1');
 
       expect(mockDocumentRepo.find).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -235,6 +264,78 @@ describe('DocumentsService', () => {
           >,
         }),
       );
+    });
+
+    it('deve restringir a resultados públicos ou do próprio colaborador para Employee', async () => {
+      mockDocumentRepo.find.mockResolvedValue([]);
+      mockEmployeeRepo.findOne.mockResolvedValue({ id: 'e-1', managerId: null });
+
+      await service.findAll(undefined, [RoleEnum.EMPLOYEE], 'u-1');
+
+      expect(mockDocumentRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: [
+            expect.objectContaining({ isPublic: true }) as Record<string, unknown>,
+            expect.objectContaining({ isPublic: false, ownerId: In(['e-1']) }) as Record<
+              string,
+              unknown
+            >,
+          ],
+        }),
+      );
+    });
+
+    it('deve lançar ForbiddenException se Employee pedir documentos de outro colaborador', async () => {
+      mockEmployeeRepo.findOne.mockResolvedValue({ id: 'e-1', managerId: null });
+
+      await expect(
+        service.findAll({ ownerId: 'e-outro' }, [RoleEnum.EMPLOYEE], 'u-1'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('findOne (controlo de acesso)', () => {
+    it('deve permitir a um Manager ver documento privado de um membro da sua equipa', async () => {
+      mockDocumentRepo.findOne.mockResolvedValue({
+        id: 'd-1',
+        deletedAt: null,
+        isPublic: false,
+        ownerId: 'e-report',
+      });
+      mockEmployeeRepo.findOne.mockResolvedValue({ id: 'e-manager', managerId: null });
+      mockEmployeeRepo.find.mockResolvedValue([{ id: 'e-report' }]);
+
+      const result = await service.findOne('d-1', [RoleEnum.MANAGER], 'u-manager');
+
+      expect(result.id).toBe('d-1');
+    });
+
+    it('deve lançar NotFoundException se Employee tentar ver documento privado de outro colaborador', async () => {
+      mockDocumentRepo.findOne.mockResolvedValue({
+        id: 'd-1',
+        deletedAt: null,
+        isPublic: false,
+        ownerId: 'e-outro',
+      });
+      mockEmployeeRepo.findOne.mockResolvedValue({ id: 'e-1', managerId: null });
+
+      await expect(service.findOne('d-1', [RoleEnum.EMPLOYEE], 'u-1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('deve permitir a qualquer papel ver documento público', async () => {
+      mockDocumentRepo.findOne.mockResolvedValue({
+        id: 'd-1',
+        deletedAt: null,
+        isPublic: true,
+        ownerId: 'e-outro',
+      });
+
+      const result = await service.findOne('d-1', [RoleEnum.EMPLOYEE], 'u-1');
+
+      expect(result.id).toBe('d-1');
+      expect(mockEmployeeRepo.findOne).not.toHaveBeenCalled();
     });
   });
 });

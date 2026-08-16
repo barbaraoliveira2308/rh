@@ -460,7 +460,8 @@ export class ExpensesService {
     }
 
     if (filters?.month) {
-      where.periodStart = Between(filters.month + '-01', filters.month + '-31');
+      const [year, month] = filters.month.split('-').map(Number);
+      where.periodStart = Between(filters.month + '-01', this.lastDayOfMonth(year, month));
     }
 
     return this.reportRepository.find({
@@ -540,5 +541,16 @@ export class ExpensesService {
     if (employee.managerId !== approverId) {
       throw new ForbiddenException('Apenas o manager direto ou admin pode aprovar/rejeitar');
     }
+  }
+
+  private lastDayOfMonth(year: number, month: number): string {
+    const date = new Date(year, month, 0);
+    return (
+      String(year) +
+      '-' +
+      String(month).padStart(2, '0') +
+      '-' +
+      String(date.getDate()).padStart(2, '0')
+    );
   }
 }

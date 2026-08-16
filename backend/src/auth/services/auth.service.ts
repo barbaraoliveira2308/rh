@@ -7,14 +7,20 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import * as argon2 from 'argon2';
+import * as crypto from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { User } from '../entities/user.entity';
 import { Session } from '../entities/session.entity';
 import { UserRole } from '../entities/user-role.entity';
+import { PasswordResetToken } from '../entities/password-reset-token.entity';
 import { JwtService } from './jwt.service';
 import { MfaService } from './mfa.service';
 import { CacheService } from '../../cache/cache.service';
 import { AdminService } from '../../admin/admin.service';
+import { NotificationsService } from '../../notifications/services/notifications.service';
+import { AuditService } from '../../audit/services/audit.service';
+
+const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 
 @Injectable()
 export class AuthService {
@@ -25,11 +31,15 @@ export class AuthService {
     private readonly sessionRepository: Repository<Session>,
     @InjectRepository(UserRole)
     private readonly userRoleRepository: Repository<UserRole>,
+    @InjectRepository(PasswordResetToken)
+    private readonly passwordResetTokenRepository: Repository<PasswordResetToken>,
     private readonly jwtService: JwtService,
     private readonly mfaService: MfaService,
     private readonly cacheService: CacheService,
     private readonly configService: ConfigService,
     private readonly adminService: AdminService,
+    private readonly notificationsService: NotificationsService,
+    private readonly auditService: AuditService,
   ) {}
 
   async login(
@@ -274,6 +284,62 @@ export class AuthService {
     if (!user) {
       return;
     }
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = this.jwtService.computeTokenHash(rawToken);
+
+    await this.passwordResetTokenRepository.save(
+      this.passwordResetTokenRepository.create({
+        userId: user.id,
+        tokenHash,
+        expiresAt: new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MS),
+      }),
+    );
+
+    const appUrl = this.configService.get<string>('APP_URL', 'http://localhost:3000');
+    await this.notificationsService.sendEmail(user.email, 'password-reset', {
+      resetUrl: `${appUrl}/reset-password?token=${rawToken}`,
+      expiresInMinutes: PASSWORD_RESET_TOKEN_TTL_MS / 60000,
+    });
+
+    this.auditService.log({
+      userId: user.id,
+      action: 'PASSWORD_RESET_REQUESTED',
+      entityType: 'User',
+      entityId: user.id,
+      module: 'auth',
+    });
+  }
+
+  async confirmResetPassword(token: string, newPassword: string): Promise<void> {
+    const tokenHash = this.jwtService.computeTokenHash(token);
+    const resetToken = await this.passwordResetTokenRepository.findOne({ where: { tokenHash } });
+
+    if (!resetToken || resetToken.usedAt || resetToken.expiresAt < new Date()) {
+      throw new BadRequestException('Token de reset inválido ou expirado');
+    }
+
+    const newHash = await argon2.hash(newPassword);
+    await this.userRepository.update(resetToken.userId, {
+      passwordHash: newHash,
+      passwordChangedAt: new Date(),
+    });
+
+    resetToken.usedAt = new Date();
+    await this.passwordResetTokenRepository.save(resetToken);
+
+    await this.sessionRepository.update(
+      { userId: resetToken.userId, revokedAt: IsNull() },
+      { revokedAt: new Date() },
+    );
+
+    this.auditService.log({
+      userId: resetToken.userId,
+      action: 'PASSWORD_RESET_COMPLETED',
+      entityType: 'User',
+      entityId: resetToken.userId,
+      module: 'auth',
+    });
   }
 
   async getProfile(userId: string): Promise<{

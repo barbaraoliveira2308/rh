@@ -23,6 +23,7 @@ import {
   MfaVerifyDto,
   ChangePasswordDto,
   ResetPasswordDto,
+  ConfirmResetPasswordDto,
   MfaDisableDto,
 } from './dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -163,6 +164,14 @@ export class AuthController {
   async resetPassword(@Body() dto: ResetPasswordDto): Promise<{ message: string }> {
     await this.authService.resetPassword(dto.email);
     return { message: 'Email enviado se a conta existir' };
+  }
+
+  @Post('password/reset/confirm')
+  @ApiOperation({ summary: 'Confirmar reset de password com token' })
+  @HttpCode(HttpStatus.OK)
+  async confirmResetPassword(@Body() dto: ConfirmResetPasswordDto): Promise<{ message: string }> {
+    await this.authService.confirmResetPassword(dto.token, dto.newPassword);
+    return { message: 'Password alterada com sucesso' };
   }
 
   @Get('me')

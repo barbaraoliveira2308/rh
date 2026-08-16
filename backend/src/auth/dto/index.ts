@@ -5,3 +5,4 @@ export { MfaVerifyDto } from './mfa-verify.dto';
 export { MfaDisableDto } from './mfa-disable.dto';
 export { ChangePasswordDto } from './change-password.dto';
 export { ResetPasswordDto } from './reset-password.dto';
+export { ConfirmResetPasswordDto } from './confirm-reset-password.dto';

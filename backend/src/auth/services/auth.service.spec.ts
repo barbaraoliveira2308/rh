@@ -8,9 +8,12 @@ import { JwtService } from './jwt.service';
 import { MfaService } from './mfa.service';
 import { CacheService } from '../../cache/cache.service';
 import { AdminService } from '../../admin/admin.service';
+import { NotificationsService } from '../../notifications/services/notifications.service';
+import { AuditService } from '../../audit/services/audit.service';
 import { User } from '../entities/user.entity';
 import { Session } from '../entities/session.entity';
 import { UserRole } from '../entities/user-role.entity';
+import { PasswordResetToken } from '../entities/password-reset-token.entity';
 
 jest.mock('argon2');
 
@@ -19,11 +22,14 @@ describe('AuthService', () => {
   let mockUserRepo: Record<string, jest.Mock>;
   let mockSessionRepo: Record<string, jest.Mock>;
   let mockUserRoleRepo: Record<string, jest.Mock>;
+  let mockPasswordResetTokenRepo: Record<string, jest.Mock>;
   let mockJwtService: Record<string, jest.Mock>;
   let mockMfaService: Record<string, jest.Mock>;
   let mockCacheService: Record<string, jest.Mock>;
   let mockConfigService: Record<string, jest.Mock>;
   let mockAdminService: Record<string, jest.Mock>;
+  let mockNotificationsService: Record<string, jest.Mock>;
+  let mockAuditService: Record<string, jest.Mock>;
 
   const testEmail = 'joana@bridge351.pt';
 
@@ -54,6 +60,11 @@ describe('AuthService', () => {
     mockUserRoleRepo = {
       find: jest.fn().mockResolvedValue([]),
     };
+    mockPasswordResetTokenRepo = {
+      create: jest.fn((data: Partial<PasswordResetToken>) => data),
+      save: jest.fn((data: Partial<PasswordResetToken>) => Promise.resolve(data)),
+      findOne: jest.fn(),
+    };
     mockJwtService = {
       generateTokenPair: jest.fn().mockReturnValue({
         accessToken: 'access-token',
@@ -83,6 +94,12 @@ describe('AuthService', () => {
         mfaRequiredForAdmin: true,
       }),
     };
+    mockNotificationsService = {
+      sendEmail: jest.fn().mockResolvedValue(undefined),
+    };
+    mockAuditService = {
+      log: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -90,11 +107,14 @@ describe('AuthService', () => {
         { provide: getRepositoryToken(User), useValue: mockUserRepo },
         { provide: getRepositoryToken(Session), useValue: mockSessionRepo },
         { provide: getRepositoryToken(UserRole), useValue: mockUserRoleRepo },
+        { provide: getRepositoryToken(PasswordResetToken), useValue: mockPasswordResetTokenRepo },
         { provide: JwtService, useValue: mockJwtService },
         { provide: MfaService, useValue: mockMfaService },
         { provide: CacheService, useValue: mockCacheService },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: AdminService, useValue: mockAdminService },
+        { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: AuditService, useValue: mockAuditService },
       ],
     }).compile();
 
@@ -342,6 +362,98 @@ describe('AuthService', () => {
       expect(mockSessionRepo.update).toHaveBeenCalledWith(
         { userId: 'user-1', revokedAt: expect.anything() as object },
         { revokedAt: expect.any(Date) as Date },
+      );
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('não deve gerar token nem enviar email se o utilizador não existir (evita enumeração)', async () => {
+      mockUserRepo.findOneBy.mockResolvedValue(null);
+
+      await service.resetPassword('inexistente@bridge351.pt');
+
+      expect(mockPasswordResetTokenRepo.save).not.toHaveBeenCalled();
+      expect(mockNotificationsService.sendEmail).not.toHaveBeenCalled();
+    });
+
+    it('deve gerar e guardar um token com hash e enviar email de reset', async () => {
+      mockUserRepo.findOneBy.mockResolvedValue({ ...baseUser });
+
+      await service.resetPassword(testEmail);
+
+      expect(mockPasswordResetTokenRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'user-1',
+          tokenHash: expect.stringMatching(/^hash\(/) as string,
+          expiresAt: expect.any(Date) as Date,
+        }),
+      );
+      expect(mockNotificationsService.sendEmail).toHaveBeenCalledWith(
+        testEmail,
+        'password-reset',
+        expect.objectContaining({ resetUrl: expect.stringContaining('token=') as string }),
+      );
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'PASSWORD_RESET_REQUESTED', userId: 'user-1' }),
+      );
+    });
+  });
+
+  describe('confirmResetPassword', () => {
+    it('deve lançar BadRequestException se o token não existir', async () => {
+      mockPasswordResetTokenRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.confirmResetPassword('bad-token', 'New-Pass1!')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('deve lançar BadRequestException se o token já tiver sido usado', async () => {
+      mockPasswordResetTokenRepo.findOne.mockResolvedValue({
+        userId: 'user-1',
+        usedAt: new Date(),
+        expiresAt: new Date(Date.now() + 60000),
+      });
+
+      await expect(service.confirmResetPassword('used-token', 'New-Pass1!')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('deve lançar BadRequestException se o token estiver expirado', async () => {
+      mockPasswordResetTokenRepo.findOne.mockResolvedValue({
+        userId: 'user-1',
+        usedAt: null,
+        expiresAt: new Date(Date.now() - 60000),
+      });
+
+      await expect(service.confirmResetPassword('expired-token', 'New-Pass1!')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('deve atualizar a password, marcar o token como usado e revogar sessões', async () => {
+      mockPasswordResetTokenRepo.findOne.mockResolvedValue({
+        userId: 'user-1',
+        usedAt: null,
+        expiresAt: new Date(Date.now() + 60000),
+      });
+
+      await service.confirmResetPassword('valid-token', 'New-Pass1!');
+
+      expect(mockUserRepo.update).toHaveBeenCalledWith(
+        'user-1',
+        expect.objectContaining({ passwordHash: 'new-hash' }),
+      );
+      expect(mockPasswordResetTokenRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ usedAt: expect.any(Date) as Date }),
+      );
+      expect(mockSessionRepo.update).toHaveBeenCalledWith(
+        { userId: 'user-1', revokedAt: expect.anything() as object },
+        { revokedAt: expect.any(Date) as Date },
+      );
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'PASSWORD_RESET_COMPLETED', userId: 'user-1' }),
       );
     });
   });

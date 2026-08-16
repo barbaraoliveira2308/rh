@@ -58,33 +58,41 @@ export class DocumentsController {
   @ApiOperation({ summary: 'Listar documentos' })
   @HttpCode(HttpStatus.OK)
   async findAll(
+    @Req() req: Request,
     @Query('category') category?: string,
     @Query('ownerId') ownerId?: string,
   ): Promise<Document[]> {
-    return this.documentsService.findAll({ category, ownerId });
+    const user = req.user as JwtPayload;
+    return this.documentsService.findAll({ category, ownerId }, user.roles, user.sub);
   }
 
   @Get('documents/:id')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
   @ApiOperation({ summary: 'Obter documento por ID' })
   @HttpCode(HttpStatus.OK)
-  async findOne(@Param('id') id: string): Promise<Document> {
-    return this.documentsService.findOne(id);
+  async findOne(@Param('id') id: string, @Req() req: Request): Promise<Document> {
+    const user = req.user as JwtPayload;
+    return this.documentsService.findOne(id, user.roles, user.sub);
   }
 
   @Get('documents/:id/download')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
   @ApiOperation({ summary: 'Download de documento (transmitido diretamente pelo backend)' })
   @HttpCode(HttpStatus.OK)
-  async download(@Param('id') id: string, @Res() res: Response): Promise<void> {
-    const file = await this.documentsService.getFileStream(id);
+  async download(
+    @Param('id') id: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    const user = req.user as JwtPayload;
+    const file = await this.documentsService.getFileStream(id, user.roles, user.sub);
     res.setHeader('Content-Disposition', 'attachment; filename="' + file.filename + '"');
     res.setHeader('Content-Type', file.contentType);
     file.stream.pipe(res);
   }
 
   @Delete('documents/:id')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.EMPLOYEE)
+  @Roles(RoleEnum.ADMIN)
   @ApiOperation({ summary: 'Mover documento para a lixeira' })
   @HttpCode(HttpStatus.OK)
   async moveToTrash(@Param('id') id: string): Promise<{ message: string }> {
@@ -93,7 +101,7 @@ export class DocumentsController {
   }
 
   @Post('documents/:id/restore')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.EMPLOYEE)
+  @Roles(RoleEnum.ADMIN)
   @ApiOperation({ summary: 'Restaurar documento da lixeira' })
   @HttpCode(HttpStatus.OK)
   async restore(@Param('id') id: string): Promise<Document> {

@@ -22,6 +22,7 @@ import { KeycloakModule } from './keycloak/keycloak.module';
 import { Employee } from '../users/entities/employee.entity';
 import { AuditModule } from '../audit/audit.module';
 import { AuditService } from '../audit/services/audit.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 import {
   User,
   Session,
@@ -57,6 +58,7 @@ const AUTH_ACTION_BY_HANDLER: Record<string, string> = {
     PassportModule.register({ defaultStrategy: 'jwt' }),
     KeycloakModule,
     AuditModule,
+    NotificationsModule,
   ],
   controllers: [AuthController],
   providers: [
