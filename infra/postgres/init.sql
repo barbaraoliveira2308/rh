@@ -2,6 +2,14 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE SCHEMA IF NOT EXISTS hr;
 
+-- Base de dados isolada para a suite e2e do backend (mesmo nome usado em ci.yml) — nunca
+-- a mesma base de dados usada pelo stack de desenvolvimento (ver R-046 em GLOBAL-TASKS-RISKS.md).
+CREATE DATABASE srh_test;
+
+\c srh_test
+CREATE SCHEMA IF NOT EXISTS hr;
+\c srh
+
 CREATE ROLE hr_app WITH LOGIN PASSWORD 'change_me';
 
 GRANT CONNECT ON DATABASE srh TO hr_app;

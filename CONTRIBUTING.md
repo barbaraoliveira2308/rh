@@ -49,7 +49,9 @@ pnpm test
 # Apenas testes unitários do backend
 pnpm --filter @bridge351/srh-backend run test
 
-# Testes e2e do backend (requer PostgreSQL)
+# Testes e2e do backend (requer PostgreSQL — usa sempre a BD "srh_test", isolada da BD de
+# desenvolvimento "srh"; o script já força POSTGRES_DB=srh_test e a suite tem uma guarda de
+# segurança própria (test/jest-e2e.setup.ts) mesmo que seja invocada de outra forma — ver R-046)
 pnpm --filter @bridge351/srh-backend run test:e2e
 
 # Testes e2e do frontend (Playwright, requer servidor dev)
