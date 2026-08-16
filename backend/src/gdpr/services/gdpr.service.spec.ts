@@ -15,6 +15,7 @@ import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
 import { User } from '../../auth/entities/user.entity';
 import { AuditLog } from '../../audit/entities/audit-log.entity';
 import { AdminService } from '../../admin/admin.service';
+import { PersonalDataExportedEvent } from '../events/personal-data-exported.event';
 
 function createMockQueryBuilder(
   overrides: Record<string, jest.Mock> = {},
@@ -145,7 +146,7 @@ describe('GdprService', () => {
 
     expect(userRepository.save).toHaveBeenCalled();
     expect(auditLogRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'ANONYMIZE', entityType: 'Employee' }),
+      expect.objectContaining({ action: 'DataAnonymized', entityType: 'Employee' }),
     );
     expect(mockEventEmitter.emit).toHaveBeenCalledWith('gdpr.data.anonymized', expect.any(Object));
   });
@@ -357,6 +358,22 @@ describe('GdprService', () => {
     );
   });
 
+  it('handleDataExported deve gravar um DataExported em hr.audit_logs', async () => {
+    await service.handleDataExported(
+      new PersonalDataExportedEvent('emp-1', 'req-1', DataSubjectRequestType.ACCESS),
+    );
+
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'DataExported',
+        entityType: 'Employee',
+        entityId: 'emp-1',
+        module: 'gdpr',
+        newValues: { requestId: 'req-1', requestType: DataSubjectRequestType.ACCESS },
+      }),
+    );
+  });
+
   it('getConsentsReport deve listar só consentimentos ativos', async () => {
     consentRepository.find.mockResolvedValue([{ id: 'consent-1', isActive: true }]);
 
@@ -390,14 +407,17 @@ describe('GdprService', () => {
   it('getErasureAndAnonymizationReport deve combinar pedidos ERASURE e anonimizações automáticas de retenção', async () => {
     requestRepository.find.mockResolvedValue([{ id: 'req-1', requestType: 'erasure' }]);
     const queryBuilder = createMockQueryBuilder({
-      getMany: jest.fn().mockResolvedValue([{ id: 'log-1', action: 'ANONYMIZE' }]),
+      getMany: jest.fn().mockResolvedValue([{ id: 'log-1', action: 'DataAnonymized' }]),
     });
     auditLogRepository.createQueryBuilder.mockReturnValue(queryBuilder);
 
     const result = await service.getErasureAndAnonymizationReport();
 
     expect(result.requests).toEqual([{ id: 'req-1', requestType: 'erasure' }]);
-    expect(result.automaticAnonymizations).toEqual([{ id: 'log-1', action: 'ANONYMIZE' }]);
+    expect(result.automaticAnonymizations).toEqual([{ id: 'log-1', action: 'DataAnonymized' }]);
+    expect(queryBuilder.where).toHaveBeenCalledWith('audit.action = :action', {
+      action: 'DataAnonymized',
+    });
     expect(queryBuilder.andWhere).toHaveBeenCalledWith(
       "audit.new_values->>'triggeredBy' = :triggeredBy",
       { triggeredBy: 'retention' },

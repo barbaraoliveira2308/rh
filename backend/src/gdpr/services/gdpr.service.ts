@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, LessThan, Between, In } from 'typeorm';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Cron } from '@nestjs/schedule';
 import * as nodemailer from 'nodemailer';
 import { ConsentRecord } from '../entities/consent-record.entity';
@@ -293,7 +293,7 @@ export class GdprService {
 
     await this.auditLogRepository.save({
       userId: null,
-      action: 'ANONYMIZE',
+      action: 'DataAnonymized',
       entityType: 'Employee',
       entityId: employeeId,
       oldValues: null,
@@ -309,6 +309,21 @@ export class GdprService {
     );
 
     return saved;
+  }
+
+  @OnEvent('gdpr.data.exported')
+  async handleDataExported(event: PersonalDataExportedEvent): Promise<void> {
+    await this.auditLogRepository.save({
+      userId: null,
+      action: 'DataExported',
+      entityType: 'Employee',
+      entityId: event.subjectId,
+      oldValues: null,
+      newValues: { requestId: event.requestId, requestType: event.requestType },
+      ipAddress: null,
+      userAgent: null,
+      module: 'gdpr',
+    });
   }
 
   @Cron('0 3 1 * *')
@@ -520,7 +535,7 @@ export class GdprService {
 
     const automaticAnonymizations = await this.auditLogRepository
       .createQueryBuilder('audit')
-      .where('audit.action = :action', { action: 'ANONYMIZE' })
+      .where('audit.action = :action', { action: 'DataAnonymized' })
       .andWhere('audit.entityType = :entityType', { entityType: 'Employee' })
       .andWhere("audit.new_values->>'triggeredBy' = :triggeredBy", { triggeredBy: 'retention' })
       .orderBy('audit.timestamp', 'DESC')
