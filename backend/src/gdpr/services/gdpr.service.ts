@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, LessThan, Between, In } from 'typeorm';
+import { Repository, DataSource, LessThan, Between, In, IsNull } from 'typeorm';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Cron } from '@nestjs/schedule';
 import * as nodemailer from 'nodemailer';
@@ -283,6 +283,7 @@ export class GdprService {
     employee.iban = null;
     employee.workLocation = null;
     employee.status = EmployeeStatus.INACTIVE;
+    employee.anonymizedAt = new Date();
 
     const saved = await this.employeeRepository.save(employee);
 
@@ -358,6 +359,7 @@ export class GdprService {
       where: {
         status: EmployeeStatus.INACTIVE,
         employmentEndDate: LessThan(cutoffStr),
+        anonymizedAt: IsNull(),
       },
     });
 

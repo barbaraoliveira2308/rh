@@ -118,13 +118,17 @@ export class AbsencesService {
     const totalDays = await this.calculateBusinessDays(dto.startDate, dto.endDate);
 
     if (absenceType.affectsBalance) {
-      const balance = await this.balanceRepository.findOne({
+      let balance = await this.balanceRepository.findOne({
         where: {
           employeeId,
           absenceTypeId: dto.absenceTypeId,
           year: startDate.getFullYear(),
         },
       });
+
+      if (!balance && absenceType.code === VACATION_TYPE_CODE) {
+        balance = await this.ensureVacationBalance(employeeId, startDate.getFullYear());
+      }
 
       if (balance) {
         const available = balance.remainingDays - balance.pendingDays;
@@ -525,7 +529,6 @@ export class AbsencesService {
   @Cron('0 7 1 1 *')
   async generateAnnualLeaveBalances(): Promise<number> {
     const year = new Date().getFullYear();
-    const settings = await this.adminService.getSettings();
 
     const vacationType = await this.typeRepository.findOne({
       where: { code: VACATION_TYPE_CODE },
@@ -546,39 +549,70 @@ export class AbsencesService {
 
       if (existing) continue;
 
-      const legalEntity = await this.adminService.getEffectiveLegalEntity(employee.id);
-      const vacationDaysPerYear =
-        legalEntity?.vacationDaysPerYearOverride ?? settings.defaultVacationDaysPerYear;
-
-      const entitledDays = this.computeEntitledVacationDays(
-        employee.employmentStartDate,
-        year,
-        vacationDaysPerYear,
-      );
-
-      if (entitledDays <= 0) continue;
-
-      const carryOverDays = await this.computeCarryOverDays(
-        employee.id,
-        vacationType.id,
-        year,
-        settings.carryOverVacationDays,
-      );
-
-      const balance = this.balanceRepository.create({
-        employeeId: employee.id,
-        absenceTypeId: vacationType.id,
-        year,
-        entitledDays,
-        carryOverDays,
-        remainingDays: entitledDays + carryOverDays,
-      });
-
-      await this.balanceRepository.save(balance);
-      createdCount++;
+      const created = await this.createVacationBalanceForEmployee(employee, vacationType, year);
+      if (created) createdCount++;
     }
 
     return createdCount;
+  }
+
+  private async ensureVacationBalance(
+    employeeId: string,
+    year: number,
+  ): Promise<LeaveBalance | null> {
+    const vacationType = await this.typeRepository.findOne({
+      where: { code: VACATION_TYPE_CODE },
+    });
+
+    if (!vacationType) return null;
+
+    const existing = await this.balanceRepository.findOne({
+      where: { employeeId, absenceTypeId: vacationType.id, year },
+    });
+
+    if (existing) return existing;
+
+    const employee = await this.employeeRepository.findOne({ where: { id: employeeId } });
+    if (!employee) return null;
+
+    return this.createVacationBalanceForEmployee(employee, vacationType, year);
+  }
+
+  private async createVacationBalanceForEmployee(
+    employee: Employee,
+    vacationType: AbsenceType,
+    year: number,
+  ): Promise<LeaveBalance | null> {
+    const settings = await this.adminService.getSettings();
+    const legalEntity = await this.adminService.getEffectiveLegalEntity(employee.id);
+    const vacationDaysPerYear =
+      legalEntity?.vacationDaysPerYearOverride ?? settings.defaultVacationDaysPerYear;
+
+    const entitledDays = this.computeEntitledVacationDays(
+      employee.employmentStartDate,
+      year,
+      vacationDaysPerYear,
+    );
+
+    if (entitledDays <= 0) return null;
+
+    const carryOverDays = await this.computeCarryOverDays(
+      employee.id,
+      vacationType.id,
+      year,
+      settings.carryOverVacationDays,
+    );
+
+    const balance = this.balanceRepository.create({
+      employeeId: employee.id,
+      absenceTypeId: vacationType.id,
+      year,
+      entitledDays,
+      carryOverDays,
+      remainingDays: entitledDays + carryOverDays,
+    });
+
+    return this.balanceRepository.save(balance);
   }
 
   private computeEntitledVacationDays(

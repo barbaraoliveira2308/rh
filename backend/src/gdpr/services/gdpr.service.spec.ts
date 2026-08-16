@@ -226,6 +226,49 @@ describe('GdprService', () => {
     );
   });
 
+  it('should not reprocess employees already anonymized (R-042)', async () => {
+    const retentionRepository = createMockRepository();
+    retentionRepository.find.mockResolvedValue([]);
+    const employeeRepository = createMockRepository();
+    employeeRepository.find.mockResolvedValue([]);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        GdprService,
+        { provide: getRepositoryToken(ConsentRecord), useValue: createMockRepository() },
+        { provide: getRepositoryToken(DataSubjectRequest), useValue: createMockRepository() },
+        { provide: getRepositoryToken(RetentionPolicy), useValue: retentionRepository },
+        { provide: getRepositoryToken(SecurityIncident), useValue: createMockRepository() },
+        { provide: getRepositoryToken(Employee), useValue: employeeRepository },
+        { provide: getRepositoryToken(User), useValue: createMockRepository() },
+        { provide: getRepositoryToken(AuditLog), useValue: createMockRepository() },
+        { provide: DataSource, useValue: mockDataSource },
+        { provide: EventEmitter2, useValue: mockEventEmitter },
+        { provide: AdminService, useValue: mockAdminService },
+      ],
+    }).compile();
+
+    const testService = module.get<GdprService>(GdprService);
+    await testService.runRetentionPolicies();
+
+    const findCalls = employeeRepository.find.mock.calls as unknown as [
+      { where: { anonymizedAt: { type: string } } },
+    ][];
+    expect(findCalls[0][0].where.anonymizedAt.type).toBe('isNull');
+  });
+
+  it('should set anonymizedAt when anonymizing an employee', async () => {
+    const employee = new Employee();
+    employee.id = 'emp-1';
+    employee.userId = 'user-1';
+    employee.status = EmployeeStatus.ACTIVE;
+    employeeRepository.findOne.mockResolvedValue(employee);
+
+    const result = await service.anonymizeEmployee('emp-1');
+
+    expect(result.anonymizedAt).toBeInstanceOf(Date);
+  });
+
   it('should reject a pending request with notes', async () => {
     const request = new DataSubjectRequest();
     request.id = 'req-1';

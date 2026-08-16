@@ -86,6 +86,9 @@ export class Employee {
   @Column({ type: 'varchar', length: 20, default: EmployeeStatus.ACTIVE })
   status: EmployeeStatus;
 
+  @Column({ name: 'anonymized_at', type: 'timestamp', nullable: true })
+  anonymizedAt: Date | null;
+
   @Column({ name: 'work_location', type: 'varchar', length: 100, nullable: true })
   workLocation: string | null;
 

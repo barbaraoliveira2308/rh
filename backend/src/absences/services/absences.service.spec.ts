@@ -270,6 +270,59 @@ describe('AbsencesService', () => {
       expect(mockRequestRepo.save).not.toHaveBeenCalled();
     });
 
+    it('deve criar saldo de férias em falta (fallback lazy, R-043) e validar/atualizar contra ele', async () => {
+      mockEmployeeRepo.findOne.mockResolvedValue(
+        Object.assign({}, mockEmployee, { employmentStartDate: '2020-01-01' }),
+      );
+      mockTypeRepo.findOne.mockResolvedValue(mockVacationType);
+      mockHolidayRepo.find.mockResolvedValue([]);
+      mockRequestRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+
+      mockBalanceRepo.findOne
+        .mockResolvedValueOnce(null) // pré-verificação: sem saldo para o ano
+        .mockResolvedValueOnce(null) // ensureVacationBalance: verificação de existente
+        .mockResolvedValueOnce(null) // computeCarryOverDays: saldo do ano anterior
+        .mockResolvedValue({
+          id: 'bal-new',
+          employeeId: 'emp-1',
+          absenceTypeId: 'type-1',
+          year: 2026,
+          entitledDays: 22,
+          carryOverDays: 0,
+          remainingDays: 22,
+          pendingDays: 0,
+        });
+      mockBalanceRepo.create.mockImplementation((data: unknown) => data);
+      mockBalanceRepo.save.mockImplementation((data: unknown) =>
+        Promise.resolve(Object.assign({ id: 'bal-new' }, data)),
+      );
+
+      const createdRequest = {
+        id: 'req-1',
+        employeeId: 'emp-1',
+        absenceTypeId: 'type-1',
+        startDate: '2026-07-01',
+        endDate: '2026-07-03',
+        totalDays: 3,
+        status: AbsenceStatus.PENDING,
+      };
+      mockRequestRepo.create.mockReturnValue(createdRequest);
+      mockRequestRepo.save.mockResolvedValue(createdRequest);
+
+      const result = await service.create(validDto, 'emp-1');
+
+      expect(result).toEqual(createdRequest);
+      expect(mockBalanceRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          employeeId: 'emp-1',
+          absenceTypeId: 'type-1',
+          year: 2026,
+          entitledDays: 22,
+        }),
+      );
+      expect(mockBalanceRepo.update).toHaveBeenCalledWith('bal-new', { pendingDays: 3 });
+    });
+
     it('deve criar pedido com sucesso quando não afeta saldo', async () => {
       const noBalanceType = Object.assign({}, mockVacationType, {
         id: 'type-3',
@@ -706,7 +759,7 @@ describe('AbsencesService', () => {
       ]);
       mockBalanceRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
       mockBalanceRepo.create.mockImplementation((data: unknown) => data);
-      mockBalanceRepo.save.mockResolvedValue(undefined);
+      mockBalanceRepo.save.mockImplementation((data: unknown) => Promise.resolve(data));
 
       const created = await service.generateAnnualLeaveBalances();
 
@@ -729,7 +782,7 @@ describe('AbsencesService', () => {
       ]);
       mockBalanceRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
       mockBalanceRepo.create.mockImplementation((data: unknown) => data);
-      mockBalanceRepo.save.mockResolvedValue(undefined);
+      mockBalanceRepo.save.mockImplementation((data: unknown) => Promise.resolve(data));
 
       await service.generateAnnualLeaveBalances();
 
@@ -748,7 +801,7 @@ describe('AbsencesService', () => {
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(Object.assign({}, mockBalance, { year: 2025, remainingDays: 9 }));
       mockBalanceRepo.create.mockImplementation((data: unknown) => data);
-      mockBalanceRepo.save.mockResolvedValue(undefined);
+      mockBalanceRepo.save.mockImplementation((data: unknown) => Promise.resolve(data));
 
       await service.generateAnnualLeaveBalances();
 
@@ -777,7 +830,7 @@ describe('AbsencesService', () => {
       ]);
       mockBalanceRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
       mockBalanceRepo.create.mockImplementation((data: unknown) => data);
-      mockBalanceRepo.save.mockResolvedValue(undefined);
+      mockBalanceRepo.save.mockImplementation((data: unknown) => Promise.resolve(data));
       mockAdminService.getEffectiveLegalEntity.mockResolvedValue({
         vacationDaysPerYearOverride: 25,
       });

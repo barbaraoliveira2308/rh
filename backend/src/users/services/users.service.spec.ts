@@ -97,6 +97,7 @@ describe('UsersService', () => {
       employmentStartDate: '2020-01-01',
       employmentEndDate: null,
       status: EmployeeStatus.ACTIVE,
+      anonymizedAt: null,
       workLocation: null,
       iban: null,
       createdAt: new Date(),
