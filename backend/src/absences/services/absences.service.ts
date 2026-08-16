@@ -19,7 +19,6 @@ import { AbsenceApprovedEvent } from '../events/absence-approved.event';
 import { AbsenceRejectedEvent } from '../events/absence-rejected.event';
 import { AbsenceCancelledEvent } from '../events/absence-cancelled.event';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
-import { HolidayCalendar } from '../../timesheets/entities/holiday-calendar.entity';
 import { CalendarService } from '../../calendar/services/calendar.service';
 import { RbacService } from '../../rbac/services/rbac.service';
 import { AdminService } from '../../admin/admin.service';
@@ -39,8 +38,6 @@ export class AbsencesService {
     private readonly balanceRepository: Repository<LeaveBalance>,
     @InjectRepository(Employee)
     private readonly employeeRepository: Repository<Employee>,
-    @InjectRepository(HolidayCalendar)
-    private readonly holidayRepository: Repository<HolidayCalendar>,
     private readonly eventEmitter: EventEmitter2,
     private readonly calendarService: CalendarService,
     private readonly rbacService: RbacService,
@@ -115,7 +112,7 @@ export class AbsencesService {
       throw new BadRequestException('Já existe uma ausência aprovada neste período');
     }
 
-    const totalDays = await this.calculateBusinessDays(dto.startDate, dto.endDate);
+    const totalDays = await this.calculateBusinessDays(dto.startDate, dto.endDate, employeeId);
 
     if (absenceType.affectsBalance) {
       let balance = await this.balanceRepository.findOne({
@@ -203,12 +200,21 @@ export class AbsencesService {
     }
   }
 
-  async calculateBusinessDays(startDate: string, endDate: string): Promise<number> {
-    const holidays = await this.holidayRepository.find();
-    const holidayDates = new Set(holidays.map((h) => h.holidayDate));
-
+  async calculateBusinessDays(
+    startDate: string,
+    endDate: string,
+    employeeId?: string,
+  ): Promise<number> {
     const start = new Date(startDate);
     const end = new Date(endDate);
+
+    const countryCode = await this.adminService.getEffectiveCountryCode(employeeId);
+    const holidayDates = new Set<string>();
+    for (let year = start.getFullYear(); year <= end.getFullYear(); year++) {
+      const holidays = await this.calendarService.findHolidays(year, countryCode);
+      holidays.forEach((h) => holidayDates.add(h.holidayDate));
+    }
+
     let count = 0;
 
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {

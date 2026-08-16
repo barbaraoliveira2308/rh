@@ -338,7 +338,7 @@ Feature: Pedido de Ausência
   - `GET /api/absences/balance/:employeeId`
   - `GET /api/absences/calendar`
 - **Regras implementadas:** BR-ABS-001 a BR-ABS-006 e BR-ABS-009.
-- Cálculo de dias úteis exclui fins de semana e feriados via `HolidayCalendar`.
+- ~~Cálculo de dias úteis exclui fins de semana e feriados via `HolidayCalendar`.~~ **Corrigido em P-071**: `HolidayCalendar` (`hr.holiday_calendars`) era uma tabela órfã, sem seed/import/CRUD, sempre vazia — feriados nunca eram de facto excluídos. `calculateBusinessDays()` passa a consultar `CalendarService.findHolidays()` (`hr.public_holidays`, a tabela real, populada via `POST /calendar/holidays/import`), resolvendo o país pela `LegalEntity` do colaborador (`AdminService.getEffectiveCountryCode(employeeId)`, novo parâmetro opcional do método). Ver `specs/admin/SPEC.md` ("Ligar Calendar à entidade legal") e `specs/GLOBAL-TASKS-RISKS.md` para o detalhe completo.
 - Saldo é debitado na aprovação e restituído no cancelamento antes da data de início.
 - Seed de tipo de ausência (`VACATION`) via `AbsenceType`.
 

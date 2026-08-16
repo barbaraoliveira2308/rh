@@ -149,6 +149,38 @@ describe('AdminService', () => {
     });
   });
 
+  describe('getEffectiveCountryCode', () => {
+    it('deve devolver settings.defaultCountry quando nenhum employeeId é dado', async () => {
+      mockSettingsRepo.find.mockResolvedValue([{ id: 's-1', defaultCountry: 'PT' }]);
+
+      const result = await service.getEffectiveCountryCode();
+
+      expect(result).toBe('PT');
+      expect(mockContractRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('deve devolver o calendarProfileCountryCode da LegalEntity do contrato ativo', async () => {
+      mockSettingsRepo.find.mockResolvedValue([{ id: 's-1', defaultCountry: 'PT' }]);
+      mockContractRepo.findOne.mockResolvedValue({
+        id: 'c-1',
+        legalEntity: { id: 'le-1', calendarProfileCountryCode: 'US' },
+      });
+
+      const result = await service.getEffectiveCountryCode('emp-1');
+
+      expect(result).toBe('US');
+    });
+
+    it('deve cair para settings.defaultCountry se o colaborador não tiver LegalEntity ligada', async () => {
+      mockSettingsRepo.find.mockResolvedValue([{ id: 's-1', defaultCountry: 'PT' }]);
+      mockContractRepo.findOne.mockResolvedValue(null);
+
+      const result = await service.getEffectiveCountryCode('emp-1');
+
+      expect(result).toBe('PT');
+    });
+  });
+
   describe('createUser', () => {
     it('deve criar utilizador com username derivado do email e atribuir o perfil EMPLOYEE', async () => {
       mockUserRepo.findOneBy.mockResolvedValue(null);

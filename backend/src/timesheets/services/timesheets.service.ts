@@ -11,7 +11,6 @@ import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { TimesheetPeriod } from '../entities/timesheet-period.entity';
 import { TimesheetEntry } from '../entities/timesheet-entry.entity';
 import { TimesheetApproval } from '../entities/timesheet-approval.entity';
-import { HolidayCalendar } from '../entities/holiday-calendar.entity';
 import { TimesheetStatus } from '../entities/timesheet-status.enum';
 import { EntryType } from '../entities/entry-type.enum';
 import { CreateTimesheetEntryDto } from '../dto/create-timesheet-entry.dto';
@@ -42,8 +41,6 @@ export class TimesheetsService {
     private readonly entryRepository: Repository<TimesheetEntry>,
     @InjectRepository(TimesheetApproval)
     private readonly approvalRepository: Repository<TimesheetApproval>,
-    @InjectRepository(HolidayCalendar)
-    private readonly holidayRepository: Repository<HolidayCalendar>,
     @InjectEntityManager()
     private readonly entityManager: EntityManager,
     @InjectRepository(Employee)
@@ -60,8 +57,8 @@ export class TimesheetsService {
     });
 
     let createdCount = 0;
-    const holidays = await this.holidayRepository.find();
     const settings = await this.adminService.getSettings();
+    const holidaysByCountry = new Map<string, Set<string>>();
 
     for (const employee of employees) {
       const existing = await this.periodRepository.findOne({
@@ -69,6 +66,14 @@ export class TimesheetsService {
       });
 
       if (existing) continue;
+
+      const countryCode = await this.adminService.getEffectiveCountryCode(employee.id);
+      let holidayDates = holidaysByCountry.get(countryCode);
+      if (!holidayDates) {
+        const holidays = await this.calendarService.findHolidays(year, countryCode);
+        holidayDates = new Set(holidays.map((h) => h.holidayDate));
+        holidaysByCountry.set(countryCode, holidayDates);
+      }
 
       const period = this.periodRepository.create({
         employeeId: employee.id,
@@ -86,7 +91,7 @@ export class TimesheetsService {
         const date = new Date(year, month - 1, day);
         const dayOfWeek = date.getDay();
         const dateStr = this.formatDate(date);
-        const isHoliday = holidays.some((h) => h.holidayDate === dateStr);
+        const isHoliday = holidayDates.has(dateStr);
 
         let entryType: EntryType;
         let plannedHours: number;

@@ -402,6 +402,7 @@ Feature: Folha de Horas Mensal
 - O endpoint `GET /timesheets/export` (CSV) foi adicionado e não consta da especificação original.
 - Não foram implementados endpoints para `work-schedules`, `holiday-calendars` nem `attendance`.
 - **RF-TS-012 (P-056)**: `alertPendingSubmissions()` (`@Cron('0 9 * * 1')`) só emite `timesheet.pending-submission` para períodos cujo prazo de submissão (`SystemSetting.timesheetSubmissionDeadlineDay`, dia do mês seguinte ao período) já passou — detalhe completo em `specs/admin/SPEC.md` (secção "Wiring de Admin Settings ao runtime — Grupo C, timesheetSubmissionDeadlineDay").
+- **`HolidayCalendar` corrigida em P-071**: `generateMonthlyPeriods()` consultava `hr.holiday_calendars` (`HolidayCalendar`) para marcar `entry_type: holiday` — uma tabela órfã, sem seed/import/CRUD, sempre vazia, pelo que nenhum dia era alguma vez marcado como feriado na prática. Passa a consultar `CalendarService.findHolidays()` (`hr.public_holidays`, a tabela real, populada via `POST /calendar/holidays/import`), resolvendo o país de cada colaborador pela sua `LegalEntity` (`AdminService.getEffectiveCountryCode(employeeId)`, com cache por país dentro do loop para evitar queries redundantes). `HolidayCalendar` deixou de ser injetada no serviço e foi removida de `TypeOrmModule.forFeature()` em `TimesheetsModule` — entidade/tabela ficam por remover, fora do âmbito. Ver `specs/admin/SPEC.md` ("Ligar Calendar à entidade legal") e `specs/GLOBAL-TASKS-RISKS.md` para o detalhe completo.
 
 ### Testes
 

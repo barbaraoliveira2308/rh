@@ -27,13 +27,19 @@ import { RolesGuard } from '../rbac/guards/roles.guard';
 import { Roles } from '../rbac/decorators/roles.decorator';
 import { RoleEnum } from '../rbac/enums/role.enum';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { EmployeeIdentityService } from '../auth/services/employee-identity.service';
+import { AdminService } from '../admin/admin.service';
 
 @Controller()
 @ApiTags('Calendar')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class CalendarController {
-  constructor(private readonly calendarService: CalendarService) {}
+  constructor(
+    private readonly calendarService: CalendarService,
+    private readonly employeeIdentity: EmployeeIdentityService,
+    private readonly adminService: AdminService,
+  ) {}
 
   @Get('calendar')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
@@ -49,13 +55,33 @@ export class CalendarController {
 
   @Get('calendar/holidays')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
-  @ApiOperation({ summary: 'Listar feriados públicos' })
+  @ApiOperation({
+    summary:
+      'Listar feriados públicos — sem countryCode explícito, resolve o país pela entidade legal do colaborador (o próprio, ou employeeId se indicado)',
+  })
   @HttpCode(HttpStatus.OK)
   async findHolidays(
     @Query('year', ParseIntPipe) year: number,
     @Query('countryCode') countryCode?: string,
+    @Query('employeeId') employeeId?: string,
+    @Req() req?: Request,
   ): Promise<PublicHoliday[]> {
-    return this.calendarService.findHolidays(year, countryCode);
+    let resolvedCountryCode = countryCode;
+
+    if (!resolvedCountryCode) {
+      let targetEmployeeId = employeeId;
+
+      if (!targetEmployeeId) {
+        const user = req?.user as JwtPayload;
+        targetEmployeeId = await this.employeeIdentity
+          .resolveEmployeeId(user.sub)
+          .catch(() => undefined);
+      }
+
+      resolvedCountryCode = await this.adminService.getEffectiveCountryCode(targetEmployeeId);
+    }
+
+    return this.calendarService.findHolidays(year, resolvedCountryCode);
   }
 
   @Post('calendar/holidays/import')

@@ -9,7 +9,6 @@ import { AdminService } from '../../admin/admin.service';
 import { TimesheetPeriod } from '../entities/timesheet-period.entity';
 import { TimesheetEntry } from '../entities/timesheet-entry.entity';
 import { TimesheetApproval } from '../entities/timesheet-approval.entity';
-import { HolidayCalendar } from '../entities/holiday-calendar.entity';
 import { TimesheetStatus } from '../entities/timesheet-status.enum';
 import { EntryType } from '../entities/entry-type.enum';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
@@ -20,7 +19,6 @@ describe('TimesheetsService', () => {
   let mockPeriodRepo: Record<string, jest.Mock>;
   let mockEntryRepo: Record<string, jest.Mock>;
   let mockApprovalRepo: Record<string, jest.Mock>;
-  let mockHolidayRepo: Record<string, jest.Mock>;
   let mockEntityManager: Record<string, jest.Mock>;
   let mockEmployeeRepo: Record<string, jest.Mock>;
   let mockEventEmitter: Record<string, jest.Mock>;
@@ -98,10 +96,6 @@ describe('TimesheetsService', () => {
       save: jest.fn(),
     };
 
-    mockHolidayRepo = {
-      find: jest.fn(),
-    };
-
     mockEntityManager = {
       query: jest.fn(),
     };
@@ -117,6 +111,7 @@ describe('TimesheetsService', () => {
 
     mockCalendarService = {
       validateBlockedPeriodForTimesheets: jest.fn().mockResolvedValue(undefined),
+      findHolidays: jest.fn().mockResolvedValue([]),
     };
 
     mockRbacService = {
@@ -125,6 +120,7 @@ describe('TimesheetsService', () => {
 
     mockAdminService = {
       getSettings: jest.fn().mockResolvedValue({ defaultDailyHours: 8 }),
+      getEffectiveCountryCode: jest.fn().mockResolvedValue('PT'),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -133,7 +129,6 @@ describe('TimesheetsService', () => {
         { provide: getRepositoryToken(TimesheetPeriod), useValue: mockPeriodRepo },
         { provide: getRepositoryToken(TimesheetEntry), useValue: mockEntryRepo },
         { provide: getRepositoryToken(TimesheetApproval), useValue: mockApprovalRepo },
-        { provide: getRepositoryToken(HolidayCalendar), useValue: mockHolidayRepo },
         { provide: getEntityManagerToken(), useValue: mockEntityManager },
         { provide: getRepositoryToken(Employee), useValue: mockEmployeeRepo },
         { provide: EventEmitter2, useValue: mockEventEmitter },
@@ -149,7 +144,6 @@ describe('TimesheetsService', () => {
   describe('generateMonthlyPeriods', () => {
     it('deve usar defaultDailyHours de SystemSetting nas entradas de dias úteis', async () => {
       mockEmployeeRepo.find.mockResolvedValue([mockEmployee]);
-      mockHolidayRepo.find.mockResolvedValue([]);
       mockPeriodRepo.findOne.mockResolvedValue(null);
       mockPeriodRepo.create.mockImplementation((data: unknown) => data);
       mockPeriodRepo.save.mockResolvedValue({ id: 'period-new' });
@@ -167,6 +161,33 @@ describe('TimesheetsService', () => {
       }[];
       const workEntry = savedEntries.find((entry) => entry.entryType === EntryType.WORK);
       expect(workEntry?.plannedHours).toBe(7.5);
+    });
+
+    it('deve marcar EntryType.HOLIDAY nos feriados do país da entidade legal do colaborador (ligação a Calendar)', async () => {
+      mockEmployeeRepo.find.mockResolvedValue([mockEmployee]);
+      mockPeriodRepo.findOne.mockResolvedValue(null);
+      mockPeriodRepo.create.mockImplementation((data: unknown) => data);
+      mockPeriodRepo.save.mockResolvedValue({ id: 'period-new' });
+      mockEntryRepo.create.mockImplementation((data: unknown) => data);
+      mockEntryRepo.save.mockResolvedValue(undefined);
+      mockEntryRepo.find.mockResolvedValue([]);
+      mockAdminService.getEffectiveCountryCode.mockResolvedValue('US');
+      mockCalendarService.findHolidays.mockResolvedValue([
+        { holidayDate: '2026-08-04', countryCode: 'US' },
+      ]);
+
+      await service.generateMonthlyPeriods(2026, 8);
+
+      expect(mockAdminService.getEffectiveCountryCode).toHaveBeenCalledWith('emp-1');
+      expect(mockCalendarService.findHolidays).toHaveBeenCalledWith(2026, 'US');
+      const savedEntries = (mockEntryRepo.save.mock.calls[0] as unknown[])[0] as {
+        entryDate: string;
+        entryType: EntryType;
+        plannedHours: number;
+      }[];
+      const holidayEntry = savedEntries.find((entry) => entry.entryDate === '2026-08-04');
+      expect(holidayEntry?.entryType).toBe(EntryType.HOLIDAY);
+      expect(holidayEntry?.plannedHours).toBe(0);
     });
   });
 

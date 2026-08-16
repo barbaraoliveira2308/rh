@@ -12,7 +12,6 @@ import { AbsenceApproval } from '../entities/absence-approval.entity';
 import { LeaveBalance } from '../entities/leave-balance.entity';
 import { AbsenceStatus } from '../entities/absence-status.enum';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
-import { HolidayCalendar } from '../../timesheets/entities/holiday-calendar.entity';
 
 describe('AbsencesService', () => {
   let service: AbsencesService;
@@ -21,7 +20,6 @@ describe('AbsencesService', () => {
   let mockApprovalRepo: Record<string, jest.Mock>;
   let mockBalanceRepo: Record<string, jest.Mock>;
   let mockEmployeeRepo: Record<string, jest.Mock>;
-  let mockHolidayRepo: Record<string, jest.Mock>;
   let mockEventEmitter: Record<string, jest.Mock>;
   let mockCalendarService: Record<string, jest.Mock>;
   let mockRbacService: Record<string, jest.Mock>;
@@ -113,16 +111,13 @@ describe('AbsencesService', () => {
       find: jest.fn(),
     };
 
-    mockHolidayRepo = {
-      find: jest.fn(),
-    };
-
     mockEventEmitter = {
       emit: jest.fn(),
     };
 
     mockCalendarService = {
       validateBlockedPeriodForAbsences: jest.fn().mockResolvedValue(undefined),
+      findHolidays: jest.fn().mockResolvedValue([]),
     };
 
     mockRbacService = {
@@ -134,6 +129,7 @@ describe('AbsencesService', () => {
         .fn()
         .mockResolvedValue({ defaultVacationDaysPerYear: 22, carryOverVacationDays: 5 }),
       getEffectiveLegalEntity: jest.fn().mockResolvedValue(null),
+      getEffectiveCountryCode: jest.fn().mockResolvedValue('PT'),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -144,7 +140,6 @@ describe('AbsencesService', () => {
         { provide: getRepositoryToken(AbsenceApproval), useValue: mockApprovalRepo },
         { provide: getRepositoryToken(LeaveBalance), useValue: mockBalanceRepo },
         { provide: getRepositoryToken(Employee), useValue: mockEmployeeRepo },
-        { provide: getRepositoryToken(HolidayCalendar), useValue: mockHolidayRepo },
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: CalendarService, useValue: mockCalendarService },
         { provide: RbacService, useValue: mockRbacService },
@@ -228,7 +223,6 @@ describe('AbsencesService', () => {
     it('deve lançar erro se houver pedido pendente sobreposto', async () => {
       mockEmployeeRepo.findOne.mockResolvedValue(mockEmployee);
       mockTypeRepo.findOne.mockResolvedValue(mockVacationType);
-      mockHolidayRepo.find.mockResolvedValue([]);
       mockRequestRepo.findOne.mockResolvedValueOnce({
         id: 'existing-1',
         employeeId: 'emp-1',
@@ -242,7 +236,6 @@ describe('AbsencesService', () => {
     it('deve lançar erro se houver ausência aprovada sobreposta', async () => {
       mockEmployeeRepo.findOne.mockResolvedValue(mockEmployee);
       mockTypeRepo.findOne.mockResolvedValue(mockVacationType);
-      mockHolidayRepo.find.mockResolvedValue([]);
       mockRequestRepo.findOne
         .mockResolvedValueOnce(null) // no overlapping pending
         .mockResolvedValueOnce({
@@ -258,7 +251,6 @@ describe('AbsencesService', () => {
     it('deve lançar erro se saldo for insuficiente', async () => {
       mockEmployeeRepo.findOne.mockResolvedValue(mockEmployee);
       mockTypeRepo.findOne.mockResolvedValue(mockVacationType);
-      mockHolidayRepo.find.mockResolvedValue([]);
       mockRequestRepo.findOne
         .mockResolvedValueOnce(null) // no overlapping pending
         .mockResolvedValueOnce(null); // no overlapping approved
@@ -275,7 +267,6 @@ describe('AbsencesService', () => {
         Object.assign({}, mockEmployee, { employmentStartDate: '2020-01-01' }),
       );
       mockTypeRepo.findOne.mockResolvedValue(mockVacationType);
-      mockHolidayRepo.find.mockResolvedValue([]);
       mockRequestRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
 
       mockBalanceRepo.findOne
@@ -333,7 +324,6 @@ describe('AbsencesService', () => {
 
       mockEmployeeRepo.findOne.mockResolvedValue(mockEmployee);
       mockTypeRepo.findOne.mockResolvedValue(noBalanceType);
-      mockHolidayRepo.find.mockResolvedValue([]);
       mockRequestRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
 
       const createdRequest = {
@@ -363,6 +353,29 @@ describe('AbsencesService', () => {
         'absence.requested',
         expect.objectContaining({ absenceId: 'req-1' }),
       );
+    });
+
+    it('deve excluir feriados do país da entidade legal do colaborador ao contar dias úteis (ligação a Calendar)', async () => {
+      mockEmployeeRepo.findOne.mockResolvedValue(mockEmployee);
+      mockTypeRepo.findOne.mockResolvedValue(mockVacationType);
+      mockRequestRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+      mockAdminService.getEffectiveCountryCode.mockResolvedValue('US');
+      mockCalendarService.findHolidays.mockResolvedValue([
+        { holidayDate: '2026-07-02', countryCode: 'US' },
+      ]);
+      mockBalanceRepo.findOne.mockResolvedValue(
+        Object.assign({}, mockBalance, { remainingDays: 22, pendingDays: 0 }),
+      );
+
+      mockRequestRepo.create.mockImplementation((data: unknown) => data);
+      mockRequestRepo.save.mockImplementation((data: unknown) => Promise.resolve(data));
+
+      const result = await service.create(validDto, 'emp-1');
+
+      expect(mockAdminService.getEffectiveCountryCode).toHaveBeenCalledWith('emp-1');
+      expect(mockCalendarService.findHolidays).toHaveBeenCalledWith(2026, 'US');
+      // 2026-07-01 a 2026-07-03: 3 dias úteis, menos 1 feriado (02) = 2
+      expect((result as { totalDays: number }).totalDays).toBe(2);
     });
   });
 

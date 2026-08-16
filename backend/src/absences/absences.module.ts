@@ -7,7 +7,6 @@ import { AbsenceRequest } from './entities/absence-request.entity';
 import { AbsenceApproval } from './entities/absence-approval.entity';
 import { LeaveBalance } from './entities/leave-balance.entity';
 import { Employee } from '../users/entities/employee.entity';
-import { HolidayCalendar } from '../timesheets/entities/holiday-calendar.entity';
 import { CalendarModule } from '../calendar/calendar.module';
 import { AuditModule } from '../audit/audit.module';
 
@@ -19,7 +18,6 @@ import { AuditModule } from '../audit/audit.module';
       AbsenceApproval,
       LeaveBalance,
       Employee,
-      HolidayCalendar,
     ]),
     CalendarModule,
     AuditModule,

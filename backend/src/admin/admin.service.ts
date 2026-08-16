@@ -80,6 +80,15 @@ export class AdminService {
     return contract?.legalEntity ?? null;
   }
 
+  async getEffectiveCountryCode(employeeId?: string): Promise<string> {
+    const settings = await this.getSettings();
+    if (!employeeId) {
+      return settings.defaultCountry;
+    }
+    const legalEntity = await this.getEffectiveLegalEntity(employeeId);
+    return legalEntity?.calendarProfileCountryCode ?? settings.defaultCountry;
+  }
+
   async createUser(dto: CreateUserDto, assignedBy: string): Promise<User> {
     const existingByEmail = await this.userRepository.findOneBy({ email: dto.email });
     if (existingByEmail) {
