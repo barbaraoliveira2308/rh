@@ -73,10 +73,12 @@ O padrão comum: **código que parece correto isoladamente mas nunca é de facto
 
 ## 6. Formato do relatório de saída
 
-Cria o ficheiro `AUDIT_REPORT_<AAAA-MM-DD>.md` na raiz do repositório (usa a data real do dia em que a auditoria corre). Estrutura:
+Cria o ficheiro `AUDIT_REPORT_<AAAA-MM-DD>.md` na raiz do repositório (usa a data real do dia em que a auditoria corre; o nome do ficheiro mantém-se só com a data — a hora vai dentro do documento, não no nome). Antes de escrever o relatório, corre `date "+%Y-%m-%d %H:%M"` (ou equivalente) para obteres a data **e hora** exatas do momento em que a auditoria foi executada — nunca só a data.
 
 ```markdown
 # Relatório de Auditoria — HR Suite (<data>)
+
+**Gerado em:** <AAAA-MM-DD HH:MM> — data e hora reais em que esta auditoria correu (usa o resultado de `date`, não uma estimativa).
 
 ## Resumo Executivo
 
@@ -124,8 +126,24 @@ Estado: [OK / Achados menores / Precisa de atenção]
 
 Cada achado deve ter sempre evidência concreta (caminho de ficheiro + linha, ou nome de método/endpoint) — nunca uma afirmação vaga sem apontar para o código real.
 
+## 6.1. Marcar achados como resolvidos (fora do âmbito desta auditoria, mas convenção a seguir)
+
+Esta auditoria é só de leitura (secção 5) e não resolve nada — mas o `AUDIT_REPORT_<AAAA-MM-DD>.md` que produz é um documento vivo: fica no repositório e, quando uma sessão de desenvolvimento posterior corrige um achado aqui listado, deve voltar a este ficheiro e marcá-lo como resolvido. Para manter os relatórios de todas as auditorias consistentes, essa marcação segue sempre este formato:
+
+```markdown
+- ~~**[Módulo] Descrição original do achado.**~~ **RESOLVIDO (AAAA-MM-DD HH:MM).** [O que foi feito, evidência do fix: `ficheiro:linha`, testes que passaram a cobrir o caso.]
+```
+
+Regras:
+
+- A data e hora **são sempre as do momento em que a correção foi aplicada e verificada** (testes a passar), não a data da auditoria original nem uma estimativa — usa `date "+%Y-%m-%d %H:%M"`.
+- Risca (`~~...~~`) o texto original do achado em vez de o apagar — o relatório deve continuar a mostrar o que foi encontrado, não só o que ficou resolvido.
+- Se várias correções acontecerem em sessões diferentes, cada achado resolvido tem a sua própria data/hora — não uses uma data única para o lote todo a menos que tenham sido de facto corrigidos e verificados na mesma sessão.
+- Atualiza também o resumo executivo (contagens de achados por severidade) e a linha "Estado dos Testes" se os números de testes tiverem mudado, com a mesma data/hora entre parêntesis junto do número novo (ex: `439 → 451 (AAAA-MM-DD HH:MM)`).
+- Isto aplica-se ao ficheiro `AUDIT_REPORT_<AAAA-MM-DD>.md` já existente — nunca cries um novo relatório só para registar uma resolução; isso é para uma nova ronda de auditoria completa.
+
 ## 7. Ações de fecho
 
-- [ ] Gravar `AUDIT_REPORT_<AAAA-MM-DD>.md` na raiz do repositório.
+- [ ] Gravar `AUDIT_REPORT_<AAAA-MM-DD>.md` na raiz do repositório, com a data e hora de geração (secção 6) no topo do documento.
 - [ ] Não alterar nenhum outro ficheiro do repositório.
 - [ ] Resumir ao utilizador, em poucas frases, quantos módulos foram auditados e o número de achados por severidade — sem repetir o relatório inteiro no chat.

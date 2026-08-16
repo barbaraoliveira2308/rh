@@ -4,28 +4,28 @@
 
 Auditoria completa dos 23 módulos do sistema HR Suite, comparando especificações técnicas com código real. Estado atual: 439/439 testes unitários a passar, 51/51 testes e2e a passar. Foram encontrados **4 achados Críticos**, **12 achados Altos**, **18 achados Médios** e **17 achados Baixos**. O padrão mais comum são permissões de controlo de acesso desalinhadas da spec (Managers/Approvers com acesso mais amplo do que documentado) e funcionalidade documentada na spec mas não implementada (Password reset, API Keys, bulk-approve workflow, flusos multi-etapa). Nenhum código órfão do tipo `@InjectRepository` nunca utilizado foi encontrado nesta ronda — o padrão já corrigido em fases anteriores (R-047, R-038) não se repetiu.
 
-**Atualização 2026-08-17:** os 4 achados Críticos foram corrigidos (ver secção abaixo). 451/451 testes unitários e 51/51 e2e a passar após as correções.
+**Atualização 2026-08-17 00:17:** os 4 achados Críticos foram corrigidos (ver secção abaixo). 451/451 testes unitários e 51/51 e2e a passar após as correções.
 
 ## Estado dos Testes
 
-| Tipo                | Ficheiros | Testes                 | Estado            |
-| ------------------- | --------- | ---------------------- | ----------------- |
-| Unitários (backend) | 35        | 439 → 451 (2026-08-17) | ✅ Todos a passar |
-| E2E (backend)       | 7         | 51                     | ✅ Todos a passar |
+| Tipo                | Ficheiros | Testes                       | Estado            |
+| ------------------- | --------- | ---------------------------- | ----------------- |
+| Unitários (backend) | 35        | 439 → 451 (2026-08-17 00:17) | ✅ Todos a passar |
+| E2E (backend)       | 7         | 51                           | ✅ Todos a passar |
 
 ## Achados por Severidade
 
 ### Crítico (segurança, perda/corrupção de dados, bypass de permissões)
 
-Todos os 4 achados desta secção foram corrigidos em 2026-08-17.
+Todos os 4 achados desta secção foram corrigidos em 2026-08-17 00:17.
 
-- ~~**[Documents] Qualquer utilizador autenticado pode ler qualquer documento, incluindo privados.**~~ **RESOLVIDO.** Não existia verificação de ownership/privacidade em `GET /documents/:id` nem em `GET /documents`. `DocumentsService.findOne`/`findAll` (e `getFileStream`, usado pelo download) passaram a receber `roles`/`userId` e aplicam a matriz da spec: Admin vê tudo; Manager vê públicos + privados da própria equipa (via `Employee.managerId`); Employee/Approver vê públicos + próprios. Documento inacessível devolve 404 (não revela existência). Evidência: `backend/src/documents/services/documents.service.ts` (`findOne`, `findAll`, `assertVisible`, `resolveVisibleOwnerIds`), `backend/src/documents/documents.controller.ts:56-90`. Testes: `documents.service.spec.ts` (`findOne (controlo de acesso)`, `findAll`).
+- ~~**[Documents] Qualquer utilizador autenticado pode ler qualquer documento, incluindo privados.**~~ **RESOLVIDO (2026-08-17 00:17).** Não existia verificação de ownership/privacidade em `GET /documents/:id` nem em `GET /documents`. `DocumentsService.findOne`/`findAll` (e `getFileStream`, usado pelo download) passaram a receber `roles`/`userId` e aplicam a matriz da spec: Admin vê tudo; Manager vê públicos + privados da própria equipa (via `Employee.managerId`); Employee/Approver vê públicos + próprios. Documento inacessível devolve 404 (não revela existência). Evidência: `backend/src/documents/services/documents.service.ts` (`findOne`, `findAll`, `assertVisible`, `resolveVisibleOwnerIds`), `backend/src/documents/documents.controller.ts:56-90`. Testes: `documents.service.spec.ts` (`findOne (controlo de acesso)`, `findAll`).
 
-- ~~**[Documents] Gestão de lixeira acessível a todos os papéis, spec restringe a Admin.**~~ **RESOLVIDO.** `DELETE /documents/:id` e `POST /documents/:id/restore` passaram de `@Roles(ADMIN, MANAGER, EMPLOYEE)` para `@Roles(ADMIN)`. Evidência: `backend/src/documents/documents.controller.ts:86-95`.
+- ~~**[Documents] Gestão de lixeira acessível a todos os papéis, spec restringe a Admin.**~~ **RESOLVIDO (2026-08-17 00:17).** `DELETE /documents/:id` e `POST /documents/:id/restore` passaram de `@Roles(ADMIN, MANAGER, EMPLOYEE)` para `@Roles(ADMIN)`. Evidência: `backend/src/documents/documents.controller.ts:86-95`.
 
-- ~~**[Expenses] Filtro por mês usa `-31` hardcoded, quebra para meses com menos de 31 dias.**~~ **RESOLVIDO.** Substituído por um helper `lastDayOfMonth(year, month)` (mesmo padrão já usado em `reports`, `capacity` e `analytics`) que calcula o último dia real do mês. Evidência: `backend/src/expenses/services/expenses.service.ts:462-464,547-555`.
+- ~~**[Expenses] Filtro por mês usa `-31` hardcoded, quebra para meses com menos de 31 dias.**~~ **RESOLVIDO (2026-08-17 00:17).** Substituído por um helper `lastDayOfMonth(year, month)` (mesmo padrão já usado em `reports`, `capacity` e `analytics`) que calcula o último dia real do mês. Evidência: `backend/src/expenses/services/expenses.service.ts:462-464,547-555`.
 
-- ~~**[Auth] `resetPassword` é um no-op.**~~ **RESOLVIDO.** Implementado o fluxo UC-AUTH-003 completo: `resetPassword(email)` gera um token aleatório de 32 bytes, guarda o hash SHA-256 em `password_reset_tokens` com TTL de 1h, e envia email via `NotificationsService` (novo template `password-reset`). Novo endpoint `POST /auth/password/reset/confirm` (`ConfirmResetPasswordDto`) valida o token (existe, não usado, não expirado), atualiza a password, marca o token como usado e revoga todas as sessões ativas do utilizador — replica o comportamento já existente em `changePassword`. Eventos de auditoria `PASSWORD_RESET_REQUESTED`/`PASSWORD_RESET_COMPLETED` registados via `AuditService`. Evidência: `backend/src/auth/services/auth.service.ts` (`resetPassword`, `confirmResetPassword`), `backend/src/auth/auth.controller.ts:160-176`. Testes: `auth.service.spec.ts` (`resetPassword`, `confirmResetPassword`). **Nota:** BR-AUTH-006 (bloqueio de reutilização de passwords antigas) continua por implementar — ver achado Alto correspondente.
+- ~~**[Auth] `resetPassword` é um no-op.**~~ **RESOLVIDO (2026-08-17 00:17).** Implementado o fluxo UC-AUTH-003 completo: `resetPassword(email)` gera um token aleatório de 32 bytes, guarda o hash SHA-256 em `password_reset_tokens` com TTL de 1h, e envia email via `NotificationsService` (novo template `password-reset`). Novo endpoint `POST /auth/password/reset/confirm` (`ConfirmResetPasswordDto`) valida o token (existe, não usado, não expirado), atualiza a password, marca o token como usado e revoga todas as sessões ativas do utilizador — replica o comportamento já existente em `changePassword`. Eventos de auditoria `PASSWORD_RESET_REQUESTED`/`PASSWORD_RESET_COMPLETED` registados via `AuditService`. Evidência: `backend/src/auth/services/auth.service.ts` (`resetPassword`, `confirmResetPassword`), `backend/src/auth/auth.controller.ts:160-176`. Testes: `auth.service.spec.ts` (`resetPassword`, `confirmResetPassword`). **Nota:** BR-AUTH-006 (bloqueio de reutilização de passwords antigas) continua por implementar — ver achado Alto correspondente.
 
 ### Alto (funcionalidade documentada que não funciona; regra de negócio não aplicada)
 
@@ -125,7 +125,7 @@ Todos os 4 achados desta secção foram corrigidos em 2026-08-17.
 
 Estado: Precisa de atenção
 
-- ~~Crítico: `resetPassword` é no-op~~ **RESOLVIDO 2026-08-17** — fluxo UC-AUTH-003 completo com token, email e endpoint de confirmação (`auth.service.ts`)
+- ~~Crítico: `resetPassword` é no-op~~ **RESOLVIDO 2026-08-17 00:17** — fluxo UC-AUTH-003 completo com token, email e endpoint de confirmação (`auth.service.ts`)
 - Alto: JWT HMAC em vez de RSA (`jwt.service.ts:41`)
 - Alto: BR-AUTH-006 (reutilização password) não implementado
 - Médio: `configService` injetado mas não utilizado (`auth.controller.ts:42`)
@@ -200,7 +200,7 @@ Estado: Precisa de atenção
 
 Estado: Precisa de atenção
 
-- ~~Crítico: Filtro por mês com `-31` hardcoded~~ **RESOLVIDO 2026-08-17** (`expenses.service.ts:462-464`)
+- ~~Crítico: Filtro por mês com `-31` hardcoded~~ **RESOLVIDO 2026-08-17 00:17** (`expenses.service.ts:462-464`)
 - Alto: APPROVER com acesso demasiado amplo (`expenses.controller.ts:48-79,91-116`)
 - Testes: ✅ Unitários (16 testes), ❌ Sem e2e
 - Segurança: JwtAuthGuard + RolesGuard presentes ✅
@@ -209,8 +209,8 @@ Estado: Precisa de atenção
 
 Estado: Achados menores (críticos resolvidos)
 
-- ~~Crítico: Sem verificação de ownership/privacidade~~ **RESOLVIDO 2026-08-17** (`documents.service.ts`)
-- ~~Crítico: Lixeira acessível a todos, spec diz Admin only~~ **RESOLVIDO 2026-08-17** (`documents.controller.ts:86-95`)
+- ~~Crítico: Sem verificação de ownership/privacidade~~ **RESOLVIDO 2026-08-17 00:17** (`documents.service.ts`)
+- ~~Crítico: Lixeira acessível a todos, spec diz Admin only~~ **RESOLVIDO 2026-08-17 00:17** (`documents.controller.ts:86-95`)
 - Testes: ✅ Unitários (20 testes), ❌ Sem e2e
 - Segurança: JwtAuthGuard presente ✅, controlo de acesso por ownership/equipa implementado ✅
 
