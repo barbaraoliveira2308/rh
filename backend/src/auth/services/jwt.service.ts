@@ -24,13 +24,18 @@ export class JwtService {
     this.refreshExpiresIn = configService.get<string>('JWT_REFRESH_EXPIRES_IN', '7d');
   }
 
-  generateAccessToken(user: Pick<User, 'id' | 'email' | 'username'>, roles: string[]): string {
+  generateAccessToken(
+    user: Pick<User, 'id' | 'email' | 'username'>,
+    roles: string[],
+    mfaSetupRequired = false,
+  ): string {
     const payload: Omit<JwtPayload, 'iat' | 'exp'> = {
       sub: user.id,
       email: user.email,
       username: user.username,
       roles,
       jti: crypto.randomUUID(),
+      ...(mfaSetupRequired ? { mfaSetupRequired: true } : {}),
     };
 
     return jwt.sign(payload, this.accessSecret, {
@@ -50,9 +55,13 @@ export class JwtService {
     });
   }
 
-  generateTokenPair(user: Pick<User, 'id' | 'email' | 'username'>, roles: string[]): TokenPair {
+  generateTokenPair(
+    user: Pick<User, 'id' | 'email' | 'username'>,
+    roles: string[],
+    mfaSetupRequired = false,
+  ): TokenPair {
     return {
-      accessToken: this.generateAccessToken(user, roles),
+      accessToken: this.generateAccessToken(user, roles, mfaSetupRequired),
       refreshToken: this.generateRefreshToken(user),
     };
   }

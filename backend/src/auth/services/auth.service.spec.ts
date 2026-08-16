@@ -77,7 +77,11 @@ describe('AuthService', () => {
       get: jest.fn().mockReturnValue('http://localhost:3000'),
     };
     mockAdminService = {
-      getSettings: jest.fn().mockResolvedValue({ maxLoginAttempts: 5, lockoutPeriodMinutes: 15 }),
+      getSettings: jest.fn().mockResolvedValue({
+        maxLoginAttempts: 5,
+        lockoutPeriodMinutes: 15,
+        mfaRequiredForAdmin: true,
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -190,6 +194,68 @@ describe('AuthService', () => {
       expect(mockSessionRepo.save).toHaveBeenCalled();
       expect(mockCacheService.set).toHaveBeenCalledTimes(2);
     });
+
+    it('deve gerar um token de âmbito limitado para admin sem MFA quando mfaRequiredForAdmin está ativo', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ ...baseUser });
+      mockUserRoleRepo.find.mockResolvedValue([{ role: { name: 'admin' } }]);
+
+      await service.login(testEmail, 'secret');
+
+      expect(mockJwtService.generateTokenPair).toHaveBeenCalledWith(
+        expect.anything(),
+        ['admin'],
+        true,
+      );
+    });
+
+    it('não deve restringir o token de um admin que já tem MFA ativo', async () => {
+      mockUserRepo.findOne.mockResolvedValue({
+        ...baseUser,
+        mfaEnabled: true,
+        mfaSecret: 'secret',
+      });
+      mockUserRoleRepo.find.mockResolvedValue([{ role: { name: 'admin' } }]);
+      mockMfaService.validateToken.mockReturnValue(true);
+
+      await service.login(testEmail, 'secret', '123456');
+
+      expect(mockJwtService.generateTokenPair).toHaveBeenCalledWith(
+        expect.anything(),
+        ['admin'],
+        false,
+      );
+    });
+
+    it('não deve restringir o token de um utilizador não-admin sem MFA', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ ...baseUser });
+      mockUserRoleRepo.find.mockResolvedValue([{ role: { name: 'employee' } }]);
+
+      await service.login(testEmail, 'secret');
+
+      expect(mockJwtService.generateTokenPair).toHaveBeenCalledWith(
+        expect.anything(),
+        ['employee'],
+        false,
+      );
+    });
+
+    it('não deve restringir o token quando mfaRequiredForAdmin está desativado', async () => {
+      mockAdminService.getSettings.mockResolvedValue({
+        maxLoginAttempts: 5,
+        lockoutPeriodMinutes: 15,
+        mfaRequiredForAdmin: false,
+      });
+      mockUserRepo.findOne.mockResolvedValue({ ...baseUser });
+      mockUserRoleRepo.find.mockResolvedValue([{ role: { name: 'admin' } }]);
+
+      await service.login(testEmail, 'secret');
+
+      expect(mockJwtService.generateTokenPair).toHaveBeenCalledWith(
+        expect.anything(),
+        ['admin'],
+        false,
+      );
+    });
   });
 
   describe('logout', () => {
@@ -235,6 +301,22 @@ describe('AuthService', () => {
         { tokenHash: 'hash(new-access-token)' },
       );
       expect(mockCacheService.del).toHaveBeenCalledWith('refresh:hash(refresh-token)');
+    });
+
+    it('deve recalcular o âmbito limitado do token para um admin sem MFA', async () => {
+      mockCacheService.get.mockResolvedValue(
+        JSON.stringify({ userId: 'user-1', sessionId: 'session-1' }),
+      );
+      mockUserRepo.findOneBy.mockResolvedValue({ ...baseUser });
+      mockUserRoleRepo.find.mockResolvedValue([{ role: { name: 'admin' } }]);
+
+      await service.refresh('refresh-token');
+
+      expect(mockJwtService.generateAccessToken).toHaveBeenCalledWith(
+        expect.anything(),
+        ['admin'],
+        true,
+      );
     });
   });
 

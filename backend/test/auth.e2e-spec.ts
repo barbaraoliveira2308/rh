@@ -22,6 +22,7 @@ describe('Auth (e2e)', () => {
     await dataSource.initialize();
 
     await rbacSeed(dataSource);
+    await dataSource.getRepository('SystemSetting').save({});
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -145,8 +146,34 @@ describe('Auth (e2e)', () => {
     });
   });
 
+  describe('MFA obrigatório para Admin (mfaRequiredForAdmin)', () => {
+    it('deve devolver um token de âmbito limitado que permite /auth/me mas bloqueia outras rotas protegidas', async () => {
+      const loginRes = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ email: 'admin@hr-suite.local', password: 'Admin123!' })
+        .expect(200);
+
+      const accessToken = loginRes.body.accessToken;
+
+      await request(app.getHttpServer())
+        .get('/api/auth/me')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post('/api/auth/password/change')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ oldPassword: 'Admin123!', newPassword: 'NewPass123!' })
+        .expect(403);
+    });
+  });
+
   describe('POST /api/auth/password/change', () => {
     it('should change password successfully', async () => {
+      const settingsRepo = dataSource.getRepository('SystemSetting');
+      const [settings] = (await settingsRepo.find({ take: 1 })) as Array<{ id: string }>;
+      await settingsRepo.update(settings.id, { mfaRequiredForAdmin: false });
+
       const loginRes = await request(app.getHttpServer())
         .post('/api/auth/login')
         .send({ email: 'admin@hr-suite.local', password: 'Admin123!' })

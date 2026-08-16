@@ -1,6 +1,7 @@
 import { Global, Module, Logger } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PassportModule } from '@nestjs/passport';
+import { Reflector } from '@nestjs/core';
 import { AuthController } from './auth.controller';
 import { AuthService } from './services/auth.service';
 import { JwtService, EncryptionService } from './services';
@@ -52,13 +53,21 @@ import {
     RateLimitGuard,
     {
       provide: JwtAuthGuard,
-      useFactory: (jwtService: JwtService, cacheService: CacheService): JwtAuthGuard => {
-        return new JwtAuthGuard(jwtService, {
-          isSessionActive: (tokenHash: string) => cacheService.exists(`session:${tokenHash}`),
-          invalidateSession: (tokenHash: string) => cacheService.del(`session:${tokenHash}`),
-        });
+      useFactory: (
+        jwtService: JwtService,
+        cacheService: CacheService,
+        reflector: Reflector,
+      ): JwtAuthGuard => {
+        return new JwtAuthGuard(
+          jwtService,
+          {
+            isSessionActive: (tokenHash: string) => cacheService.exists(`session:${tokenHash}`),
+            invalidateSession: (tokenHash: string) => cacheService.del(`session:${tokenHash}`),
+          },
+          reflector,
+        );
       },
-      inject: [JwtService, CacheService],
+      inject: [JwtService, CacheService, Reflector],
     },
     {
       provide: SESSION_VALIDATOR,

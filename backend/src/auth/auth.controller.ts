@@ -29,6 +29,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RateLimitGuard } from './guards/rate-limit.guard';
 import { AuthAuditInterceptor } from './interceptors/auth-audit.interceptor';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
+import { AllowMfaSetup } from './decorators';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -84,6 +85,7 @@ export class AuthController {
 
   @Post('logout')
   @UseGuards(JwtAuthGuard)
+  @AllowMfaSetup()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Terminar sessão' })
   @HttpCode(HttpStatus.OK)
@@ -109,6 +111,7 @@ export class AuthController {
 
   @Post('mfa/enable')
   @UseGuards(JwtAuthGuard)
+  @AllowMfaSetup()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Iniciar configuração MFA' })
   @HttpCode(HttpStatus.OK)
@@ -119,6 +122,7 @@ export class AuthController {
 
   @Post('mfa/verify')
   @UseGuards(JwtAuthGuard)
+  @AllowMfaSetup()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Verificar código MFA e ativar' })
   @HttpCode(HttpStatus.OK)
@@ -163,6 +167,7 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
+  @AllowMfaSetup()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Obter perfil do utilizador autenticado' })
   @HttpCode(HttpStatus.OK)

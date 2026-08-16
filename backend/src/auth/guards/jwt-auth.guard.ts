@@ -3,11 +3,14 @@ import {
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
+  ForbiddenException,
   Inject,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { JwtService } from '../services/jwt.service';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
+import { ALLOW_MFA_SETUP_KEY } from '../decorators/allow-mfa-setup.decorator';
 
 export interface SessionValidator {
   isSessionActive(tokenHash: string): Promise<boolean>;
@@ -22,6 +25,7 @@ export class JwtAuthGuard implements CanActivate {
     private readonly jwtService: JwtService,
     @Inject(SESSION_VALIDATOR)
     private readonly sessionValidator: SessionValidator,
+    private readonly reflector: Reflector,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -42,6 +46,19 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     request.user = payload;
+
+    if (payload.mfaSetupRequired) {
+      const allowsMfaSetup = this.reflector.getAllAndOverride<boolean | undefined>(
+        ALLOW_MFA_SETUP_KEY,
+        [context.getHandler(), context.getClass()],
+      );
+
+      if (!allowsMfaSetup) {
+        throw new ForbiddenException(
+          'Configuração de MFA obrigatória antes de aceder a este recurso',
+        );
+      }
+    }
 
     return true;
   }

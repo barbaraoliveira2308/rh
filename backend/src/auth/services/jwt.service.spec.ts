@@ -50,6 +50,18 @@ describe('JwtService', () => {
       expect(payload.username).toBe(mockUser.username);
       expect(payload.roles).toEqual(mockRoles);
     });
+
+    it('should not include mfaSetupRequired claim by default', () => {
+      const token = service.generateAccessToken(mockUser, mockRoles);
+      const payload = service.verifyAccessToken(token);
+      expect(payload.mfaSetupRequired).toBeUndefined();
+    });
+
+    it('should include mfaSetupRequired claim when requested', () => {
+      const token = service.generateAccessToken(mockUser, mockRoles, true);
+      const payload = service.verifyAccessToken(token);
+      expect(payload.mfaSetupRequired).toBe(true);
+    });
   });
 
   describe('generateRefreshToken', () => {
@@ -74,6 +86,12 @@ describe('JwtService', () => {
       expect(pair.accessToken).toBeDefined();
       expect(pair.refreshToken).toBeDefined();
       expect(pair.accessToken).not.toBe(pair.refreshToken);
+    });
+
+    it('should propagate mfaSetupRequired into the access token', () => {
+      const pair = service.generateTokenPair(mockUser, mockRoles, true);
+      const payload = service.verifyAccessToken(pair.accessToken);
+      expect(payload.mfaSetupRequired).toBe(true);
     });
   });
 

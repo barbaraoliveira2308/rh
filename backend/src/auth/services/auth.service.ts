@@ -102,7 +102,9 @@ export class AuthService {
     });
     const roles = userRoles.map((ur) => ur.role.name);
 
-    const tokens = this.jwtService.generateTokenPair(user, roles);
+    const mfaSetupRequired = await this.isMfaSetupRequired(user, roles);
+
+    const tokens = this.jwtService.generateTokenPair(user, roles, mfaSetupRequired);
 
     const accessHash = this.jwtService.computeTokenHash(tokens.accessToken);
     const refreshHash = this.jwtService.computeTokenHash(tokens.refreshToken);
@@ -162,7 +164,9 @@ export class AuthService {
     });
     const roles = userRoles.map((ur) => ur.role.name);
 
-    const newAccessToken = this.jwtService.generateAccessToken(user, roles);
+    const mfaSetupRequired = await this.isMfaSetupRequired(user, roles);
+
+    const newAccessToken = this.jwtService.generateAccessToken(user, roles, mfaSetupRequired);
     const newRefreshToken = this.jwtService.generateRefreshToken(user);
 
     const newAccessHash = this.jwtService.computeTokenHash(newAccessToken);
@@ -347,6 +351,17 @@ export class AuthService {
       accessToken: internalTokens.accessToken,
       refreshToken: internalTokens.refreshToken,
     };
+  }
+
+  private async isMfaSetupRequired(
+    user: Pick<User, 'mfaEnabled'>,
+    roles: string[],
+  ): Promise<boolean> {
+    if (user.mfaEnabled || !roles.includes('admin')) {
+      return false;
+    }
+    const settings = await this.adminService.getSettings();
+    return settings.mfaRequiredForAdmin;
   }
 
   private async handleFailedLogin(user: User): Promise<void> {

@@ -530,7 +530,7 @@ Feature: Login com credenciais válidas
 - **API Keys:** existe a entidade `ApiKey`, mas não há serviço, controlador nem endpoints para criação/gestão de API keys.
 - **RBAC:** roles e permissões são carregadas via seed, mas não existem endpoints para gestão de roles, permissões ou atribuições de utilizadores.
 - **Histórico de passwords:** não implementada validação de reutilização das últimas 5 passwords.
-- **MFA obrigatório:** não existe validação automática que force MFA para perfis `admin`/`manager` no login.
+- **MFA obrigatório:** ~~não existe validação automática que force MFA para perfis `admin`/`manager` no login.~~ **Resolvido em P-059** (via `mfaRequiredForAdmin`, `admin/SPEC.md`) — só para o perfil `admin`, não `manager` (decisão P059-01, o setting fala literalmente só em "Admin"; a divergência com BR-AUTH-001 abaixo, que menciona também "Gestor", foi resolvida a favor do nome do parâmetro). Ver `admin/SPEC.md` ("Wiring de Admin Settings ao runtime — Grupo C, `mfaRequiredForAdmin`") para o detalhe completo do mecanismo (token JWT de âmbito limitado, sem redirecionamento de frontend — decisão P059-04, só backend). Aplica-se só ao login local por password; `ssoLogin()`/Keycloak não é afetado.
 - **Códigos de recuperação MFA:** não gerados nem expostos ao utilizador.
 
 ### Testes

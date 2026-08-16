@@ -36,6 +36,7 @@ describe('Timesheet Full Cycle (e2e)', () => {
     await dataSource.initialize();
 
     await rbacSeed(dataSource);
+    await dataSource.getRepository('SystemSetting').save({ mfaRequiredForAdmin: false });
 
     const userRepo = dataSource.getRepository('User');
     const roleRepo = dataSource.getRepository('Role');
