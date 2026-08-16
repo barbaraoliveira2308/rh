@@ -5,6 +5,7 @@ import * as client from 'prom-client';
 import { SystemSetting } from './entities/system-setting.entity';
 import { LegalEntity } from './entities/legal-entity.entity';
 import { User } from '../auth/entities/user.entity';
+import { Contract, ContractStatus } from '../contracts/entities/contract.entity';
 import { UpdateSystemSettingsDto } from './dto/update-system-settings.dto';
 import { CreateLegalEntityDto } from './dto/create-legal-entity.dto';
 import { UpdateLegalEntityDto } from './dto/update-legal-entity.dto';
@@ -23,6 +24,8 @@ export class AdminService {
     private readonly legalEntityRepository: Repository<LegalEntity>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Contract)
+    private readonly contractRepository: Repository<Contract>,
     private readonly rbacService: RbacService,
   ) {
     this.registry = new client.Registry();
@@ -67,6 +70,14 @@ export class AdminService {
     }
     Object.assign(entity, dto);
     return this.legalEntityRepository.save(entity);
+  }
+
+  async getEffectiveLegalEntity(employeeId: string): Promise<LegalEntity | null> {
+    const contract = await this.contractRepository.findOne({
+      where: { employeeId, status: ContractStatus.ACTIVE },
+      relations: ['legalEntity'],
+    });
+    return contract?.legalEntity ?? null;
   }
 
   async createUser(dto: CreateUserDto, assignedBy: string): Promise<User> {

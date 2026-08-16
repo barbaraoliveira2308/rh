@@ -133,6 +133,7 @@ describe('AbsencesService', () => {
       getSettings: jest
         .fn()
         .mockResolvedValue({ defaultVacationDaysPerYear: 22, carryOverVacationDays: 5 }),
+      getEffectiveLegalEntity: jest.fn().mockResolvedValue(null),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -766,6 +767,27 @@ describe('AbsencesService', () => {
 
       expect(created).toBe(0);
       expect(mockBalanceRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('usa vacationDaysPerYearOverride da LegalEntity do colaborador em vez do default global', async () => {
+      jest.useFakeTimers().setSystemTime(new Date(2026, 0, 1));
+      mockTypeRepo.findOne.mockResolvedValue(mockVacationType);
+      mockEmployeeRepo.find.mockResolvedValue([
+        Object.assign({}, mockEmployee, { employmentStartDate: '2020-05-10' }),
+      ]);
+      mockBalanceRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+      mockBalanceRepo.create.mockImplementation((data: unknown) => data);
+      mockBalanceRepo.save.mockResolvedValue(undefined);
+      mockAdminService.getEffectiveLegalEntity.mockResolvedValue({
+        vacationDaysPerYearOverride: 25,
+      });
+
+      await service.generateAnnualLeaveBalances();
+
+      expect(mockAdminService.getEffectiveLegalEntity).toHaveBeenCalledWith('emp-1');
+      expect(mockBalanceRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ entitledDays: 25 }),
+      );
     });
   });
 });

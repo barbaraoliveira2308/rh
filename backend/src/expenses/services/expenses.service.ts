@@ -58,6 +58,8 @@ export class ExpensesService {
     }
 
     const settings = await this.adminService.getSettings();
+    const legalEntity = await this.adminService.getEffectiveLegalEntity(employeeId);
+    const defaultCurrency = legalEntity?.currency ?? settings.defaultCurrency;
 
     const report = this.reportRepository.create({
       employeeId,
@@ -66,7 +68,7 @@ export class ExpensesService {
       periodEnd: dto.periodEnd,
       status: ExpenseReportStatus.DRAFT,
       totalAmount: 0,
-      currency: dto.items?.[0]?.currency ?? settings.defaultCurrency,
+      currency: dto.items?.[0]?.currency ?? defaultCurrency,
       projectId: dto.projectId ?? null,
       notes: dto.notes ?? null,
     });
@@ -111,13 +113,15 @@ export class ExpensesService {
     }
 
     const settings = await this.adminService.getSettings();
+    const legalEntity = await this.adminService.getEffectiveLegalEntity(report.employeeId);
+    const defaultCurrency = legalEntity?.currency ?? settings.defaultCurrency;
 
     const item = this.itemRepository.create({
       reportId,
       categoryId: itemDto.categoryId,
       description: itemDto.description,
       amount: itemDto.amount,
-      currency: itemDto.currency ?? settings.defaultCurrency,
+      currency: itemDto.currency ?? defaultCurrency,
       expenseDate: itemDto.expenseDate,
       receiptUrl: itemDto.receiptUrl ?? null,
       isDuplicate: false,

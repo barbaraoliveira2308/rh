@@ -8,6 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Employee } from '../../users/entities/employee.entity';
+import { LegalEntity } from '../../admin/entities/legal-entity.entity';
 import { ContractRenewal } from './contract-renewal.entity';
 
 export enum ContractType {
@@ -56,6 +57,9 @@ export class Contract {
   @Column({ name: 'contracting_entity', type: 'varchar', length: 200, nullable: false })
   contractingEntity: string;
 
+  @Column({ name: 'legal_entity_id', type: 'uuid', nullable: true })
+  legalEntityId: string | null;
+
   @Column({ name: 'renewal_alert_days', type: 'int', default: 30 })
   renewalAlertDays: number;
 
@@ -77,6 +81,10 @@ export class Contract {
   @ManyToOne(() => Employee, { nullable: false })
   @JoinColumn({ name: 'employee_id' })
   employee: Employee;
+
+  @ManyToOne(() => LegalEntity, { nullable: true })
+  @JoinColumn({ name: 'legal_entity_id' })
+  legalEntity: LegalEntity | null;
 
   @OneToMany(() => ContractRenewal, (renewal) => renewal.contract)
   renewals: ContractRenewal[];

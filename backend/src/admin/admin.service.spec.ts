@@ -5,6 +5,7 @@ import { AdminService } from './admin.service';
 import { SystemSetting } from './entities/system-setting.entity';
 import { LegalEntity } from './entities/legal-entity.entity';
 import { User } from '../auth/entities/user.entity';
+import { Contract } from '../contracts/entities/contract.entity';
 import { RbacService } from '../rbac/services/rbac.service';
 import { RoleEnum } from '../rbac/enums/role.enum';
 
@@ -13,6 +14,7 @@ describe('AdminService', () => {
   let mockSettingsRepo: Record<string, jest.Mock>;
   let mockLegalEntityRepo: Record<string, jest.Mock>;
   let mockUserRepo: Record<string, jest.Mock>;
+  let mockContractRepo: Record<string, jest.Mock>;
   let mockRbacService: Record<string, jest.Mock>;
 
   beforeEach(async () => {
@@ -31,6 +33,9 @@ describe('AdminService', () => {
       create: jest.fn((data: Partial<User>) => data),
       save: jest.fn((data: Partial<User>) => Promise.resolve({ id: 'u-new', ...data })),
     };
+    mockContractRepo = {
+      findOne: jest.fn(),
+    };
     mockRbacService = {
       assignRoleByName: jest.fn().mockResolvedValue(undefined),
     };
@@ -41,6 +46,7 @@ describe('AdminService', () => {
         { provide: getRepositoryToken(SystemSetting), useValue: mockSettingsRepo },
         { provide: getRepositoryToken(LegalEntity), useValue: mockLegalEntityRepo },
         { provide: getRepositoryToken(User), useValue: mockUserRepo },
+        { provide: getRepositoryToken(Contract), useValue: mockContractRepo },
         { provide: RbacService, useValue: mockRbacService },
       ],
     }).compile();
@@ -111,6 +117,35 @@ describe('AdminService', () => {
       const result = await service.updateLegalEntity('le-1', { isActive: false });
 
       expect(result.isActive).toBe(false);
+    });
+  });
+
+  describe('getEffectiveLegalEntity', () => {
+    it('deve devolver a LegalEntity do contrato ativo do colaborador', async () => {
+      mockContractRepo.findOne.mockResolvedValue({
+        id: 'c-1',
+        legalEntity: { id: 'le-1', currency: 'USD' },
+      });
+
+      const result = await service.getEffectiveLegalEntity('emp-1');
+
+      expect(result?.currency).toBe('USD');
+    });
+
+    it('deve devolver null se o colaborador não tiver contrato ativo', async () => {
+      mockContractRepo.findOne.mockResolvedValue(null);
+
+      const result = await service.getEffectiveLegalEntity('emp-1');
+
+      expect(result).toBeNull();
+    });
+
+    it('deve devolver null se o contrato ativo não estiver ligado a nenhuma LegalEntity', async () => {
+      mockContractRepo.findOne.mockResolvedValue({ id: 'c-1', legalEntity: null });
+
+      const result = await service.getEffectiveLegalEntity('emp-1');
+
+      expect(result).toBeNull();
     });
   });
 

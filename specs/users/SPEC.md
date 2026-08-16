@@ -426,3 +426,5 @@ Novos `RbacService.assignRoleByName(userId, roleName, assignedBy)`/`revokeRoleBy
 | Q-USR-003 | Existe integração com Active Directory para sincronização de utilizadores?       | Alta       |
 | Q-USR-004 | O organograma deve suportar múltiplas entidades legais (Bridge351 vs NIVVOS)?    | Alta       |
 | Q-USR-005 | Um colaborador pode pertencer a mais do que um departamento?                     | Média      |
+
+**`Q-USR-004` parcialmente resolvida em P-069** (ao ligar `LegalEntity` ao runtime — ver `specs/admin/SPEC.md`, secção "Ligar LegalEntity ao runtime", e `specs/contracts/SPEC.md`): `Contract` passa a ter um `legalEntityId` opcional, e os campos da `LegalEntity` ligada têm efeito real em runtime (moeda de despesas via `ExpensesService`, dias de férias via `AbsencesService`). O organograma em si (`GET /users/:id/org-chart`, `getOrganizationChart()`) continua sem qualquer noção de entidade legal — fora do âmbito de P-069, que tratou só do wiring ao nível de `Contract`/Admin Settings.

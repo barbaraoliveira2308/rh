@@ -546,10 +546,14 @@ export class AbsencesService {
 
       if (existing) continue;
 
+      const legalEntity = await this.adminService.getEffectiveLegalEntity(employee.id);
+      const vacationDaysPerYear =
+        legalEntity?.vacationDaysPerYearOverride ?? settings.defaultVacationDaysPerYear;
+
       const entitledDays = this.computeEntitledVacationDays(
         employee.employmentStartDate,
         year,
-        settings.defaultVacationDaysPerYear,
+        vacationDaysPerYear,
       );
 
       if (entitledDays <= 0) continue;

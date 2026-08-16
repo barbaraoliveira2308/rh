@@ -1,4 +1,12 @@
-import { IsString, IsOptional, IsEnum, IsNumber, IsDateString, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsUUID,
+  IsEnum,
+  IsNumber,
+  IsDateString,
+  MaxLength,
+} from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { ContractType, ContractStatus } from '../entities/contract.entity';
 
@@ -39,6 +47,11 @@ export class UpdateContractDto {
   @IsString()
   @MaxLength(200)
   contractingEntity?: string;
+
+  @ApiPropertyOptional({ description: 'ID da entidade legal (LegalEntity)' })
+  @IsOptional()
+  @IsUUID()
+  legalEntityId?: string;
 
   @ApiPropertyOptional({ description: 'Dias para alerta de renovação' })
   @IsOptional()

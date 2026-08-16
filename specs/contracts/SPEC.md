@@ -8,23 +8,24 @@ Gerir o ciclo de vida contratual dos colaboradores e prestadores, com alertas de
 
 ### Contract
 
-| Campo              | Tipo          | Validação                              | Notas               |
-| ------------------ | ------------- | -------------------------------------- | ------------------- |
-| id                 | UUID          | PK                                     | —                   |
-| employee_id        | UUID          | FK Employee                            | —                   |
-| contract_type      | ENUM          | permanent, fixed_term, freelancer, b2b | —                   |
-| status             | ENUM          | draft, active, expired, terminated     | —                   |
-| start_date         | DATE          | Obrigatório                            | —                   |
-| end_date           | DATE          | Nullable                               | Null para sem termo |
-| value              | DECIMAL(12,2) | Nullable                               | Sensível GDPR       |
-| currency           | VARCHAR(3)    | Default EUR                            | —                   |
-| contracting_entity | VARCHAR(200)  | Obrigatório                            | —                   |
-| renewal_alert_days | INT           | Default 30                             | —                   |
-| document_url       | VARCHAR(512)  | Nullable                               | —                   |
-| notes              | TEXT          | Nullable                               | —                   |
-| created_at         | TIMESTAMP     | Auto                                   | —                   |
-| terminated_at      | TIMESTAMP     | Nullable                               | —                   |
-| termination_reason | TEXT          | Nullable                               | —                   |
+| Campo              | Tipo          | Validação                              | Notas                                           |
+| ------------------ | ------------- | -------------------------------------- | ----------------------------------------------- |
+| id                 | UUID          | PK                                     | —                                               |
+| employee_id        | UUID          | FK Employee                            | —                                               |
+| contract_type      | ENUM          | permanent, fixed_term, freelancer, b2b | —                                               |
+| status             | ENUM          | draft, active, expired, terminated     | —                                               |
+| start_date         | DATE          | Obrigatório                            | —                                               |
+| end_date           | DATE          | Nullable                               | Null para sem termo                             |
+| value              | DECIMAL(12,2) | Nullable                               | Sensível GDPR                                   |
+| currency           | VARCHAR(3)    | Default EUR                            | —                                               |
+| contracting_entity | VARCHAR(200)  | Obrigatório                            | —                                               |
+| legal_entity_id    | UUID          | FK LegalEntity, Nullable               | Adicionado em P-069, ver Notas de Implementação |
+| renewal_alert_days | INT           | Default 30                             | —                                               |
+| document_url       | VARCHAR(512)  | Nullable                               | —                                               |
+| notes              | TEXT          | Nullable                               | —                                               |
+| created_at         | TIMESTAMP     | Auto                                   | —                                               |
+| terminated_at      | TIMESTAMP     | Nullable                               | —                                               |
+| termination_reason | TEXT          | Nullable                               | —                                               |
 
 ## Regras de Negócio
 
@@ -110,6 +111,7 @@ stateDiagram-v2
 ### Simplificações/Decisões
 
 - **`POST /contracts/:id/terminate` implementado em P-067** (descoberto ao investigar como ligar o evento de auditoria `Contracts: Terminated`, `R-044` — ver `specs/audit/SPEC.md` e `specs/GLOBAL-TASKS-RISKS.md`): `ContractsService.terminate(id, dto)` valida que o contrato está `ACTIVE` (mesmo padrão de validação de `renew()`), define `status: TERMINATED`, `terminatedAt: now()` e `terminationReason: dto.reason` (`TerminateContractDto`, campo `reason` obrigatório, alinhado com BR-CON-004). Endpoint restrito a `RoleEnum.ADMIN` (tabela de permissões: "Rescindir contrato" só Administrador). Ao contrário de `renew()`, decorado com `@Audit('Terminated', 'Contract')`. Consistente com `create()`/`renew()` (nenhum dos dois emite os eventos `ContractCreated`/`ContractActivated` listados na tabela "Eventos do Sistema"), `terminate()` também não emite `ContractTerminated` via `EventEmitter2` — decisão deliberada de manter o padrão já existente no módulo, não uma omissão.
+- **`legal_entity_id` adicionado em P-069** (ao ligar `LegalEntity` ao runtime — ver `specs/admin/SPEC.md`, secção "Ligar LegalEntity ao runtime", e `specs/GLOBAL-TASKS-RISKS.md`): novo FK opcional para `hr.legal_entities`, adicionado **a par** de `contracting_entity` (texto livre, decisão P069-03) — não o substitui, sem migração de dados existentes. `CreateContractDto`/`UpdateContractDto` ganham `legalEntityId` opcional, passa através do `dto` genérico já usado por `create()`/`update()` (sem alteração ao service). Quando definido no contrato `ACTIVE` de um colaborador, `AdminService.getEffectiveLegalEntity(employeeId)` resolve a `LegalEntity` correspondente e os seus campos passam a ter efeito real em `ExpensesService` (moeda) e `AbsencesService` (dias de férias) — ver `specs/admin/SPEC.md` para o detalhe completo do override.
 - Não existe endpoint `GET /employees/:id/contracts`.
 - A criação de contrato valida que o colaborador não tem outro contrato `active`, mas não valida transição de estados (p.ex. `draft` → `active`).
 - O campo `value` é guardado em claro; não existe mascaramento GDPR nem controlo de permissão específico para o seu acesso.

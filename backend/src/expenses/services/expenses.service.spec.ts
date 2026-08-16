@@ -128,6 +128,7 @@ describe('ExpensesService', () => {
 
     mockAdminService = {
       getSettings: jest.fn().mockResolvedValue({ defaultCurrency: 'EUR' }),
+      getEffectiveLegalEntity: jest.fn().mockResolvedValue(null),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -145,6 +146,48 @@ describe('ExpensesService', () => {
     }).compile();
 
     service = module.get<ExpensesService>(ExpensesService);
+  });
+
+  describe('addItem', () => {
+    it('deve usar a moeda global por defeito quando o colaborador não tem LegalEntity ligada', async () => {
+      const report = createMockReport('r-1', 'emp-1', []);
+      report.status = ExpenseReportStatus.DRAFT;
+      mockReportRepo.findOne.mockResolvedValue(report);
+      mockCategoryRepo.findOne.mockResolvedValue(mockCategory);
+      mockItemRepo.create.mockImplementation((data: Partial<ExpenseItem>) => data);
+      mockItemRepo.save.mockImplementation((data: Partial<ExpenseItem>) =>
+        Promise.resolve({ id: 'item-1', ...data }),
+      );
+
+      const result = await service.addItem(
+        'r-1',
+        { categoryId: 'cat-1', description: 'Almoço', amount: 10, expenseDate: today },
+        false,
+      );
+
+      expect(result.currency).toBe('EUR');
+    });
+
+    it('deve usar a moeda da LegalEntity do colaborador quando o item não especifica moeda', async () => {
+      const report = createMockReport('r-1', 'emp-1', []);
+      report.status = ExpenseReportStatus.DRAFT;
+      mockReportRepo.findOne.mockResolvedValue(report);
+      mockCategoryRepo.findOne.mockResolvedValue(mockCategory);
+      mockAdminService.getEffectiveLegalEntity.mockResolvedValue({ currency: 'USD' });
+      mockItemRepo.create.mockImplementation((data: Partial<ExpenseItem>) => data);
+      mockItemRepo.save.mockImplementation((data: Partial<ExpenseItem>) =>
+        Promise.resolve({ id: 'item-1', ...data }),
+      );
+
+      const result = await service.addItem(
+        'r-1',
+        { categoryId: 'cat-1', description: 'Almoço', amount: 10, expenseDate: today },
+        false,
+      );
+
+      expect(result.currency).toBe('USD');
+      expect(mockAdminService.getEffectiveLegalEntity).toHaveBeenCalledWith('emp-1');
+    });
   });
 
   describe('detectDuplicates', () => {
