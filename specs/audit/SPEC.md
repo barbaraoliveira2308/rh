@@ -100,3 +100,18 @@ Manter registo imutável de todas as operações realizadas no sistema, garantin
 ### Testes
 
 - Não foram encontrados testes unitários ou e2e dedicados ao módulo de auditoria em `backend/src/audit/`.
+
+### Wiring parcial — módulo Auth (P-062)
+
+**`R-044`** (descoberto em P-058): o mecanismo `@Audit(...)`/`AuditInterceptor` descrito acima nunca foi aplicado a nenhum controller — `hr.audit_logs` estava essencialmente vazia. Investigação em P-062 revelou que existe um **segundo mecanismo de auditoria, distinto e específico do módulo Auth**: `AuthAuditInterceptor` (`backend/src/auth/interceptors/auth-audit.interceptor.ts`), já montado em `AuthController` via `@UseInterceptors(AuthAuditInterceptor)` desde as fases iniciais — mas **completamente inerte**: o provider `AUDIT_EVENT_HANDLER` (que devia persistir os eventos) nunca era injetado no interceptor; este dependia de um método `setHandler()` que ninguém alguma vez chamava, pelo que nem sequer o `logger.log()` original corria.
+
+Escolhido pelo utilizador entre 4 opções de âmbito (decisão P062-01) — **só Auth**, o ponto de partida mais contido, cobrindo os eventos de segurança mais sensíveis da lista mínima da spec (`LOGIN`, `LOGOUT`, `LOGIN_FAILED`, `PASSWORD_CHANGED`, `MFA_ENABLED`). Corrigido:
+
+- `AuthAuditInterceptor` passa a receber `AUDIT_EVENT_HANDLER` via construtor (DI padrão do NestJS), eliminando o padrão `setHandler()` morto.
+- O `AUDIT_EVENT_HANDLER` (`backend/src/auth/auth.module.ts`) passa a injetar `AuditService`/`Repository<User>` (via novo import de `AuditModule`, não `@Global()`) e mapeia o nome do método do controller (`login`/`logout`/`changePassword`/`verifyMfa`) para a ação correspondente, chamando `AuditService.log()` com `entityType: 'User'`, `entityId` = o próprio utilizador.
+- `LOGIN_FAILED` tratado à parte no branch de erro do `tap()` do interceptor (só na rota de login) — resolve o `User` pelo email submetido no corpo do pedido; se não corresponder a nenhum utilizador real, o evento não é persistido (sem entidade real para referenciar, dado `entity_id` ser `uuid NOT NULL` na tabela).
+- 4 novos testes unitários em `backend/src/auth/interceptors/auth-audit.interceptor.spec.ts` (novo ficheiro).
+
+**Verificação em ambiente real completa**: os 5 eventos confirmados via `psql` a escrever corretamente em `hr.audit_logs` (incl. `LOGIN_FAILED` contra o email real do admin com password errada); `GET /audit/logs` (endpoint de leitura já existente, nunca antes exercitado com dados reais) devolveu os eventos corretamente via API. Dados de teste eliminados, admin reposto ao estado original no fecho da sessão.
+
+**Restam por ligar** os ~24 eventos nomeados na spec fora de Auth (Users, Contracts, Absences, Timesheets, Expenses, GDPR não-Auth, Admin) — via o mecanismo genérico `@Audit(...)`/`AuditInterceptor` descrito acima, ainda com zero controllers decorados. Ver `specs/GLOBAL-TASKS-RISKS.md` (`R-044`) para o detalhe.
