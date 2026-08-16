@@ -86,6 +86,49 @@ describe('RbacService', () => {
     });
   });
 
+  describe('assignRoleByName', () => {
+    it('deve lançar NotFoundException se o perfil não existir', async () => {
+      mockRoleRepo.findOneBy.mockResolvedValue(null);
+
+      await expect(service.assignRoleByName('u-1', 'inexistente', 'admin-1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('deve resolver o perfil pelo nome e atribuí-lo ao utilizador', async () => {
+      mockRoleRepo.findOneBy.mockResolvedValue({ id: 'r-1', name: 'manager' });
+      mockUserRoleRepo.findOne.mockResolvedValue(null);
+
+      await service.assignRoleByName('u-1', 'manager', 'admin-1');
+
+      expect(mockRoleRepo.findOneBy).toHaveBeenCalledWith({ name: 'manager' });
+      expect(mockUserRoleRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'u-1', roleId: 'r-1', assignedBy: 'admin-1' }),
+      );
+    });
+  });
+
+  describe('revokeRoleByName', () => {
+    it('deve lançar NotFoundException se o perfil não existir', async () => {
+      mockRoleRepo.findOneBy.mockResolvedValue(null);
+
+      await expect(service.revokeRoleByName('u-1', 'inexistente')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('deve resolver o perfil pelo nome e revogá-lo do utilizador', async () => {
+      mockRoleRepo.findOneBy.mockResolvedValue({ id: 'r-1', name: 'manager' });
+      const userRole = { userId: 'u-1', roleId: 'r-1' };
+      mockUserRoleRepo.findOne.mockResolvedValue(userRole);
+
+      await service.revokeRoleByName('u-1', 'manager');
+
+      expect(mockRoleRepo.findOneBy).toHaveBeenCalledWith({ name: 'manager' });
+      expect(mockUserRoleRepo.remove).toHaveBeenCalledWith(userRole);
+    });
+  });
+
   describe('getUserPermissions', () => {
     it('deve devolver lista vazia se o utilizador não tiver perfis', async () => {
       mockUserRoleRepo.find.mockResolvedValue([]);

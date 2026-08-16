@@ -23,6 +23,7 @@ import { EmployeeFilterDto } from './dto/employee-filter.dto';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { CreateJobTitleDto } from './dto/create-job-title.dto';
+import { AssignRoleDto } from './dto/assign-role.dto';
 import { Department } from './entities/department.entity';
 import { JobTitle } from './entities/job-title.entity';
 import { Employee } from './entities/employee.entity';
@@ -35,6 +36,7 @@ import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { EmployeeIdentityService } from '../auth/services/employee-identity.service';
 import { Audit } from '../audit/decorators';
 import { AuditInterceptor } from '../audit/interceptors/audit.interceptor';
+import { RbacService } from '../rbac/services/rbac.service';
 
 @Controller()
 @ApiTags('Users')
@@ -45,6 +47,7 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly employeeIdentity: EmployeeIdentityService,
+    private readonly rbacService: RbacService,
   ) {}
 
   @Get('users')
@@ -105,6 +108,36 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   async deactivate(@Param('id') id: string, @Body('endDate') endDate?: string): Promise<Employee> {
     return this.usersService.deactivate(id, endDate);
+  }
+
+  @Post('users/:employeeId/roles')
+  @Roles(RoleEnum.ADMIN)
+  @Audit('PermissionChanged', 'User')
+  @ApiOperation({ summary: 'Atribuir perfil de acesso a um colaborador (admin only)' })
+  @HttpCode(HttpStatus.CREATED)
+  async assignRole(
+    @Param('employeeId') employeeId: string,
+    @Body() dto: AssignRoleDto,
+    @Req() req: Request,
+  ): Promise<{ id: string; employeeId: string; role: RoleEnum }> {
+    const employee = await this.usersService.findOne(employeeId);
+    const user = req.user as JwtPayload;
+    await this.rbacService.assignRoleByName(employee.userId, dto.role, user.sub);
+    return { id: employee.userId, employeeId, role: dto.role };
+  }
+
+  @Delete('users/:employeeId/roles/:role')
+  @Roles(RoleEnum.ADMIN)
+  @Audit('RoleChanged', 'User')
+  @ApiOperation({ summary: 'Revogar perfil de acesso de um colaborador (admin only)' })
+  @HttpCode(HttpStatus.OK)
+  async revokeRole(
+    @Param('employeeId') employeeId: string,
+    @Param('role') role: string,
+  ): Promise<{ id: string; employeeId: string; role: string }> {
+    const employee = await this.usersService.findOne(employeeId);
+    await this.rbacService.revokeRoleByName(employee.userId, role);
+    return { id: employee.userId, employeeId, role };
   }
 
   @Get('users/:id/org-chart')

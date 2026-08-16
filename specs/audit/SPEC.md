@@ -154,3 +154,15 @@ Novo `POST /expenses/:id/send-for-payment` (`APPROVED` → `SENT_FOR_PAYMENT`) e
 **Verificação em ambiente real completa**: migração `1831000000000-AddPaidAtToExpenseReports.ts` aplicada com sucesso no container real; relatório de despesas de teste criado, submetido e aprovado via API; `mark-paid` tentado antes de `send-for-payment` corretamente rejeitado (400, máquina de estados respeitada); `send-for-payment` seguido de `mark-paid` confirmados via API (`status: paid`, `paidAt` preenchido); confirmado via `psql` que `hr.audit_logs` só regista `Submitted`/`Approved`/`Paid` — `SentForPayment` corretamente ausente. Dados de teste eliminados, `hr.audit_logs` limpa no fecho da sessão.
 
 **Restam por ligar**: os 3 eventos que ainda exigem funcionalidade nova — Users `PermissionChanged`/Admin `RoleChanged` (endpoint RBAC inexistente), Contracts `Terminated` (colunas existem, nada as define), Admin `UserCreated` (sem fluxo admin de criação de conta). Ver `specs/GLOBAL-TASKS-RISKS.md` (`R-044`) para o detalhe atualizado.
+
+### Wiring parcial — RBAC PermissionChanged/RoleChanged (P-066)
+
+Investigação prévia confirmou que `RbacService.assignRole()`/`revokeRole()` (P-003) estavam plenamente implementados mas sem nenhum endpoint HTTP — genuína ambiguidade de desenho, não coberta por nenhuma spec de módulo (ver `specs/users/SPEC.md`, secção "Gestão de perfis de acesso — endpoints RBAC (P-066)" para o detalhe completo). Escolhido pelo utilizador (decisão P066-01): um único par de endpoints (`POST /users/:employeeId/roles`, `DELETE /users/:employeeId/roles/:role`), decorando `assignRole` com `@Audit('PermissionChanged', 'User')` e `revokeRole` com `@Audit('RoleChanged', 'User')` — cobrindo as duas entradas nomeadas na spec de auditoria com a mesma ação de negócio.
+
+**Detalhe do fallback de `entityId` (P-063) validado num novo caso real**: como `assignRole`/`revokeRole` operam sobre `User.id`, não `Employee.id` (usado na URL de `UsersController`), o parâmetro da rota é `:employeeId` (não `:id`), forçando o `AuditInterceptor` a resolver `entity_id` a partir do corpo da resposta (`{ id: <User.id>, ... }`) em vez do `Employee.id` da URL — confirma que o mecanismo de fallback de P-063 generaliza corretamente para uma entidade auditada diferente da que aparece na URL.
+
+4 novos testes unitários (`rbac.service.spec.ts`). 419/419 testes unitários (antes 415/415). `pnpm run lint` (0 erros) e `pnpm run build` (raiz) green. Suite e2e 7/7 (51/51), sem alteração.
+
+**Verificação em ambiente real completa**: atribuição e revogação de um perfil (`manager`) a um colaborador de teste real confirmadas via `psql` em `hr.user_roles`; `hr.audit_logs` confirmado a registar `PermissionChanged`/`RoleChanged` com `entity_type: 'User'` e `entity_id` = o `User.id` correto (não o `Employee.id` da URL). Dados de teste eliminados, `hr.audit_logs` limpa no fecho da sessão.
+
+**Restam por ligar**: os 2 eventos remanescentes — Contracts `Terminated` (colunas existem, nada as define), Admin `UserCreated` (sem fluxo admin de criação de conta). Ver `specs/GLOBAL-TASKS-RISKS.md` (`R-044`) para o detalhe atualizado.

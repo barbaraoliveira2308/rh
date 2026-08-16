@@ -52,6 +52,26 @@ export class RbacService {
     await this.userRoleRepository.remove(userRole);
   }
 
+  async assignRoleByName(userId: string, roleName: string, assignedBy: string): Promise<void> {
+    const role = await this.roleRepository.findOneBy({ name: roleName });
+
+    if (!role) {
+      throw new NotFoundException('Perfil não encontrado');
+    }
+
+    await this.assignRole(userId, role.id, assignedBy);
+  }
+
+  async revokeRoleByName(userId: string, roleName: string): Promise<void> {
+    const role = await this.roleRepository.findOneBy({ name: roleName });
+
+    if (!role) {
+      throw new NotFoundException('Perfil não encontrado');
+    }
+
+    await this.revokeRole(userId, role.id);
+  }
+
   async getUserPermissions(userId: string): Promise<Permission[]> {
     const userRoles = await this.userRoleRepository.find({
       where: { userId },
