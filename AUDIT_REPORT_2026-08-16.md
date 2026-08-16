@@ -2,9 +2,11 @@
 
 ## Resumo Executivo
 
-Auditoria completa dos 23 módulos do sistema HR Suite, comparando especificações técnicas com código real. Estado atual: 439/439 testes unitários a passar, 51/51 testes e2e a passar. Foram encontrados **4 achados Críticos**, **12 achados Altos**, **18 achados Médios** e **17 achados Baixos**. O padrão mais comum são permissões de controlo de acesso desalinhadas da spec (Managers/Approvers com acesso mais amplo do que documentado) e funcionalidade documentada na spec mas não implementada (Password reset, API Keys, bulk-approve workflow, flusos multi-etapa). Nenhum código órfão do tipo `@InjectRepository` nunca utilizado foi encontrado nesta ronda — o padrão já corrigido em fases anteriores (R-047, R-038) não se repetiu.
+Auditoria completa dos 23 módulos do sistema HR Suite, comparando especificações técnicas com código real. Estado atual: 439/439 testes unitários a passar, 51/51 testes e2e a passar. Foram encontrados **4 achados Críticos**, **13 achados Altos**, **18 achados Médios** e **17 achados Baixos**. O padrão mais comum são permissões de controlo de acesso desalinhadas da spec (Managers/Approvers com acesso mais amplo do que documentado) e funcionalidade documentada na spec mas não implementada (Password reset, API Keys, bulk-approve workflow, flusos multi-etapa). Nenhum código órfão do tipo `@InjectRepository` nunca utilizado foi encontrado nesta ronda — o padrão já corrigido em fases anteriores (R-047, R-038) não se repetiu.
 
 **Atualização 2026-08-17 00:17:** os 4 achados Críticos foram corrigidos (ver secção abaixo). 451/451 testes unitários e 51/51 e2e a passar após as correções.
+
+**Atualização 2026-08-17 00:22:** a contagem original de "12 achados Altos" estava desalinhada com o conteúdo do relatório — a secção consolidada só listava 11, e 2 achados Altos existiam apenas nas secções "Por Módulo" (Teams, Financials) sem terem sido trazidos para a lista consolidada. Corrigido para **13 achados Altos** (contagem real após consolidação). Adicionalmente, o achado "3/5 regras de negócio e ApprovalFlow não implementadas" (Workflow) estava classificado como Crítico na secção "Por Módulo" mas como Alto na secção consolidada — resolvido a favor de Alto, por ser funcionalidade documentada não implementada e não um bypass de segurança/permissões ou perda de dados (ver definição de severidade acima de cada secção).
 
 ## Estado dos Testes
 
@@ -35,19 +37,23 @@ Todos os 4 achados desta secção foram corrigidos em 2026-08-17 00:17.
 
 - **[Users] @GdprSensitive existe mas não há interceptor de resposta que mascare campos sensíveis.** NIF, IBAN, birthDate, address, gender são retornados em claro em todas as respostas para qualquer utilizador autenticado. Evidência: `backend/src/users/entities/` — decorator presente, sem lógica de mascaramento. Impacto: exposição de dados pessoais sensíveis.
 
+- **[Teams] `GET /teams/:id` não exposto no controller.** A spec lista o endpoint mas não há rota correspondente em `TeamsController` — só é possível obter uma equipa via `findAll()`. Evidência: `backend/src/teams/`. Impacto: frontend não consegue obter os detalhes de uma única equipa por ID diretamente da API. _(Achado só documentado na secção "Por Módulo" na versão original deste relatório; consolidado aqui em 2026-08-17.)_
+
 - **[Expenses] Papel APPROVER com acesso demasiado amplo.** `GET /expenses` e `GET /expenses/export` tratam APPROVER como ADMIN/MANAGER (veem todas as despesas). A spec diz "Ver todas as despesas: Admin ✅, Manager ✅ (team), Approver ❌, Employee ❌ (own)". Evidência: `backend/src/expenses/expenses.controller.ts:48-79,91-116`. Impacto: aprovadores veem despesas de utilizadores fora do seu âmbito.
 
 - **[Absences] Filtro `year` em `findAll()` aceite mas ignorado silenciosamente.** O parâmetro `year` é tipado no DTO mas nunca aplicado à query — retornam-se ausências de todos os anos. Evidência: `backend/src/absences/services/absences.service.ts:240-256`. Impacto: a UI filtra por ano mas recebe dados de todos os anos, causando confusão.
 
 - **[Contracts] Valor do contrato visível para MANAGER, spec diz Admin only (GDPR).** BR-CON-005 classifica `value` como GDPR-sensível. Não existe mascaramento nem filtragem por papel — MANAGERs veem o valor de todos os contratos. Evidência: `backend/src/contracts/contracts.controller.ts:37,47` + `contracts.service.ts:56-82`. Impacto: exposição de dados financeiros a gestores sem necessidade.
 
-- **[Workflow] 3 de 5 regras de negócio e a entidade ApprovalFlow não implementadas.** BR-WF-001 (auto-urgent), BR-WF-002 (multi-step), BR-WF-003 (bulk-approve) estão por implementar. Não existe endpoint de bulk-approve. A entidade `ApprovalFlow` não existe. Evidência: `backend/src/workflow/controllers/workflow.controller.ts` — apenas 4 endpoints (inbox, count, approve, reject). Impacto: o módulo funciona apenas como inbox simples, sem fluxos configuráveis multi-etapa que são o valor central da spec.
+- **[Workflow] 3 de 5 regras de negócio e a entidade ApprovalFlow não implementadas.** BR-WF-001 (auto-urgent), BR-WF-002 (multi-step), BR-WF-003 (bulk-approve) estão por implementar. Não existe endpoint de bulk-approve. A entidade `ApprovalFlow` não existe. Evidência: `backend/src/workflow/controllers/workflow.controller.ts` — apenas 4 endpoints (inbox, count, approve, reject). Impacto: o módulo funciona apenas como inbox simples, sem fluxos configuráveis multi-etapa que são o valor central da spec. _(A versão original deste relatório classificava este achado como Crítico na secção "Por Módulo" — corrigido aqui em 2026-08-17: é funcionalidade documentada não implementada, não um bypass de permissões/segurança nem perda de dados, pelo que a definição de severidade deste documento enquadra-o em Alto. A secção "Por Módulo" foi atualizada para condizer.)_
 
 - **[Workflow] EMPLOYEE excluído de todos os endpoints.** Spec diz "Ver caixa de entrada" acessível a todos os papéis incluindo Colaborador. Todos os endpoints têm `@Roles(ADMIN, MANAGER, APPROVER)` sem EMPLOYEE. Evidência: `backend/src/workflow/controllers/workflow.controller.ts:37,50,61,75`. Impacto: colaboradores não conseguem ver nem responder a itens de workflow atribuídos diretamente a eles.
 
 - **[Dashboard] Employee/APPROVER sem acesso a dados de dashboard.** Todos os endpoints de analytics são `@Roles(ADMIN, MANAGER)`. A spec diz "Próprios indicadores" acessíveis a todos os papéis. Evidência: `backend/src/analytics/controllers/analytics.controller.ts` — todos os endpoints restritos a ADMIN/MANAGER. Impacto: colaboradores e aprovadores não conseguem ver métricas de ocupação ou outras.
 
 - **[Financials] Endpoint `financial-dashboard` e exportação PDF/Excel não implementados.** A spec define `GET /analytics/financial-dashboard` como endpoint principal e exportação PDF/Excel. Nenhum dos dois existe — funcionalidade fragmentada em endpoints individuais com export só CSV. Evidência: `backend/src/analytics/controllers/analytics.controller.ts:71-176`. Impacto: spec descreve funcionalidade que não existe.
+
+- **[Financials] MANAGER com acesso a dados financeiros além do spec.** Endpoints de analytics financeiro não restringem MANAGER ao âmbito documentado, expondo dados financeiros fora do necessário. Evidência: `backend/src/analytics/`. Impacto: exposição de dados financeiros a gestores sem necessidade, mesmo padrão do achado equivalente em Contracts. _(Achado só documentado na secção "Por Módulo" na versão original deste relatório; consolidado aqui em 2026-08-17.)_
 
 - **[Notifications] BR-NOT-004 (retry de email com max 3 tentativas) não implementado.** `sendEmail()` captura erros e faz log mas não tem lógica de retry. Evidência: `backend/src/notifications/services/notifications.service.ts:98-109`. Impacto: emails que falham são perdidos silenciosamente.
 
@@ -227,7 +233,7 @@ Estado: Achados menores
 
 Estado: Precisa de atenção
 
-- Crítico: 3/5 regras de negócio e ApprovalFlow não implementados
+- Alto: 3/5 regras de negócio e ApprovalFlow não implementados (corrigido de "Crítico" para "Alto" em 2026-08-17 — ver nota na secção consolidada)
 - Alto: EMPLOYEE excluído de todos os endpoints
 - Testes: ✅ Unitários (27 testes), ❌ Sem e2e
 
