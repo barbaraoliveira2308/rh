@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AnalyticsController } from './analytics.controller';
 import { AnalyticsService } from './services/analytics.service';
+import { ReportExportersService } from '../reports/services/report-exporters.service';
 import { ProjectAllocation } from '../projects/entities/project-allocation.entity';
 import { Project } from '../projects/entities/project.entity';
 import { Employee } from '../users/entities/employee.entity';
@@ -23,7 +24,7 @@ import { Contract } from '../contracts/entities/contract.entity';
     ]),
   ],
   controllers: [AnalyticsController],
-  providers: [AnalyticsService],
+  providers: [AnalyticsService, ReportExportersService],
   exports: [AnalyticsService],
 })
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class

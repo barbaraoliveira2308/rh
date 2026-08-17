@@ -91,3 +91,11 @@ financials depende de:
 | Q-FIN-003 | "Centro de custos" e "Entidade legal" são entidades do sistema ou atributos dos projetos? | Alta       |
 | Q-FIN-004 | Existe integração com sistema de contabilidade para dados de payroll?                     | Alta       |
 | Q-FIN-005 | Quem define os centros de custo? É configurável pelo Admin?                               | Média      |
+
+## Notas de Implementação
+
+Endpoints reais divergem dos nomes da spec: `GET analytics/financials/margins` (≈ `consultant-margin`), `GET analytics/financials/project/:id/profitability` (≈ `project-profitability`), `GET analytics/financials/revenue` (≈ parte de `financial-dashboard`), `GET analytics/financials/top-projects` (sem equivalente na spec). O endpoint `GET /analytics/financial-dashboard` da spec **não existe** — implementado em P-014 como 4 endpoints fragmentados em vez de um consolidado. `@Roles(ADMIN)` nos 4 endpoints desde P-073 (MANAGER removido, a tabela de permissões só lhe dava ✅ em "custos da própria equipa", sem endpoint correspondente).
+
+**P-074 — exportação PDF/Excel (âmbito mínimo, decisão P074-01):** os 4 endpoints passam a aceitar `?format=pdf|xlsx` a par do `csv`/JSON já existente, reaproveitando `ReportExportersService` (módulo Reports — `generateExcel`/`generatePdf`, genérico, tabela de linhas+colunas). Não foi construído o endpoint `financial-dashboard` consolidado nem os KPIs em falta (ver abaixo) — investigação mostrou que o achado original da auditoria subestimava o âmbito.
+
+**Gaps conhecidos, por implementar** (ver `AUDIT_REPORT_2026-08-16.md`, achado "[Financials] Endpoint `financial-dashboard`..."): dos 6 KPIs da tabela acima, só **Receita por projeto** e **Margem bruta por consultor** têm cálculo implementado; **Custo por projeto** existe só embutido em `project-profitability`, não isolado; **Custo total por colaborador**, **Despesas pendentes de reembolso** e **Horas não faturáveis** não têm nenhum código de cálculo. Dos 6 filtros da spec, `project_id`/`team_id`/`job_title` mapeiam diretamente ao schema; `location` mapeia a `Employee.workLocation` (texto livre); `entity` existe como `LegalEntity` mas só ligada a `Contract`, não a `Project`; `cost_center` **não existe em lado nenhum do schema** (`Q-FIN-003` continua por resolver). `Q-FIN-001`, `Q-FIN-002`, `Q-FIN-004`, `Q-FIN-005` também continuam por resolver.

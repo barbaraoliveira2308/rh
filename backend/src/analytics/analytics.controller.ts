@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Param,
@@ -18,6 +19,13 @@ import { Roles } from '../rbac/decorators/roles.decorator';
 import { RoleEnum } from '../rbac/enums/role.enum';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { EmployeeIdentityService } from '../auth/services/employee-identity.service';
+import { ReportExportersService } from '../reports/services/report-exporters.service';
+
+interface ExportColumn {
+  key: string;
+  header: string;
+  width?: number;
+}
 
 function formatCsvValue(value: unknown): string {
   if (value === null || value === undefined) {
@@ -50,14 +58,54 @@ function toCsv(rows: Record<string, unknown>[]): string {
   return [headerLine, ...lines].join('\n');
 }
 
-function sendResponse(res: Response, data: unknown, filename: string, format?: string): void {
+async function sendResponse(
+  res: Response,
+  data: unknown,
+  filename: string,
+  format: string | undefined,
+  exporters?: { service: ReportExportersService; columns: ExportColumn[]; title: string },
+): Promise<void> {
+  const rows = Array.isArray(data) ? data : [data];
+
   if (format === 'csv') {
-    const rows = Array.isArray(data) ? data : [data];
     const csv = toCsv(rows as Record<string, unknown>[]);
 
     res.setHeader('Content-Disposition', 'attachment; filename="' + filename + '.csv"');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.send(csv);
+    return;
+  }
+
+  if (format === 'xlsx' || format === 'pdf') {
+    if (!exporters) {
+      throw new BadRequestException('Formato "' + format + '" não suportado neste endpoint');
+    }
+
+    if (format === 'xlsx') {
+      const buffer = await exporters.service.generateExcel(
+        rows as Record<string, unknown>[],
+        exporters.columns,
+        exporters.title,
+      );
+
+      res.setHeader('Content-Disposition', 'attachment; filename="' + filename + '.xlsx"');
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.send(buffer);
+      return;
+    }
+
+    const buffer = await exporters.service.generatePdf(
+      rows as Record<string, unknown>[],
+      exporters.columns,
+      exporters.title,
+    );
+
+    res.setHeader('Content-Disposition', 'attachment; filename="' + filename + '.pdf"');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.send(buffer);
     return;
   }
 
@@ -72,6 +120,7 @@ export class AnalyticsController {
   constructor(
     private readonly analyticsService: AnalyticsService,
     private readonly employeeIdentity: EmployeeIdentityService,
+    private readonly reportExporters: ReportExportersService,
   ) {}
 
   @Get('analytics/resources/my-occupancy')
@@ -87,7 +136,7 @@ export class AnalyticsController {
     const user = req.user as JwtPayload;
     const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
     const data = await this.analyticsService.getEmployeeOccupancy(employeeId, month);
-    sendResponse(res, data, 'my-occupancy-' + month, format);
+    await sendResponse(res, data, 'my-occupancy-' + month, format);
   }
 
   @Get('analytics/resources/occupancy')
@@ -101,7 +150,7 @@ export class AnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const data = await this.analyticsService.getTeamOccupancy(teamId, month);
-    sendResponse(res, data, 'team-occupancy-' + month, format);
+    await sendResponse(res, data, 'team-occupancy-' + month, format);
   }
 
   @Get('analytics/resources/unallocated')
@@ -114,7 +163,7 @@ export class AnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const data = await this.analyticsService.getUnallocatedEmployees(month);
-    sendResponse(res, data, 'unallocated-employees-' + month, format);
+    await sendResponse(res, data, 'unallocated-employees-' + month, format);
   }
 
   @Get('analytics/resources/forecast')
@@ -128,7 +177,7 @@ export class AnalyticsController {
   ): Promise<void> {
     const monthsNum = Number.parseInt(months, 10) || 3;
     const data = await this.analyticsService.getCapacityForecast(monthsNum);
-    sendResponse(res, data, 'capacity-forecast', format);
+    await sendResponse(res, data, 'capacity-forecast', format);
   }
 
   @Get('analytics/financials/margins')
@@ -142,7 +191,19 @@ export class AnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const data = await this.analyticsService.getConsultantMargin(employeeId, period);
-    sendResponse(res, data, 'consultant-margin-' + employeeId + '-' + period, format);
+    await sendResponse(res, data, 'consultant-margin-' + employeeId + '-' + period, format, {
+      service: this.reportExporters,
+      title: 'Margem por Consultor',
+      columns: [
+        { key: 'employeeId', header: 'ID Colaborador' },
+        { key: 'employeeName', header: 'Colaborador' },
+        { key: 'period', header: 'Período' },
+        { key: 'hourlyRate', header: 'Taxa Horária' },
+        { key: 'hourlyCost', header: 'Custo Horário' },
+        { key: 'hoursWorked', header: 'Horas Trabalhadas' },
+        { key: 'margin', header: 'Margem' },
+      ],
+    });
   }
 
   @Get('analytics/financials/project/:id/profitability')
@@ -155,7 +216,7 @@ export class AnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const data = await this.analyticsService.getProjectProfitability(id);
-    sendResponse(
+    await sendResponse(
       res,
       data ?? {
         projectId: id,
@@ -166,6 +227,17 @@ export class AnalyticsController {
       },
       'project-profitability-' + id,
       format,
+      {
+        service: this.reportExporters,
+        title: 'Rentabilidade de Projeto',
+        columns: [
+          { key: 'projectId', header: 'ID Projeto' },
+          { key: 'projectName', header: 'Projeto' },
+          { key: 'revenue', header: 'Receita' },
+          { key: 'cost', header: 'Custo' },
+          { key: 'margin', header: 'Margem' },
+        ],
+      },
     );
   }
 
@@ -180,7 +252,17 @@ export class AnalyticsController {
   ): Promise<void> {
     const yearNum = Number.parseInt(year, 10);
     const data = await this.analyticsService.getMonthlyRevenue(yearNum);
-    sendResponse(res, data, 'monthly-revenue-' + String(yearNum), format);
+    await sendResponse(res, data, 'monthly-revenue-' + String(yearNum), format, {
+      service: this.reportExporters,
+      title: 'Receita Mensal',
+      columns: [
+        { key: 'month', header: 'Mês' },
+        { key: 'projectId', header: 'ID Projeto' },
+        { key: 'projectName', header: 'Projeto' },
+        { key: 'clientId', header: 'ID Cliente' },
+        { key: 'revenue', header: 'Receita' },
+      ],
+    });
   }
 
   @Get('analytics/financials/top-projects')
@@ -194,6 +276,16 @@ export class AnalyticsController {
   ): Promise<void> {
     const limitNum = Number.parseInt(limit, 10) || 10;
     const data = await this.analyticsService.getTopPerformingProjects(limitNum);
-    sendResponse(res, data, 'top-projects', format);
+    await sendResponse(res, data, 'top-projects', format, {
+      service: this.reportExporters,
+      title: 'Top Projetos por Margem',
+      columns: [
+        { key: 'projectId', header: 'ID Projeto' },
+        { key: 'projectName', header: 'Projeto' },
+        { key: 'margin', header: 'Margem' },
+        { key: 'revenue', header: 'Receita' },
+        { key: 'cost', header: 'Custo' },
+      ],
+    });
   }
 }
