@@ -150,6 +150,43 @@ describe('AbsencesService', () => {
     service = module.get<AbsencesService>(AbsencesService);
   });
 
+  describe('findAll', () => {
+    it('should filter by year using overlap between startDate/endDate and the requested year', async () => {
+      mockRequestRepo.find.mockResolvedValue([]);
+
+      await service.findAll({ year: 2026 });
+
+      expect(mockRequestRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            startDate: expect.objectContaining({
+              _type: 'lessThanOrEqual',
+              _value: '2026-12-31',
+            }) as Record<string, unknown>,
+            endDate: expect.objectContaining({
+              _type: 'moreThanOrEqual',
+              _value: '2026-01-01',
+            }) as Record<string, unknown>,
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    it('should not apply a year filter when year is not provided', async () => {
+      mockRequestRepo.find.mockResolvedValue([]);
+
+      await service.findAll({ employeeId: 'emp-1' });
+
+      expect(mockRequestRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.not.objectContaining({
+            startDate: expect.anything() as unknown,
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+  });
+
   describe('findTypes', () => {
     it('deve devolver apenas tipos de ausência ativos, ordenados por nome', async () => {
       mockTypeRepo.find.mockResolvedValue([mockSickType, mockVacationType]);

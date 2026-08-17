@@ -57,9 +57,7 @@ export class ExpensesController {
   ): Promise<ExpenseReport[]> {
     const user = req.user as JwtPayload;
     const isAdminOrManager =
-      user.roles.includes(RoleEnum.ADMIN) ||
-      user.roles.includes(RoleEnum.MANAGER) ||
-      user.roles.includes(RoleEnum.APPROVER);
+      user.roles.includes(RoleEnum.ADMIN) || user.roles.includes(RoleEnum.MANAGER);
 
     let callerEmployeeId: string | undefined;
 
@@ -89,7 +87,7 @@ export class ExpensesController {
   }
 
   @Get('expenses/export')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER)
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.EMPLOYEE)
   @ApiOperation({ summary: 'Exportar despesas para Excel' })
   @HttpCode(HttpStatus.OK)
   async export(
@@ -101,9 +99,7 @@ export class ExpensesController {
   ): Promise<void> {
     const user = req.user as JwtPayload;
     const isAdminOrManager =
-      user.roles.includes(RoleEnum.ADMIN) ||
-      user.roles.includes(RoleEnum.MANAGER) ||
-      user.roles.includes(RoleEnum.APPROVER);
+      user.roles.includes(RoleEnum.ADMIN) || user.roles.includes(RoleEnum.MANAGER);
 
     const callerEmployeeId = isAdminOrManager
       ? undefined

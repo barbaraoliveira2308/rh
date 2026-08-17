@@ -10,12 +10,14 @@ Auditoria completa dos 23 módulos do sistema HR Suite, comparando especificaç�
 
 **Atualização 2026-08-17 00:40:** contagens de Médios e Baixos também estavam desalinhadas com o conteúdo real do relatório. Duas causas: (1) 6 achados existiam só na secção "Por Módulo", nunca trazidos para a lista consolidada — [Users] Gestor edita qualquer employee, [Projects] upload/calendário não implementados, [Dashboard] sem endpoint de alertas, [Notifications] cobertura de testes limitada (todos Médio), [Reports] PII em relatório e [GDPR] BR-GDPR-002 parcial (Baixo) — mesmo tipo de gap já corrigido para os Altos em 2026-08-17 00:22; (2) 4 achados tinham severidade diferente entre as duas secções — Training/Helpdesk "apenas 8 testes unitários" e Audit BR-AUD-005 estavam Médio em "Por Módulo" mas Baixo na consolidada, e BR-GDPR-006 estava atribuído ao módulo errado ([Notifications] em vez de [GDPR]) e também como Baixo. Resolvido a favor de Médio nestes 4 casos — gap de testes em caminho crítico / regra de negócio de auditoria parcialmente aplicada, conforme a definição de severidade de cada secção, mesmo padrão já usado para BR-AUD-003/BR-CON-002/BR-TEAM-002 — exceto **[Audit] Sem frontend para visualização**, mantido Baixo (limitação cosmética de UI, não gap de testes nem inconsistência de código), cuja classificação em "Por Módulo" foi corrigida de Médio para Baixo para condizer. Corrigido para **24 achados Médios** e **14 achados Baixos** (52 → 55 achados no total).
 
+**Atualização 2026-08-17 08:57 (P-073):** 7 dos 13 achados Altos foram corrigidos — o grupo de "scoping/permissões" (Teams, Expenses, Absences, Contracts, Workflow, Financials `MANAGER`) mais o `Dashboard` (resolvido parcialmente — novo endpoint `my-occupancy`, os 3 endpoints agregados por equipa mantêm-se `ADMIN`/`MANAGER`). 453/453 testes unitários e 51/51 e2e a passar após as correções. **Restam 6 achados Altos** (todos "funcionalidade a construir", maiores): Auth (JWT RS256, BR-AUTH-006), Users (mascaramento `@GdprSensitive`), Workflow (`ApprovalFlow` multi-etapa), Financials (`financial-dashboard`+export), Notifications (BR-NOT-004).
+
 ## Estado dos Testes
 
-| Tipo                | Ficheiros | Testes                       | Estado            |
-| ------------------- | --------- | ---------------------------- | ----------------- |
-| Unitários (backend) | 35        | 439 → 451 (2026-08-17 00:17) | ✅ Todos a passar |
-| E2E (backend)       | 7         | 51                           | ✅ Todos a passar |
+| Tipo                | Ficheiros | Testes                                                | Estado            |
+| ------------------- | --------- | ----------------------------------------------------- | ----------------- |
+| Unitários (backend) | 35        | 439 → 451 (2026-08-17 00:17) → 453 (2026-08-17 08:57) | ✅ Todos a passar |
+| E2E (backend)       | 7         | 51                                                    | ✅ Todos a passar |
 
 ## Achados por Severidade
 
@@ -39,23 +41,23 @@ Todos os 4 achados desta secção foram corrigidos em 2026-08-17 00:17.
 
 - **[Users] @GdprSensitive existe mas não há interceptor de resposta que mascare campos sensíveis.** NIF, IBAN, birthDate, address, gender são retornados em claro em todas as respostas para qualquer utilizador autenticado. Evidência: `backend/src/users/entities/` — decorator presente, sem lógica de mascaramento. Impacto: exposição de dados pessoais sensíveis.
 
-- **[Teams] `GET /teams/:id` não exposto no controller.** A spec lista o endpoint mas não há rota correspondente em `TeamsController` — só é possível obter uma equipa via `findAll()`. Evidência: `backend/src/teams/`. Impacto: frontend não consegue obter os detalhes de uma única equipa por ID diretamente da API. _(Achado só documentado na secção "Por Módulo" na versão original deste relatório; consolidado aqui em 2026-08-17.)_
+- ~~**[Teams] `GET /teams/:id` não exposto no controller.**~~ **RESOLVIDO (2026-08-17 08:57).** Novo `GET teams/:id` em `TeamsController`, reaproveitando o `TeamsService.findOne()` já existente (usado internamente por `update`/`addMember`/etc.). Mesmos 4 papéis (`ADMIN`, `MANAGER`, `APPROVER`, `EMPLOYEE`) e sem scoping adicional, seguindo o padrão já usado pelos outros `GET` do mesmo controller (`GET teams`, `GET teams/:id/members`, `GET teams/:id/capacity`). Evidência: `backend/src/teams/teams.controller.ts`. Verificado em ambiente real: `GET /teams/:id` devolve 200 para ADMIN e EMPLOYEE, 404 para id inexistente.
 
-- **[Expenses] Papel APPROVER com acesso demasiado amplo.** `GET /expenses` e `GET /expenses/export` tratam APPROVER como ADMIN/MANAGER (veem todas as despesas). A spec diz "Ver todas as despesas: Admin ✅, Manager ✅ (team), Approver ❌, Employee ❌ (own)". Evidência: `backend/src/expenses/expenses.controller.ts:48-79,91-116`. Impacto: aprovadores veem despesas de utilizadores fora do seu âmbito.
+- ~~**[Expenses] Papel APPROVER com acesso demasiado amplo.**~~ **RESOLVIDO (2026-08-17 08:57).** `GET /expenses` e `GET /expenses/export` deixaram de tratar APPROVER como ADMIN/MANAGER — `isAdminOrManager` passou a considerar só `ADMIN`/`MANAGER`; APPROVER cai no mesmo ramo de scoping "própria" já usado para EMPLOYEE. Adicionalmente, `GET /expenses/export` tinha `@Roles(ADMIN, MANAGER, APPROVER)` sem `EMPLOYEE`, contrariando a linha "Exportar despesas: Colaborador ✅ (próprias)" da mesma tabela de permissões — corrigido para `@Roles(ADMIN, MANAGER, EMPLOYEE)` (APPROVER, que a spec marca ❌ mesmo para "próprias" neste endpoint, perde acesso à rota). Evidência: `backend/src/expenses/expenses.controller.ts`. Verificado em ambiente real: APPROVER em `GET /expenses` só vê o próprio relatório (não o de outro colaborador); `GET /expenses/export` devolve 403 para APPROVER e 200 para EMPLOYEE (antes o inverso).
 
-- **[Absences] Filtro `year` em `findAll()` aceite mas ignorado silenciosamente.** O parâmetro `year` é tipado no DTO mas nunca aplicado à query — retornam-se ausências de todos os anos. Evidência: `backend/src/absences/services/absences.service.ts:240-256`. Impacto: a UI filtra por ano mas recebe dados de todos os anos, causando confusão.
+- ~~**[Absences] Filtro `year` em `findAll()` aceite mas ignorado silenciosamente.**~~ **RESOLVIDO (2026-08-17 08:57).** A spec não documenta este parâmetro para este endpoint nem define semântica de "ausência no ano X" — decisão tomada com o utilizador (P073-01): overlap entre `[startDate, endDate]` e o ano pedido (`startDate <= 31-Dez-X` AND `endDate >= 1-Jan-X`), em vez de só `startDate.getFullYear() === X`, para não excluir ausências que atravessem a virada do ano. Evidência: `backend/src/absences/services/absences.service.ts` (`findAll`). Testes: `absences.service.spec.ts` (`findAll`). Verificado em ambiente real: duas ausências reais (2025 e 2026) — `?year=2026` e `?year=2025` devolveram cada uma só a sua.
 
-- **[Contracts] Valor do contrato visível para MANAGER, spec diz Admin only (GDPR).** BR-CON-005 classifica `value` como GDPR-sensível. Não existe mascaramento nem filtragem por papel — MANAGERs veem o valor de todos os contratos. Evidência: `backend/src/contracts/contracts.controller.ts:37,47` + `contracts.service.ts:56-82`. Impacto: exposição de dados financeiros a gestores sem necessidade.
+- ~~**[Contracts] Valor do contrato visível para MANAGER, spec diz Admin only (GDPR).**~~ **RESOLVIDO (2026-08-17 08:57).** `value` passa a ser mascarado (`null`) para quem não é ADMIN em `GET /contracts` e `GET /contracts/:id` — âmbito mínimo escolhido com o utilizador (P073-02): só mascarar, sem abrir as rotas a APPROVER/EMPLOYEE (que hoje não têm acesso nenhum a estas rotas, apesar da linha "Ver próprio contrato (sem valor)" da spec cobrir os 4 papéis — gap adjacente identificado mas deixado fora do âmbito desta correção, ver `specs/GLOBAL-TASKS-RISKS.md`). Sem precedente de masking de campo já existente no backend (`@GdprSensitive` só mascara logs de auditoria, não respostas de API) — implementado com um helper `maskContractValue()` no controller. Evidência: `backend/src/contracts/contracts.controller.ts`. Verificado em ambiente real: `value` visível para ADMIN, `null` para MANAGER, tanto em `GET /contracts/:id` como em `GET /contracts`.
 
 - **[Workflow] 3 de 5 regras de negócio e a entidade ApprovalFlow não implementadas.** BR-WF-001 (auto-urgent), BR-WF-002 (multi-step), BR-WF-003 (bulk-approve) estão por implementar. Não existe endpoint de bulk-approve. A entidade `ApprovalFlow` não existe. Evidência: `backend/src/workflow/controllers/workflow.controller.ts` — apenas 4 endpoints (inbox, count, approve, reject). Impacto: o módulo funciona apenas como inbox simples, sem fluxos configuráveis multi-etapa que são o valor central da spec. _(A versão original deste relatório classificava este achado como Crítico na secção "Por Módulo" — corrigido aqui em 2026-08-17: é funcionalidade documentada não implementada, não um bypass de permissões/segurança nem perda de dados, pelo que a definição de severidade deste documento enquadra-o em Alto. A secção "Por Módulo" foi atualizada para condizer.)_
 
-- **[Workflow] EMPLOYEE excluído de todos os endpoints.** Spec diz "Ver caixa de entrada" acessível a todos os papéis incluindo Colaborador. Todos os endpoints têm `@Roles(ADMIN, MANAGER, APPROVER)` sem EMPLOYEE. Evidência: `backend/src/workflow/controllers/workflow.controller.ts:37,50,61,75`. Impacto: colaboradores não conseguem ver nem responder a itens de workflow atribuídos diretamente a eles.
+- ~~**[Workflow] EMPLOYEE excluído de todos os endpoints.**~~ **RESOLVIDO (2026-08-17 08:57).** `GET /workflow/inbox` e `GET /workflow/inbox/count` passaram a incluir `RoleEnum.EMPLOYEE` em `@Roles()` (mantendo `approve`/`reject` sem EMPLOYEE, que a spec marca ❌). Não foi necessária lógica de scoping nova — `WorkflowService.findInbox()`/`countPending()` já filtram por `assigneeId === employeeId do chamador`. Evidência: `backend/src/workflow/workflow.controller.ts`. Verificado em ambiente real: EMPLOYEE passou a receber 200 (antes 403) em `inbox`/`inbox/count`; `approve` continua 403 para EMPLOYEE; item de workflow real gerado por um pedido de ausência apareceu na caixa do MANAGER (`assigneeId`), não na do EMPLOYEE que o submeteu — scoping intacto.
 
-- **[Dashboard] Employee/APPROVER sem acesso a dados de dashboard.** Todos os endpoints de analytics são `@Roles(ADMIN, MANAGER)`. A spec diz "Próprios indicadores" acessíveis a todos os papéis. Evidência: `backend/src/analytics/controllers/analytics.controller.ts` — todos os endpoints restritos a ADMIN/MANAGER. Impacto: colaboradores e aprovadores não conseguem ver métricas de ocupação ou outras.
+- ~~**[Dashboard] Employee/APPROVER sem acesso a dados de dashboard.**~~ **RESOLVIDO PARCIALMENTE (2026-08-17 08:57).** Nenhum dos 3 endpoints de recursos (`occupancy`/`unallocated`/`forecast`) tinha noção de "próprio" — todos agregados por equipa ou globais; abrir o `@Roles()` sem lógica nova exporia dados de qualquer equipa a qualquer colaborador. Decisão com o utilizador (P073-03): novo `GET analytics/resources/my-occupancy`, aberto aos 4 papéis, que resolve o `employeeId` do próprio chamador (`EmployeeIdentityService`, padrão de P-045/P-071) e reaproveita `AnalyticsService.getEmployeeOccupancy()` — método já existente mas sem rota nenhuma até agora. Os 3 endpoints agregados mantêm-se `ADMIN`/`MANAGER`-only (correspondem a "dashboard da equipa", não a "próprios indicadores"). Evidência: `backend/src/analytics/analytics.controller.ts`. Verificado em ambiente real: `GET /analytics/resources/my-occupancy` devolve 200 para EMPLOYEE com os seus próprios dados.
 
 - **[Financials] Endpoint `financial-dashboard` e exportação PDF/Excel não implementados.** A spec define `GET /analytics/financial-dashboard` como endpoint principal e exportação PDF/Excel. Nenhum dos dois existe — funcionalidade fragmentada em endpoints individuais com export só CSV. Evidência: `backend/src/analytics/controllers/analytics.controller.ts:71-176`. Impacto: spec descreve funcionalidade que não existe.
 
-- **[Financials] MANAGER com acesso a dados financeiros além do spec.** Endpoints de analytics financeiro não restringem MANAGER ao âmbito documentado, expondo dados financeiros fora do necessário. Evidência: `backend/src/analytics/`. Impacto: exposição de dados financeiros a gestores sem necessidade, mesmo padrão do achado equivalente em Contracts. _(Achado só documentado na secção "Por Módulo" na versão original deste relatório; consolidado aqui em 2026-08-17.)_
+- ~~**[Financials] MANAGER com acesso a dados financeiros além do spec.**~~ **RESOLVIDO (2026-08-17 08:57).** A tabela de permissões só dá ✅ a MANAGER em "Ver custos da própria equipa" — nenhum dos 4 endpoints reais (`margins`/`project/:id/profitability`/`revenue`/`top-projects`) corresponde a isso nem filtra por equipa do gestor. Decisão com o utilizador (P073-04): literal à spec — os 4 endpoints passaram de `@Roles(ADMIN, MANAGER)` para `@Roles(ADMIN)`. (Scoping por equipa para MANAGER ficou de fora, candidato a funcionalidade nova numa fase futura se houver razão de produto.) Evidência: `backend/src/analytics/analytics.controller.ts`. Verificado em ambiente real: os 4 endpoints devolvem 403 para MANAGER e 200 para ADMIN. Confirmado que o frontend já tratava `/analytics/financials` como rota admin-only (`adminOnlyRoutes` em `frontend/src/layouts/AppLayout.tsx`) — o backend estava a ficar atrás do que a UI já assumia, sem impacto em utilizadores reais.
 
 - **[Notifications] BR-NOT-004 (retry de email com max 3 tentativas) não implementado.** `sendEmail()` captura erros e faz log mas não tem lógica de retry. Evidência: `backend/src/notifications/services/notifications.service.ts:98-109`. Impacto: emails que falham são perdidos silenciosamente.
 
@@ -170,7 +172,7 @@ Estado: Precisa de atenção
 
 Estado: Achados menores
 
-- Alto: `GET /teams/:id` não exposto no controller
+- ~~Alto: `GET /teams/:id` não exposto no controller~~ **RESOLVIDO 2026-08-17 08:57**
 - Médio: BR-TEAM-002 (líder deve ser membro) não validado
 - Testes: ✅ Unitários (9 testes), ❌ Sem e2e
 
@@ -211,7 +213,7 @@ Estado: Achados menores
 
 Estado: Precisa de atenção
 
-- Alto: Filtro `year` em `findAll()` aceite mas ignorado (`absences.service.ts:240-256`)
+- ~~Alto: Filtro `year` em `findAll()` aceite mas ignorado (`absences.service.ts:240-256`)~~ **RESOLVIDO 2026-08-17 08:57**
 - Médio: `GET /absences/calendar` ignora parâmetro `month` (`absences.controller.ts:99-105`)
 - Testes: ✅ Unitários (29 testes), ✅ E2E (2 ficheiros)
 - Segurança: JwtAuthGuard + RolesGuard presentes ✅
@@ -221,7 +223,7 @@ Estado: Precisa de atenção
 Estado: Precisa de atenção
 
 - ~~Crítico: Filtro por mês com `-31` hardcoded~~ **RESOLVIDO 2026-08-17 00:17** (`expenses.service.ts:462-464`)
-- Alto: APPROVER com acesso demasiado amplo (`expenses.controller.ts:48-79,91-116`)
+- ~~Alto: APPROVER com acesso demasiado amplo (`expenses.controller.ts:48-79,91-116`)~~ **RESOLVIDO 2026-08-17 08:57**
 - Testes: ✅ Unitários (16 testes), ❌ Sem e2e
 - Segurança: JwtAuthGuard + RolesGuard presentes ✅
 
@@ -238,7 +240,7 @@ Estado: Achados menores (críticos resolvidos)
 
 Estado: Achados menores
 
-- Alto: Valor do contrato exposto a MANAGER, spec diz Admin only (GDPR) (`contracts.controller.ts:37,47`)
+- ~~Alto: Valor do contrato exposto a MANAGER, spec diz Admin only (GDPR) (`contracts.controller.ts:37,47`)~~ **RESOLVIDO 2026-08-17 08:57**
 - Médio: BR-CON-002 (permanent contracts sem endDate) não validado
 - Testes: ✅ Unitários (7 testes), ❌ Sem e2e
 - Segurança: JwtAuthGuard + RolesGuard presentes ✅
@@ -248,7 +250,7 @@ Estado: Achados menores
 Estado: Precisa de atenção
 
 - Alto: 3/5 regras de negócio e ApprovalFlow não implementados (corrigido de "Crítico" para "Alto" em 2026-08-17 — ver nota na secção consolidada)
-- Alto: EMPLOYEE excluído de todos os endpoints
+- ~~Alto: EMPLOYEE excluído de todos os endpoints~~ **RESOLVIDO 2026-08-17 08:57**
 - Testes: ✅ Unitários (27 testes), ❌ Sem e2e
 
 ### 13 — Calendário Organizacional
@@ -272,7 +274,7 @@ Estado: OK (achados menores)
 
 Estado: Precisa de atenção
 
-- Alto: Employee/APPROVER sem acesso a dados de dashboard
+- ~~Alto: Employee/APPROVER sem acesso a dados de dashboard~~ **RESOLVIDO PARCIALMENTE 2026-08-17 08:57** (novo endpoint `my-occupancy`, ver secção consolidada)
 - Médio: Sem endpoint de alertas nem indicadores específicos (ausências do dia, contratos a expirar)
 - Testes: ✅ Unitários (15 testes), ❌ Sem e2e
 
@@ -281,7 +283,7 @@ Estado: Precisa de atenção
 Estado: Precisa de atenção
 
 - Alto: Endpoint `financial-dashboard` e export PDF/Excel não implementados
-- Alto: MANAGER com acesso a dados financeiros além do spec
+- ~~Alto: MANAGER com acesso a dados financeiros além do spec~~ **RESOLVIDO 2026-08-17 08:57**
 - Médio: `redisCacheService` possivelmente morto (`analytics.service.ts:39`)
 - Testes: ✅ Unitários (10 testes), ❌ Sem e2e
 

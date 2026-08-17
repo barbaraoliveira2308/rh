@@ -42,6 +42,14 @@ export class TeamsController {
     return this.teamsService.findAll();
   }
 
+  @Get('teams/:id')
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
+  @ApiOperation({ summary: 'Obter equipa por ID' })
+  @HttpCode(HttpStatus.OK)
+  async findOne(@Param('id') id: string): Promise<Team> {
+    return this.teamsService.findOne(id);
+  }
+
   @Post('teams')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
   @ApiOperation({ summary: 'Criar equipa' })

@@ -34,7 +34,7 @@ export class WorkflowController {
   ) {}
 
   @Get('workflow/inbox')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER)
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
   @ApiOperation({ summary: 'Listar itens pendentes da caixa de entrada' })
   @HttpCode(HttpStatus.OK)
   async findInbox(
@@ -47,7 +47,7 @@ export class WorkflowController {
   }
 
   @Get('workflow/inbox/count')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER)
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
   @ApiOperation({ summary: 'Contador de itens pendentes' })
   @HttpCode(HttpStatus.OK)
   async countPending(@Req() req: Request): Promise<{ count: number }> {

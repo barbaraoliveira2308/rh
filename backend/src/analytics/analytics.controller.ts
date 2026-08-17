@@ -3,18 +3,21 @@ import {
   Get,
   Param,
   Query,
+  Req,
   Res,
   UseGuards,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { AnalyticsService } from './services/analytics.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../rbac/guards/roles.guard';
 import { Roles } from '../rbac/decorators/roles.decorator';
 import { RoleEnum } from '../rbac/enums/role.enum';
+import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { EmployeeIdentityService } from '../auth/services/employee-identity.service';
 
 function formatCsvValue(value: unknown): string {
   if (value === null || value === undefined) {
@@ -66,7 +69,26 @@ function sendResponse(res: Response, data: unknown, filename: string, format?: s
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class AnalyticsController {
-  constructor(private readonly analyticsService: AnalyticsService) {}
+  constructor(
+    private readonly analyticsService: AnalyticsService,
+    private readonly employeeIdentity: EmployeeIdentityService,
+  ) {}
+
+  @Get('analytics/resources/my-occupancy')
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
+  @ApiOperation({ summary: 'Ocupação do próprio colaborador autenticado' })
+  @HttpCode(HttpStatus.OK)
+  async getMyOccupancy(
+    @Req() req: Request,
+    @Query('month') month: string,
+    @Query('format') format: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const user = req.user as JwtPayload;
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    const data = await this.analyticsService.getEmployeeOccupancy(employeeId, month);
+    sendResponse(res, data, 'my-occupancy-' + month, format);
+  }
 
   @Get('analytics/resources/occupancy')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
@@ -110,7 +132,7 @@ export class AnalyticsController {
   }
 
   @Get('analytics/financials/margins')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
+  @Roles(RoleEnum.ADMIN)
   @ApiOperation({ summary: 'Margem por consultor no período' })
   @HttpCode(HttpStatus.OK)
   async getConsultantMargin(
@@ -124,7 +146,7 @@ export class AnalyticsController {
   }
 
   @Get('analytics/financials/project/:id/profitability')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
+  @Roles(RoleEnum.ADMIN)
   @ApiOperation({ summary: 'Rentabilidade de um projeto' })
   @HttpCode(HttpStatus.OK)
   async getProjectProfitability(
@@ -148,7 +170,7 @@ export class AnalyticsController {
   }
 
   @Get('analytics/financials/revenue')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
+  @Roles(RoleEnum.ADMIN)
   @ApiOperation({ summary: 'Receita mensal agregada por projeto/cliente' })
   @HttpCode(HttpStatus.OK)
   async getMonthlyRevenue(
@@ -162,7 +184,7 @@ export class AnalyticsController {
   }
 
   @Get('analytics/financials/top-projects')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
+  @Roles(RoleEnum.ADMIN)
   @ApiOperation({ summary: 'Top projetos por margem' })
   @HttpCode(HttpStatus.OK)
   async getTopPerformingProjects(

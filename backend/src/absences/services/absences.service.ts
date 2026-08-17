@@ -248,6 +248,10 @@ export class AbsencesService {
     if (filters?.employeeId) where.employeeId = filters.employeeId;
     if (filters?.type) where.absenceTypeId = filters.type;
     if (filters?.status) where.status = filters.status;
+    if (filters?.year) {
+      where.startDate = LessThanOrEqual(String(filters.year) + '-12-31');
+      where.endDate = MoreThanOrEqual(String(filters.year) + '-01-01');
+    }
 
     return this.requestRepository.find({
       where,
