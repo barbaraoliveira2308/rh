@@ -133,7 +133,19 @@ pnpm --filter @bridge351/srh-backend run seed:demo:host
 
 Popula a BD com uma organização fictícia pequena (~8 pessoas, 2 gestores/2 aprovadores/3 colaboradores + o admin base) e dados de simulação largos mas rasos em quase todos os módulos: departamentos/cargos/organograma, 2 equipas, 3 clientes/3 projetos com alocações, 7 contratos (incl. um a expirar em breve, para mostrar o alerta), timesheets de 2 meses, pedidos de ausência (pendente/aprovado) com saldos de férias, despesas (pendente/paga/rascunho), 3 políticas, 2 cursos com inscrições, 2 tickets de helpdesk, 2 eventos de calendário, itens de caixa de entrada e notificações correspondentes aos pedidos pendentes. **Idempotente** — pode ser corrido várias vezes sem duplicar dados.
 
-Password de todos os utilizadores de demo: `Demo123!` (emails `nome.apelido@hr-suite.local`, ver output do script para a lista completa).
+Password de todos os utilizadores de demo: `Demo123!`.
+
+| Email                             | Papel    | Departamento     |
+| --------------------------------- | -------- | ---------------- |
+| `mariana.ferreira@hr-suite.local` | Manager  | Engenharia       |
+| `tiago.rocha@hr-suite.local`      | Manager  | Consultoria      |
+| `carla.mendes@hr-suite.local`     | Approver | Comercial        |
+| `diogo.pinto@hr-suite.local`      | Approver | Recursos Humanos |
+| `sofia.almeida@hr-suite.local`    | Employee | Engenharia       |
+| `rui.cardoso@hr-suite.local`      | Employee | Engenharia       |
+| `beatriz.nunes@hr-suite.local`    | Employee | Consultoria      |
+
+Para a caixa de entrada/aprovações, entra como `mariana.ferreira` — tem itens pendentes reais de `sofia.almeida` (timesheet de agosto + pedido de férias + despesa).
 
 **Deliberadamente fora do âmbito** (não populado): Documents (requer upload real para o MinIO), GDPR (consentimentos/pedidos de titular, natureza sensível/irreversível), feriados públicos reais (dependem de importação externa via `POST /calendar/holidays/import`, correr manualmente se necessário para a demo).
 
