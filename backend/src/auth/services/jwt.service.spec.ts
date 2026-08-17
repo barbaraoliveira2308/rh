@@ -1,16 +1,34 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
+import * as crypto from 'node:crypto';
 import { JwtService } from './jwt.service';
+
+function generateTestKeyPairBase64(): { privateKey: string; publicKey: string } {
+  const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
+    modulusLength: 2048,
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+  });
+  return {
+    privateKey: Buffer.from(privateKey).toString('base64'),
+    publicKey: Buffer.from(publicKey).toString('base64'),
+  };
+}
 
 describe('JwtService', () => {
   let service: JwtService;
 
+  const accessKeyPair = generateTestKeyPairBase64();
+  const refreshKeyPair = generateTestKeyPairBase64();
+
   const mockConfigService = {
     get: jest.fn((key: string, defaultValue?: string) => {
       const config: Record<string, string> = {
-        JWT_SECRET: 'test-access-secret-at-least-32-chars-long!!',
-        JWT_REFRESH_SECRET: 'test-refresh-secret-at-least-32-chars-long!',
+        JWT_ACCESS_PRIVATE_KEY: accessKeyPair.privateKey,
+        JWT_ACCESS_PUBLIC_KEY: accessKeyPair.publicKey,
+        JWT_REFRESH_PRIVATE_KEY: refreshKeyPair.privateKey,
+        JWT_REFRESH_PUBLIC_KEY: refreshKeyPair.publicKey,
         JWT_EXPIRES_IN: '15m',
         JWT_REFRESH_EXPIRES_IN: '7d',
       };
@@ -103,8 +121,8 @@ describe('JwtService', () => {
     it('should throw UnauthorizedException for expired token', () => {
       const expiredToken = jwt.sign(
         { sub: mockUser.id, email: mockUser.email, username: mockUser.username, roles: mockRoles },
-        'test-access-secret-at-least-32-chars-long!!',
-        { expiresIn: '0s' },
+        Buffer.from(accessKeyPair.privateKey, 'base64').toString('utf8'),
+        { algorithm: 'RS256', expiresIn: '0s' },
       );
       expect(() => service.verifyAccessToken(expiredToken)).toThrow();
     });

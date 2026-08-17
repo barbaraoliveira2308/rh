@@ -82,42 +82,44 @@ Para gerar valores aleatórios seguros para os segredos abaixo (`JWT_SECRET`, `M
 
 ### Root (`.env`)
 
-| Variável                  | Descrição                          | Exemplo                      |
-| ------------------------- | ---------------------------------- | ---------------------------- |
-| `POSTGRES_HOST`           | Host da base de dados              | `localhost`                  |
-| `POSTGRES_PORT`           | Porta da base de dados             | `5432`                       |
-| `POSTGRES_DB`             | Nome da base de dados              | `srh`                        |
-| `POSTGRES_USER`           | Utilizador da base de dados        | `srh_user`                   |
-| `POSTGRES_PASSWORD`       | Password da base de dados          | `change_me`                  |
-| `BACKEND_PORT`            | Porta do servidor backend          | `3000`                       |
-| `BACKEND_CORS_ORIGIN`     | Origem permitida para CORS         | `http://localhost:5173`      |
-| `JWT_SECRET`              | Chave secreta para JWT             | `change_me`                  |
-| `JWT_REFRESH_SECRET`      | Chave secreta para refresh token   | `change_me_refresh`          |
-| `JWT_EXPIRES_IN`          | Expiração do access token          | `15m`                        |
-| `JWT_REFRESH_EXPIRES_IN`  | Expiração do refresh token         | `7d`                         |
-| `MFA_ENCRYPTION_KEY`      | Chave AES-256-GCM para MFA secrets | `change_me_mfa_key_32_bytes` |
-| `KEYCLOAK_URL`            | URL do Keycloak                    | `http://localhost:8080`      |
-| `KEYCLOAK_REALM`          | Realm do Keycloak                  | `srh`                        |
-| `KEYCLOAK_CLIENT_ID`      | Client ID do backend no Keycloak   | `srh-backend`                |
-| `VITE_API_BASE_URL`       | URL da API (frontend)              | `http://localhost:3000/api`  |
-| `VITE_KEYCLOAK_URL`       | URL do Keycloak (frontend)         | `http://localhost:8080`      |
-| `VITE_KEYCLOAK_REALM`     | Realm do Keycloak (frontend)       | `srh`                        |
-| `VITE_KEYCLOAK_CLIENT_ID` | Client ID do frontend no Keycloak  | `srh-frontend`               |
-| `STORAGE_ENDPOINT`        | Endpoint do MinIO/S3               | `localhost:9000`             |
-| `STORAGE_ACCESS_KEY`      | Access key do MinIO/S3             | `change_me`                  |
-| `STORAGE_SECRET_KEY`      | Secret key do MinIO/S3             | `change_me`                  |
-| `STORAGE_BUCKET`          | Bucket de documentos               | `srh-documents`              |
-| `STORAGE_REGION`          | Região S3                          | `eu-west-1`                  |
-| `STORAGE_USE_SSL`         | Usar SSL para storage              | `false`                      |
-| `REDIS_HOST`              | Host do Redis                      | `localhost`                  |
-| `REDIS_PORT`              | Porta do Redis                     | `6379`                       |
-| `SENTRY_DSN`              | DSN do Sentry (opcional)           | —                            |
-| `PROMETHEUS_ENABLED`      | Activar métricas Prometheus        | `false`                      |
-| `SMTP_HOST`               | Host SMTP                          | `localhost`                  |
-| `SMTP_PORT`               | Porta SMTP                         | `1025`                       |
-| `SMTP_USER`               | Utilizador SMTP                    | —                            |
-| `SMTP_PASS`               | Password SMTP                      | —                            |
-| `SMTP_FROM`               | Remetente de emails                | `noreply@srh.bridge351.com`  |
+| Variável                  | Descrição                                       | Exemplo                         |
+| ------------------------- | ----------------------------------------------- | ------------------------------- |
+| `POSTGRES_HOST`           | Host da base de dados                           | `localhost`                     |
+| `POSTGRES_PORT`           | Porta da base de dados                          | `5432`                          |
+| `POSTGRES_DB`             | Nome da base de dados                           | `srh`                           |
+| `POSTGRES_USER`           | Utilizador da base de dados                     | `srh_user`                      |
+| `POSTGRES_PASSWORD`       | Password da base de dados                       | `change_me`                     |
+| `BACKEND_PORT`            | Porta do servidor backend                       | `3000`                          |
+| `BACKEND_CORS_ORIGIN`     | Origem permitida para CORS                      | `http://localhost:5173`         |
+| `JWT_ACCESS_PRIVATE_KEY`  | Chave privada RSA (PEM base64) do access token  | gerar via `generate-secrets.sh` |
+| `JWT_ACCESS_PUBLIC_KEY`   | Chave pública RSA (PEM base64) do access token  | gerar via `generate-secrets.sh` |
+| `JWT_REFRESH_PRIVATE_KEY` | Chave privada RSA (PEM base64) do refresh token | gerar via `generate-secrets.sh` |
+| `JWT_REFRESH_PUBLIC_KEY`  | Chave pública RSA (PEM base64) do refresh token | gerar via `generate-secrets.sh` |
+| `JWT_EXPIRES_IN`          | Expiração do access token                       | `15m`                           |
+| `JWT_REFRESH_EXPIRES_IN`  | Expiração do refresh token                      | `7d`                            |
+| `MFA_ENCRYPTION_KEY`      | Chave AES-256-GCM para MFA secrets              | `change_me_mfa_key_32_bytes`    |
+| `KEYCLOAK_URL`            | URL do Keycloak                                 | `http://localhost:8080`         |
+| `KEYCLOAK_REALM`          | Realm do Keycloak                               | `srh`                           |
+| `KEYCLOAK_CLIENT_ID`      | Client ID do backend no Keycloak                | `srh-backend`                   |
+| `VITE_API_BASE_URL`       | URL da API (frontend)                           | `http://localhost:3000/api`     |
+| `VITE_KEYCLOAK_URL`       | URL do Keycloak (frontend)                      | `http://localhost:8080`         |
+| `VITE_KEYCLOAK_REALM`     | Realm do Keycloak (frontend)                    | `srh`                           |
+| `VITE_KEYCLOAK_CLIENT_ID` | Client ID do frontend no Keycloak               | `srh-frontend`                  |
+| `STORAGE_ENDPOINT`        | Endpoint do MinIO/S3                            | `localhost:9000`                |
+| `STORAGE_ACCESS_KEY`      | Access key do MinIO/S3                          | `change_me`                     |
+| `STORAGE_SECRET_KEY`      | Secret key do MinIO/S3                          | `change_me`                     |
+| `STORAGE_BUCKET`          | Bucket de documentos                            | `srh-documents`                 |
+| `STORAGE_REGION`          | Região S3                                       | `eu-west-1`                     |
+| `STORAGE_USE_SSL`         | Usar SSL para storage                           | `false`                         |
+| `REDIS_HOST`              | Host do Redis                                   | `localhost`                     |
+| `REDIS_PORT`              | Porta do Redis                                  | `6379`                          |
+| `SENTRY_DSN`              | DSN do Sentry (opcional)                        | —                               |
+| `PROMETHEUS_ENABLED`      | Activar métricas Prometheus                     | `false`                         |
+| `SMTP_HOST`               | Host SMTP                                       | `localhost`                     |
+| `SMTP_PORT`               | Porta SMTP                                      | `1025`                          |
+| `SMTP_USER`               | Utilizador SMTP                                 | —                               |
+| `SMTP_PASS`               | Password SMTP                                   | —                               |
+| `SMTP_FROM`               | Remetente de emails                             | `noreply@srh.bridge351.com`     |
 
 ## Estrutura do Monorepo
 
@@ -163,7 +165,7 @@ As migrações não foram executadas:
 pnpm --filter @bridge351/srh-backend run migration:run
 ```
 
-### `JWT_SECRET not configured`
+### `JWT_ACCESS_PRIVATE_KEY não configurado`
 
 O ficheiro `.env` não existe ou está incompleto:
 

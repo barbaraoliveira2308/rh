@@ -102,7 +102,7 @@ O processo tem 8 fases (0–7), pensadas para correr sequencialmente — cada fa
 - [ ] Retenção dos audit logs definida e alinhada com a política de retenção RGPD (Fase 2)
 - [ ] `SENTRY_DSN` configurado em staging/produção e a capturar exceções reais (validar com um erro provocado deliberadamente)
 - [ ] `PROMETHEUS_ENABLED=true` em produção, métricas a expor em `/metrics` (ou endpoint equivalente) e recolhidas
-- [ ] Amostra de logs de aplicação (backend) não contém `JWT_SECRET`, passwords, tokens ou payloads completos de PII
+- [ ] Amostra de logs de aplicação (backend) não contém `JWT_ACCESS_PRIVATE_KEY`/`JWT_REFRESH_PRIVATE_KEY`, passwords, tokens ou payloads completos de PII
 - [ ] Notificações críticas (falha de cron, falha de fila RabbitMQ) chegam a alguém, não só ao log
 
 **Entregável:** confirmação de que um evento simulado (erro 500, falha de cron) é detetável em Sentry/Prometheus/logs dentro de minutos.
@@ -113,10 +113,11 @@ O processo tem 8 fases (0–7), pensadas para correr sequencialmente — cada fa
 
 **Objetivo:** confirmar que a base sobre a qual tudo corre está fechada.
 
-- [ ] Nenhuma variável de `.env` em produção mantém o valor de exemplo do `.env.example` (`change_me`, `change_me_refresh`, `srh_user`/password fraca, etc.) — usar `scripts/generate-secrets.sh` para gerar substitutos
-- [ ] Segredos (`JWT_SECRET`, `JWT_REFRESH_SECRET`, `MFA_ENCRYPTION_KEY`, `STORAGE_SECRET_KEY`, `POSTGRES_PASSWORD`) geridos fora do repositório (cofre de segredos / CI secrets), não só num `.env` local
-- [ ] `JWT_SECRET`, `JWT_REFRESH_SECRET`, `MFA_ENCRYPTION_KEY`, `POSTGRES_PASSWORD`, `STORAGE_ACCESS_KEY`/`STORAGE_SECRET_KEY` têm valores **distintos** entre dev, staging e produção (não é o mesmo `.env` copiado)
+- [ ] Nenhuma variável de `.env` em produção mantém o valor de exemplo do `.env.example` (`change_me`, `change_me_run_generate_secrets_sh`, `srh_user`/password fraca, etc.) — usar `scripts/generate-secrets.sh` para gerar substitutos
+- [ ] Segredos (`JWT_ACCESS_PRIVATE_KEY`, `JWT_REFRESH_PRIVATE_KEY`, `MFA_ENCRYPTION_KEY`, `STORAGE_SECRET_KEY`, `POSTGRES_PASSWORD`) geridos fora do repositório (cofre de segredos / CI secrets), não só num `.env` local
+- [ ] `JWT_ACCESS_PRIVATE_KEY`, `JWT_REFRESH_PRIVATE_KEY`, `MFA_ENCRYPTION_KEY`, `POSTGRES_PASSWORD`, `STORAGE_ACCESS_KEY`/`STORAGE_SECRET_KEY` têm valores **distintos** entre dev, staging e produção (não é o mesmo `.env` copiado)
 - [ ] **Antes de rodar `MFA_ENCRYPTION_KEY`:** confirmar que a equipa foi avisada — a rotação torna ilegíveis os secrets TOTP já cifrados na base de dados e obriga todos os colaboradores com MFA ativo a reconfigurar do zero (ver `EncryptionService.decrypt()`)
+- [ ] **Antes de rodar `JWT_ACCESS_PRIVATE_KEY`/`JWT_REFRESH_PRIVATE_KEY`:** confirmar que a equipa foi avisada — não há suporte a rotação com sobreposição de chaves (RNF-AUTH-004 continua por implementar), pelo que rodar estas chaves invalida imediatamente todas as sessões ativas e força novo login a todos os utilizadores
 - [ ] `docker-compose.prod.yml` usa imagens fixadas por tag de versão (não `latest`) e não expõe portas de infraestrutura (Postgres, Redis, RabbitMQ) publicamente
 - [ ] Bucket `srh-documents` no MinIO/S3: política de acesso privada por omissão, `STORAGE_USE_SSL=true` em produção
 - [ ] Backups de PostgreSQL: existe rotina agendada, e já foi feito um teste de restauro nos últimos 90 dias

@@ -12,16 +12,39 @@ export interface TokenPair {
 
 @Injectable()
 export class JwtService {
-  private readonly accessSecret: string;
-  private readonly refreshSecret: string;
+  private readonly accessPrivateKey: string;
+  private readonly accessPublicKey: string;
+  private readonly refreshPrivateKey: string;
+  private readonly refreshPublicKey: string;
   private readonly accessExpiresIn: string;
   private readonly refreshExpiresIn: string;
 
   constructor(configService: ConfigService) {
-    this.accessSecret = configService.get<string>('JWT_SECRET', 'change_me_dev');
-    this.refreshSecret = configService.get<string>('JWT_REFRESH_SECRET', 'change_me_dev_refresh');
+    this.accessPrivateKey = this.decodeKey(
+      configService.get<string>('JWT_ACCESS_PRIVATE_KEY'),
+      'JWT_ACCESS_PRIVATE_KEY',
+    );
+    this.accessPublicKey = this.decodeKey(
+      configService.get<string>('JWT_ACCESS_PUBLIC_KEY'),
+      'JWT_ACCESS_PUBLIC_KEY',
+    );
+    this.refreshPrivateKey = this.decodeKey(
+      configService.get<string>('JWT_REFRESH_PRIVATE_KEY'),
+      'JWT_REFRESH_PRIVATE_KEY',
+    );
+    this.refreshPublicKey = this.decodeKey(
+      configService.get<string>('JWT_REFRESH_PUBLIC_KEY'),
+      'JWT_REFRESH_PUBLIC_KEY',
+    );
     this.accessExpiresIn = configService.get<string>('JWT_EXPIRES_IN', '15m');
     this.refreshExpiresIn = configService.get<string>('JWT_REFRESH_EXPIRES_IN', '7d');
+  }
+
+  private decodeKey(base64Value: string | undefined, envVarName: string): string {
+    if (!base64Value) {
+      throw new Error(`${envVarName} não configurado`);
+    }
+    return Buffer.from(base64Value, 'base64').toString('utf8');
   }
 
   generateAccessToken(
@@ -38,7 +61,8 @@ export class JwtService {
       ...(mfaSetupRequired ? { mfaSetupRequired: true } : {}),
     };
 
-    return jwt.sign(payload, this.accessSecret, {
+    return jwt.sign(payload, this.accessPrivateKey, {
+      algorithm: 'RS256',
       expiresIn: this.accessExpiresIn as jwt.SignOptions['expiresIn'],
     });
   }
@@ -50,7 +74,8 @@ export class JwtService {
       type: 'refresh' as const,
     };
 
-    return jwt.sign(payload, this.refreshSecret, {
+    return jwt.sign(payload, this.refreshPrivateKey, {
+      algorithm: 'RS256',
       expiresIn: this.refreshExpiresIn as jwt.SignOptions['expiresIn'],
     });
   }
@@ -68,7 +93,9 @@ export class JwtService {
 
   verifyAccessToken(token: string): JwtPayload {
     try {
-      const decoded = jwt.verify(token, this.accessSecret) as JwtPayload;
+      const decoded = jwt.verify(token, this.accessPublicKey, {
+        algorithms: ['RS256'],
+      }) as JwtPayload;
       return decoded;
     } catch {
       throw new UnauthorizedException('Token de acesso inválido ou expirado');
@@ -77,7 +104,9 @@ export class JwtService {
 
   verifyRefreshToken(token: string): { sub: string; jti: string } {
     try {
-      const decoded = jwt.verify(token, this.refreshSecret) as {
+      const decoded = jwt.verify(token, this.refreshPublicKey, {
+        algorithms: ['RS256'],
+      }) as {
         sub: string;
         jti: string;
         type: string;
