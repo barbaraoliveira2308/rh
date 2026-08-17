@@ -74,7 +74,7 @@ O Docker Compose espera encontrar o ficheiro `.env` através de `--env-file .env
 
 ## Variáveis de Ambiente
 
-Para gerar valores aleatórios seguros para os segredos abaixo (`JWT_SECRET`, `MFA_ENCRYPTION_KEY`, `POSTGRES_PASSWORD`, etc.):
+Para gerar valores aleatórios seguros para os segredos abaixo (`JWT_ACCESS_PRIVATE_KEY`, `MFA_ENCRYPTION_KEY`, `POSTGRES_PASSWORD`, etc.):
 
 ```bash
 ./scripts/generate-secrets.sh
