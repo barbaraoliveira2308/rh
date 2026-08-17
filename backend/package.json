@@ -21,6 +21,8 @@
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts",
     "seed": "ts-node src/database/seeds/runner.ts",
     "seed:host": "POSTGRES_HOST=localhost ts-node src/database/seeds/runner.ts",
+    "seed:demo": "ts-node src/database/seeds/demo-runner.ts",
+    "seed:demo:host": "POSTGRES_HOST=localhost ts-node src/database/seeds/demo-runner.ts",
     "seed:prod": "node dist/database/seeds/runner.js"
   },
   "typeorm": {
