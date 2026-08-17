@@ -14,12 +14,14 @@ Auditoria completa dos 23 módulos do sistema HR Suite, comparando especificaç�
 
 **Atualização 2026-08-17 09:13 (P-074):** o achado "[Financials] Endpoint `financial-dashboard` e exportação PDF/Excel não implementados" foi resolvido parcialmente — investigação revelou âmbito maior do que estimado (só 2 de 6 KPIs da spec têm cálculo, `cost_center` não existe no schema, `Q-FIN-001` a `Q-FIN-005` continuam por resolver); escolhido com o utilizador (decisão P074-01) o âmbito mínimo — só exportação PDF/Excel dos 4 endpoints financeiros já existentes, reaproveitando `ReportExportersService` do módulo Reports. O endpoint `financial-dashboard` consolidado e os 4 KPIs sem cálculo continuam por implementar. **Restam 5 achados Altos** (Auth JWT RS256, Auth BR-AUTH-006, Users `@GdprSensitive`, Workflow `ApprovalFlow`, Notifications BR-NOT-004).
 
+**Atualização 2026-08-17 09:52 (P-075):** o achado "[Auth] BR-AUTH-006 (verificação de reutilização de password) não implementada" foi corrigido — nova tabela `hr.password_history`, janela deslizante das últimas 5 passwords (atual + 4 históricas), aplicada em `changePassword()` e `confirmResetPassword()`. 457/457 testes unitários e 51/51 e2e a passar após a correção. **Restam 4 achados Altos**: Auth (JWT HMAC→RS256, mudança de infraestrutura maior), Users (mascaramento `@GdprSensitive`), Workflow (`ApprovalFlow` multi-etapa), Notifications (BR-NOT-004).
+
 ## Estado dos Testes
 
-| Tipo                | Ficheiros | Testes                                                | Estado            |
-| ------------------- | --------- | ----------------------------------------------------- | ----------------- |
-| Unitários (backend) | 35        | 439 → 451 (2026-08-17 00:17) → 453 (2026-08-17 08:57) | ✅ Todos a passar |
-| E2E (backend)       | 7         | 51                                                    | ✅ Todos a passar |
+| Tipo                | Ficheiros | Testes                                                                         | Estado            |
+| ------------------- | --------- | ------------------------------------------------------------------------------ | ----------------- |
+| Unitários (backend) | 35        | 439 → 451 (2026-08-17 00:17) → 453 (2026-08-17 08:57) → 457 (2026-08-17 09:52) | ✅ Todos a passar |
+| E2E (backend)       | 7         | 51                                                                             | ✅ Todos a passar |
 
 ## Achados por Severidade
 
@@ -39,7 +41,7 @@ Todos os 4 achados desta secção foram corrigidos em 2026-08-17 00:17.
 
 - **[Auth] JWT usa HMAC (segredo simétrico), spec requer RS256/ES256 (assimétrico).** RNF-AUTH-003 exige RSA mínimo 2048-bit. Implementação usa `jwt.sign(payload, this.accessSecret)` com segredo partilhado. Evidência: `backend/src/auth/services/jwt.service.ts:41`. Impacto: se o segredo for comprometido, qualquer pessoa pode forjar tokens para todos os papéis.
 
-- **[Auth] BR-AUTH-006 (verificação de reutilização de password) não implementada.** Não existe histórico de hashes anteriores. As "Notas de Implementação" reconhecem isto. Evidência: `backend/src/auth/services/auth.service.ts:263-267`. Impacto: utilizadores podem reutilizar passwords antigas.
+- ~~**[Auth] BR-AUTH-006 (verificação de reutilização de password) não implementada.**~~ **RESOLVIDO (2026-08-17 09:52).** Nova tabela `hr.password_history` (migração `1834000000000-CreatePasswordHistoryTable.ts`) guarda as 4 passwords mais recentes por utilizador; combinada com a password ativa forma o pool das "últimas 5" (decisão P075-01, a atual conta como uma das 5, escolhida entre o utilizador entre essa opção e "5 anteriores + atual = 6"). `AuthService.ensurePasswordNotReused()` valida contra esse pool em `changePassword()` e `confirmResetPassword()` (os 2 pontos onde um utilizador define uma nova password); `recordPasswordHistory()` arquiva a password antiga só depois da alteração ter sucesso, com poda para manter só as 4 entradas mais recentes (janela deslizante — a password mais antiga sai do pool assim que uma 5ª mudança acontece). Evidência: `backend/src/auth/services/auth.service.ts`, `backend/src/auth/entities/password-history.entity.ts`. Testes: `auth.service.spec.ts` (`changePassword`, `confirmResetPassword`, 5 novos). **Verificação em ambiente real completa**: utilizador de teste real fez 6 alterações de password sequenciais — reutilizar a password imediatamente anterior ou a password 2 posições atrás foi corretamente rejeitado (400); reutilizar a própria password atual (sem alterar nada) também rejeitado; a 1ª password (`FirstPass1!`), já fora da janela das últimas 5 ao fim da 6ª alteração, foi corretamente aceite de novo; o mesmo teste repetido via `POST /auth/password/reset/confirm` (token de reset real, gerado e validado via SHA-256) confirmou a mesma validação nesse fluxo. Dados de teste eliminados (utilizador, histórico, tokens de reset, `hr.audit_logs`) no fecho da sessão.
 
 - **[Users] @GdprSensitive existe mas não há interceptor de resposta que mascare campos sensíveis.** NIF, IBAN, birthDate, address, gender são retornados em claro em todas as respostas para qualquer utilizador autenticado. Evidência: `backend/src/users/entities/` — decorator presente, sem lógica de mascaramento. Impacto: exposição de dados pessoais sensíveis.
 
@@ -151,7 +153,7 @@ Estado: Precisa de atenção
 
 - ~~Crítico: `resetPassword` é no-op~~ **RESOLVIDO 2026-08-17 00:17** — fluxo UC-AUTH-003 completo com token, email e endpoint de confirmação (`auth.service.ts`)
 - Alto: JWT HMAC em vez de RSA (`jwt.service.ts:41`)
-- Alto: BR-AUTH-006 (reutilização password) não implementado
+- ~~Alto: BR-AUTH-006 (reutilização password) não implementado~~ **RESOLVIDO 2026-08-17 09:52** — tabela `hr.password_history`, janela deslizante das últimas 5 (`auth.service.ts`)
 - Médio: `configService` injetado mas não utilizado (`auth.controller.ts:42`)
 - Médio: Rate limiter em memória (`rate-limit.guard.ts:17-19`)
 - Baixo: MFA só Admin, não Gestor (decisão P059-01)

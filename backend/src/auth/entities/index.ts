@@ -5,4 +5,5 @@ export { Permission } from './permission.entity';
 export { RolePermission } from './role-permission.entity';
 export { UserRole } from './user-role.entity';
 export { PasswordResetToken } from './password-reset-token.entity';
+export { PasswordHistory } from './password-history.entity';
 export { ApiKey } from './api-key.entity';

@@ -14,6 +14,7 @@ import { User } from '../entities/user.entity';
 import { Session } from '../entities/session.entity';
 import { UserRole } from '../entities/user-role.entity';
 import { PasswordResetToken } from '../entities/password-reset-token.entity';
+import { PasswordHistory } from '../entities/password-history.entity';
 
 jest.mock('argon2');
 
@@ -23,6 +24,7 @@ describe('AuthService', () => {
   let mockSessionRepo: Record<string, jest.Mock>;
   let mockUserRoleRepo: Record<string, jest.Mock>;
   let mockPasswordResetTokenRepo: Record<string, jest.Mock>;
+  let mockPasswordHistoryRepo: Record<string, jest.Mock>;
   let mockJwtService: Record<string, jest.Mock>;
   let mockMfaService: Record<string, jest.Mock>;
   let mockCacheService: Record<string, jest.Mock>;
@@ -64,6 +66,12 @@ describe('AuthService', () => {
       create: jest.fn((data: Partial<PasswordResetToken>) => data),
       save: jest.fn((data: Partial<PasswordResetToken>) => Promise.resolve(data)),
       findOne: jest.fn(),
+    };
+    mockPasswordHistoryRepo = {
+      create: jest.fn((data: Partial<PasswordHistory>) => data),
+      save: jest.fn((data: Partial<PasswordHistory>) => Promise.resolve(data)),
+      find: jest.fn().mockResolvedValue([]),
+      delete: jest.fn(),
     };
     mockJwtService = {
       generateTokenPair: jest.fn().mockReturnValue({
@@ -108,6 +116,7 @@ describe('AuthService', () => {
         { provide: getRepositoryToken(Session), useValue: mockSessionRepo },
         { provide: getRepositoryToken(UserRole), useValue: mockUserRoleRepo },
         { provide: getRepositoryToken(PasswordResetToken), useValue: mockPasswordResetTokenRepo },
+        { provide: getRepositoryToken(PasswordHistory), useValue: mockPasswordHistoryRepo },
         { provide: JwtService, useValue: mockJwtService },
         { provide: MfaService, useValue: mockMfaService },
         { provide: CacheService, useValue: mockCacheService },
@@ -352,6 +361,9 @@ describe('AuthService', () => {
 
     it('deve atualizar a password e revogar sessões ativas', async () => {
       mockUserRepo.findOne.mockResolvedValue({ ...baseUser });
+      (argon2.verify as jest.Mock)
+        .mockResolvedValueOnce(true) // old password válida
+        .mockResolvedValueOnce(false); // nova password não reutilizada (BR-AUTH-006)
 
       await service.changePassword('user-1', 'old-pass', 'new-pass');
 
@@ -363,6 +375,59 @@ describe('AuthService', () => {
         { userId: 'user-1', revokedAt: expect.anything() as object },
         { revokedAt: expect.any(Date) as Date },
       );
+    });
+
+    it('deve lançar BadRequestException se a nova password for igual à atual (BR-AUTH-006)', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ ...baseUser });
+      (argon2.verify as jest.Mock)
+        .mockResolvedValueOnce(true) // old password válida
+        .mockResolvedValueOnce(true); // nova password igual à atual
+
+      await expect(service.changePassword('user-1', 'old-pass', 'Old-Pass1!')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockUserRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('deve lançar BadRequestException se a nova password coincidir com uma das últimas 4 guardadas em histórico (BR-AUTH-006)', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ ...baseUser });
+      mockPasswordHistoryRepo.find.mockResolvedValue([
+        { id: 'h-1', passwordHash: 'old-hash-1' },
+        { id: 'h-2', passwordHash: 'old-hash-2' },
+      ]);
+      (argon2.verify as jest.Mock)
+        .mockResolvedValueOnce(true) // old password válida
+        .mockResolvedValueOnce(false) // não coincide com a atual
+        .mockResolvedValueOnce(false) // não coincide com h-1
+        .mockResolvedValueOnce(true); // coincide com h-2
+
+      await expect(service.changePassword('user-1', 'old-pass', 'Reused-Pass1!')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockUserRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('deve guardar a password antiga no histórico e manter só as últimas 4 entradas', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ ...baseUser });
+      mockPasswordHistoryRepo.find
+        .mockResolvedValueOnce([]) // consulta feita por ensurePasswordNotReused
+        .mockResolvedValueOnce([
+          { id: 'h-1' },
+          { id: 'h-2' },
+          { id: 'h-3' },
+          { id: 'h-4' },
+          { id: 'h-5' },
+        ]); // consulta feita por recordPasswordHistory, já com a nova entrada
+      (argon2.verify as jest.Mock)
+        .mockResolvedValueOnce(true) // old password válida
+        .mockResolvedValueOnce(false); // nova password não reutilizada
+
+      await service.changePassword('user-1', 'old-pass', 'new-pass');
+
+      expect(mockPasswordHistoryRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'user-1', passwordHash: 'hashed' }),
+      );
+      expect(mockPasswordHistoryRepo.delete).toHaveBeenCalledWith(['h-5']);
     });
   });
 
@@ -438,6 +503,8 @@ describe('AuthService', () => {
         usedAt: null,
         expiresAt: new Date(Date.now() + 60000),
       });
+      mockUserRepo.findOne.mockResolvedValue({ ...baseUser });
+      (argon2.verify as jest.Mock).mockResolvedValue(false); // nova password não reutilizada
 
       await service.confirmResetPassword('valid-token', 'New-Pass1!');
 
@@ -455,6 +522,21 @@ describe('AuthService', () => {
       expect(mockAuditService.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'PASSWORD_RESET_COMPLETED', userId: 'user-1' }),
       );
+    });
+
+    it('deve lançar BadRequestException se a nova password reutilizar a atual (BR-AUTH-006)', async () => {
+      mockPasswordResetTokenRepo.findOne.mockResolvedValue({
+        userId: 'user-1',
+        usedAt: null,
+        expiresAt: new Date(Date.now() + 60000),
+      });
+      mockUserRepo.findOne.mockResolvedValue({ ...baseUser });
+      (argon2.verify as jest.Mock).mockResolvedValue(true); // coincide com a atual
+
+      await expect(service.confirmResetPassword('valid-token', 'Old-Pass1!')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockUserRepo.update).not.toHaveBeenCalled();
     });
   });
 

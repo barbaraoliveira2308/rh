@@ -13,6 +13,7 @@ import { User } from '../entities/user.entity';
 import { Session } from '../entities/session.entity';
 import { UserRole } from '../entities/user-role.entity';
 import { PasswordResetToken } from '../entities/password-reset-token.entity';
+import { PasswordHistory } from '../entities/password-history.entity';
 import { JwtService } from './jwt.service';
 import { MfaService } from './mfa.service';
 import { CacheService } from '../../cache/cache.service';
@@ -21,6 +22,7 @@ import { NotificationsService } from '../../notifications/services/notifications
 import { AuditService } from '../../audit/services/audit.service';
 
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
+const PASSWORD_HISTORY_ENTRIES_KEPT = 4;
 
 @Injectable()
 export class AuthService {
@@ -33,6 +35,8 @@ export class AuthService {
     private readonly userRoleRepository: Repository<UserRole>,
     @InjectRepository(PasswordResetToken)
     private readonly passwordResetTokenRepository: Repository<PasswordResetToken>,
+    @InjectRepository(PasswordHistory)
+    private readonly passwordHistoryRepository: Repository<PasswordHistory>,
     private readonly jwtService: JwtService,
     private readonly mfaService: MfaService,
     private readonly cacheService: CacheService,
@@ -270,13 +274,52 @@ export class AuthService {
       throw new BadRequestException('Password atual inválida');
     }
 
+    await this.ensurePasswordNotReused(userId, user.passwordHash, newPassword);
+
     const newHash = await argon2.hash(newPassword);
     await this.userRepository.update(userId, {
       passwordHash: newHash,
       passwordChangedAt: new Date(),
     });
+    await this.recordPasswordHistory(userId, user.passwordHash);
 
     await this.sessionRepository.update({ userId, revokedAt: IsNull() }, { revokedAt: new Date() });
+  }
+
+  private async ensurePasswordNotReused(
+    userId: string,
+    currentHash: string,
+    newPassword: string,
+  ): Promise<void> {
+    const history = await this.passwordHistoryRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: PASSWORD_HISTORY_ENTRIES_KEPT,
+    });
+
+    const hashesToCheck = [currentHash, ...history.map((entry) => entry.passwordHash)];
+
+    for (const hash of hashesToCheck) {
+      if (await argon2.verify(hash, newPassword)) {
+        throw new BadRequestException('Não é permitido reutilizar nenhuma das últimas 5 passwords');
+      }
+    }
+  }
+
+  private async recordPasswordHistory(userId: string, oldHash: string): Promise<void> {
+    await this.passwordHistoryRepository.save(
+      this.passwordHistoryRepository.create({ userId, passwordHash: oldHash }),
+    );
+
+    const entries = await this.passwordHistoryRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+    });
+
+    const toDelete = entries.slice(PASSWORD_HISTORY_ENTRIES_KEPT);
+    if (toDelete.length > 0) {
+      await this.passwordHistoryRepository.delete(toDelete.map((entry) => entry.id));
+    }
   }
 
   async resetPassword(email: string): Promise<void> {
@@ -319,11 +362,22 @@ export class AuthService {
       throw new BadRequestException('Token de reset inválido ou expirado');
     }
 
+    const user = await this.userRepository.findOne({
+      where: { id: resetToken.userId },
+      select: ['id', 'passwordHash'],
+    });
+    if (!user) {
+      throw new UnauthorizedException('Utilizador não encontrado');
+    }
+
+    await this.ensurePasswordNotReused(resetToken.userId, user.passwordHash, newPassword);
+
     const newHash = await argon2.hash(newPassword);
     await this.userRepository.update(resetToken.userId, {
       passwordHash: newHash,
       passwordChangedAt: new Date(),
     });
+    await this.recordPasswordHistory(resetToken.userId, user.passwordHash);
 
     resetToken.usedAt = new Date();
     await this.passwordResetTokenRepository.save(resetToken);

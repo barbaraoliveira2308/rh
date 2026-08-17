@@ -31,6 +31,7 @@ import {
   RolePermission,
   UserRole,
   PasswordResetToken,
+  PasswordHistory,
   ApiKey,
 } from './entities';
 
@@ -52,6 +53,7 @@ const AUTH_ACTION_BY_HANDLER: Record<string, string> = {
       RolePermission,
       UserRole,
       PasswordResetToken,
+      PasswordHistory,
       ApiKey,
       Employee,
     ]),
