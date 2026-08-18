@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { WorkflowItemType } from './workflow-item-type.enum';
 import { WorkflowItemStatus } from './workflow-item-status.enum';
+import { WorkflowItemPriority } from './workflow-item-priority.enum';
 
 @Entity({ schema: 'hr', name: 'workflow_items' })
 @Index(['assigneeId', 'status'])
@@ -46,6 +47,19 @@ export class WorkflowItem {
 
   @Column({ name: 'resolved_at', type: 'timestamp', nullable: true })
   resolvedAt: Date | null;
+
+  @Column({
+    type: 'enum',
+    enum: WorkflowItemPriority,
+    default: WorkflowItemPriority.NORMAL,
+  })
+  priority: WorkflowItemPriority;
+
+  @Column({ name: 'due_date', type: 'timestamp', nullable: true })
+  dueDate: Date | null;
+
+  @Column({ name: 'is_overdue', type: 'boolean', default: false })
+  isOverdue: boolean;
 
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;

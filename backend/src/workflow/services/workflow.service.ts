@@ -1,10 +1,12 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { OnEvent } from '@nestjs/event-emitter';
+import { In, LessThan, Repository } from 'typeorm';
+import { Cron } from '@nestjs/schedule';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { WorkflowItem } from '../entities/workflow-item.entity';
 import { WorkflowItemType } from '../entities/workflow-item-type.enum';
 import { WorkflowItemStatus } from '../entities/workflow-item-status.enum';
+import { WorkflowItemPriority } from '../entities/workflow-item-priority.enum';
 import { TimesheetPeriod } from '../../timesheets/entities/timesheet-period.entity';
 import { AbsenceRequest } from '../../absences/entities/absence-request.entity';
 import { ExpenseReport } from '../../expenses/entities/expense-report.entity';
@@ -14,6 +16,16 @@ import { ExpensesService } from '../../expenses/services/expenses.service';
 import { TimesheetSubmittedEvent } from '../../timesheets/events/timesheet-submitted.event';
 import { AbsenceRequestedEvent } from '../../absences/events/absence-requested.event';
 import { ExpenseSubmittedEvent } from '../../expenses/events/expense-submitted.event';
+import { WorkflowTaskOverdueEvent } from '../events/workflow-task-overdue.event';
+import { CalendarService } from '../../calendar/services/calendar.service';
+import { AdminService } from '../../admin/admin.service';
+import { BulkApproveResultItemDto } from '../dto/bulk-approve.dto';
+
+const SLA_BUSINESS_DAYS: Record<WorkflowItemType, number> = {
+  [WorkflowItemType.ABSENCE]: 2,
+  [WorkflowItemType.EXPENSE]: 5,
+  [WorkflowItemType.TIMESHEET]: 5,
+};
 
 @Injectable()
 export class WorkflowService {
@@ -29,6 +41,9 @@ export class WorkflowService {
     private readonly timesheetsService: TimesheetsService,
     private readonly absencesService: AbsencesService,
     private readonly expensesService: ExpensesService,
+    private readonly calendarService: CalendarService,
+    private readonly adminService: AdminService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async findInbox(userId: string, status?: WorkflowItemStatus): Promise<WorkflowItem[]> {
@@ -98,6 +113,104 @@ export class WorkflowService {
     return this.workflowItemRepository.save(item);
   }
 
+  async bulkApprove(
+    ids: string[],
+    userId: string,
+    reason?: string,
+  ): Promise<BulkApproveResultItemDto[]> {
+    const items = await this.workflowItemRepository.find({ where: { id: In(ids) } });
+    const foundIds = new Set(items.map((item) => item.id));
+    const missingIds = ids.filter((id) => !foundIds.has(id));
+
+    const distinctTypes = new Set(items.map((item) => item.type));
+    if (distinctTypes.size > 1) {
+      throw new BadRequestException('Aprovação em massa aplica-se apenas a tarefas do mesmo tipo');
+    }
+
+    const results: BulkApproveResultItemDto[] = missingIds.map((id) => ({
+      id,
+      success: false,
+      error: 'Item de workflow não encontrado',
+    }));
+
+    for (const item of items) {
+      try {
+        await this.approve(item.id, userId, reason);
+        results.push({ id: item.id, success: true });
+      } catch (error) {
+        results.push({
+          id: item.id,
+          success: false,
+          error: error instanceof Error ? error.message : 'Erro desconhecido',
+        });
+      }
+    }
+
+    return results;
+  }
+
+  @Cron('0 5 * * *')
+  async markOverdueTasks(): Promise<void> {
+    const overdueItems = await this.workflowItemRepository.find({
+      where: {
+        status: WorkflowItemStatus.PENDING,
+        dueDate: LessThan(new Date()),
+        isOverdue: false,
+      },
+    });
+
+    for (const item of overdueItems) {
+      item.isOverdue = true;
+      item.priority = WorkflowItemPriority.URGENT;
+      await this.workflowItemRepository.save(item);
+
+      this.eventEmitter.emit(
+        'workflow.task-overdue',
+        new WorkflowTaskOverdueEvent(item.id, item.assigneeId),
+      );
+    }
+  }
+
+  private async calculateDueDate(
+    type: WorkflowItemType,
+    requestedAt: Date,
+    employeeId: string,
+  ): Promise<Date> {
+    const slaBusinessDays = SLA_BUSINESS_DAYS[type];
+    const countryCode = await this.adminService.getEffectiveCountryCode(employeeId);
+
+    const fetchedYears = new Set<number>();
+    const holidayDates = new Set<string>();
+    const cursor = new Date(requestedAt);
+    let remaining = slaBusinessDays;
+
+    while (remaining > 0) {
+      cursor.setDate(cursor.getDate() + 1);
+      const dayOfWeek = cursor.getDay();
+      if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+
+      const year = cursor.getFullYear();
+      if (!fetchedYears.has(year)) {
+        const holidays = await this.calendarService.findHolidays(year, countryCode);
+        holidays.forEach((h) => holidayDates.add(h.holidayDate));
+        fetchedYears.add(year);
+      }
+
+      const dateStr =
+        String(cursor.getFullYear()) +
+        '-' +
+        String(cursor.getMonth() + 1).padStart(2, '0') +
+        '-' +
+        String(cursor.getDate()).padStart(2, '0');
+
+      if (holidayDates.has(dateStr)) continue;
+
+      remaining -= 1;
+    }
+
+    return cursor;
+  }
+
   private async delegateAction(
     item: WorkflowItem,
     action: 'approve' | 'reject',
@@ -146,6 +259,12 @@ export class WorkflowService {
 
     if (existing) return;
 
+    const dueDate = await this.calculateDueDate(
+      WorkflowItemType.TIMESHEET,
+      event.occurredAt,
+      period.employeeId,
+    );
+
     const item = this.workflowItemRepository.create({
       type: WorkflowItemType.TIMESHEET,
       referenceId: event.periodId,
@@ -154,6 +273,7 @@ export class WorkflowService {
       assigneeId: managerId,
       status: WorkflowItemStatus.PENDING,
       requestedAt: event.occurredAt,
+      dueDate,
     });
 
     await this.workflowItemRepository.save(item);
@@ -181,6 +301,12 @@ export class WorkflowService {
 
     if (existing) return;
 
+    const dueDate = await this.calculateDueDate(
+      WorkflowItemType.ABSENCE,
+      event.occurredAt,
+      event.employeeId,
+    );
+
     const item = this.workflowItemRepository.create({
       type: WorkflowItemType.ABSENCE,
       referenceId: event.absenceId,
@@ -189,6 +315,7 @@ export class WorkflowService {
       assigneeId: managerId,
       status: WorkflowItemStatus.PENDING,
       requestedAt: event.occurredAt,
+      dueDate,
     });
 
     await this.workflowItemRepository.save(item);
@@ -216,6 +343,12 @@ export class WorkflowService {
 
     if (existing) return;
 
+    const dueDate = await this.calculateDueDate(
+      WorkflowItemType.EXPENSE,
+      event.occurredAt,
+      event.employeeId,
+    );
+
     const item = this.workflowItemRepository.create({
       type: WorkflowItemType.EXPENSE,
       referenceId: event.reportId,
@@ -223,6 +356,7 @@ export class WorkflowService {
       requesterId: event.employeeId,
       assigneeId: managerId,
       status: WorkflowItemStatus.PENDING,
+      dueDate,
       requestedAt: event.occurredAt,
     });
 

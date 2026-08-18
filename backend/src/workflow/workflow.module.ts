@@ -10,6 +10,7 @@ import { ExpenseReport } from '../expenses/entities/expense-report.entity';
 import { TimesheetsModule } from '../timesheets/timesheets.module';
 import { AbsencesModule } from '../absences/absences.module';
 import { ExpensesModule } from '../expenses/expenses.module';
+import { CalendarModule } from '../calendar/calendar.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ExpensesModule } from '../expenses/expenses.module';
     TimesheetsModule,
     AbsencesModule,
     ExpensesModule,
+    CalendarModule,
   ],
   controllers: [WorkflowController],
   providers: [WorkflowService],

@@ -10,6 +10,13 @@ export enum WorkflowItemStatus {
   REJECTED = 'REJECTED',
 }
 
+export enum WorkflowItemPriority {
+  LOW = 'LOW',
+  NORMAL = 'NORMAL',
+  HIGH = 'HIGH',
+  URGENT = 'URGENT',
+}
+
 export interface WorkflowItem {
   id: string;
   type: WorkflowItemType;
@@ -18,6 +25,9 @@ export interface WorkflowItem {
   requesterId: string;
   assigneeId: string;
   status: WorkflowItemStatus;
+  priority: WorkflowItemPriority;
+  dueDate: string | null;
+  isOverdue: boolean;
   requestedAt: string;
   resolvedAt: string | null;
   createdAt: string;
@@ -26,4 +36,14 @@ export interface WorkflowItem {
 
 export interface WorkflowCount {
   count: number;
+}
+
+export interface BulkApproveResultItem {
+  id: string;
+  success: boolean;
+  error?: string;
+}
+
+export interface BulkApproveResult {
+  results: BulkApproveResultItem[];
 }

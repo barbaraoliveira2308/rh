@@ -16,6 +16,7 @@ import { WorkflowService } from './services/workflow.service';
 import { WorkflowItem } from './entities/workflow-item.entity';
 import { WorkflowItemStatus } from './entities/workflow-item-status.enum';
 import { WorkflowActionDto } from './dto/workflow-action.dto';
+import { BulkApproveDto, BulkApproveResultItemDto } from './dto/bulk-approve.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../rbac/guards/roles.guard';
 import { Roles } from '../rbac/decorators/roles.decorator';
@@ -55,6 +56,20 @@ export class WorkflowController {
     const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
     const count = await this.workflowService.countPending(employeeId);
     return { count };
+  }
+
+  @Post('workflow/inbox/bulk-approve')
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER)
+  @ApiOperation({ summary: 'Aprovar em massa itens da caixa de entrada (mesmo tipo)' })
+  @HttpCode(HttpStatus.OK)
+  async bulkApprove(
+    @Body() dto: BulkApproveDto,
+    @Req() req: Request,
+  ): Promise<{ results: BulkApproveResultItemDto[] }> {
+    const user = req.user as JwtPayload;
+    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+    const results = await this.workflowService.bulkApprove(dto.ids, employeeId, dto.reason);
+    return { results };
   }
 
   @Post('workflow/inbox/:id/approve')

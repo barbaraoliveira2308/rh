@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { WorkflowItem, WorkflowCount } from '@/types/workflow';
+import type { WorkflowItem, WorkflowCount, BulkApproveResult } from '@/types/workflow';
 
 export async function fetchWorkflowInbox(type?: string): Promise<WorkflowItem[]> {
   const params: Record<string, string> = { status: 'PENDING' };
@@ -22,5 +22,12 @@ export async function approveWorkflowItem(id: string): Promise<WorkflowItem> {
 
 export async function rejectWorkflowItem(id: string): Promise<WorkflowItem> {
   const response = await apiClient.post<WorkflowItem>(`/workflow/inbox/${id}/reject`);
+  return response.data;
+}
+
+export async function bulkApproveWorkflowItems(ids: string[]): Promise<BulkApproveResult> {
+  const response = await apiClient.post<BulkApproveResult>('/workflow/inbox/bulk-approve', {
+    ids,
+  });
   return response.data;
 }
