@@ -26,6 +26,7 @@ import { fetchAbsences } from '@/api/absences.api';
 import { fetchWorkflowInbox } from '@/api/workflow.api';
 import { fetchCapacityForecast } from '@/api/analytics.api';
 import { fetchNotifications } from '@/api/notifications.api';
+import { useAuthStore } from '@/stores/auth.store';
 import type { WorkflowItem } from '@/types/workflow';
 import type { Notification } from '@/types/notifications';
 
@@ -37,10 +38,14 @@ const typeLabelMap: Record<string, string> = {
 
 export function DashboardPage(): React.JSX.Element {
   const navigate = useNavigate();
+  const permissions = useAuthStore((state) => state.permissions);
+  const isAdmin = permissions.includes('admin:*') || permissions.some((p) => p.startsWith('admin'));
+  const isManagerOrAdmin = isAdmin || permissions.includes('manager');
 
   const { data: employeesData } = useQuery({
     queryKey: ['employees', { status: 'active', limit: 1 }],
     queryFn: () => fetchEmployees({ status: 'active', limit: 1 }),
+    enabled: isManagerOrAdmin,
   });
 
   const { data: projects } = useQuery({
@@ -66,6 +71,7 @@ export function DashboardPage(): React.JSX.Element {
   const { data: forecast } = useQuery({
     queryKey: ['capacity-forecast'],
     queryFn: () => fetchCapacityForecast(6),
+    enabled: isManagerOrAdmin,
   });
 
   const { data: notificationsData } = useQuery({
