@@ -57,7 +57,7 @@ const navItems: NavItem[] = [
 ];
 
 const adminOnlyRoutes = ['/analytics/financials', '/admin/settings'];
-const managerOrAdminRoutes = ['/capacity', '/reports'];
+const managerOrAdminRoutes = ['/users', '/capacity', '/reports'];
 
 export function AppLayout(): React.JSX.Element {
   const { sidebarOpen, toggleSidebar } = useUiStore();

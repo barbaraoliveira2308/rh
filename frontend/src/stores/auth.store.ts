@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { User, LoginCredentials, AuthTokens, LoginResponse } from '@/types/auth';
 import { login, refreshAccessToken, logout as apiLogout } from '@/api/auth.api';
 import { setAccessToken, setRefreshTokenFn } from '@/api/client';
+import { queryClient } from '@/lib/queryClient';
 
 const STORAGE_KEY = 'srh-auth';
 
@@ -194,6 +195,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
     setAccessToken(null);
     clearPersistedState();
+    queryClient.clear();
     set({
       user: null,
       accessToken: null,

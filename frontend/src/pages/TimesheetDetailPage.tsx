@@ -171,8 +171,22 @@ export function TimesheetDetailPage(): React.JSX.Element {
 
   const isOwner = user !== null && user.id === timesheet.employeeId;
   const statusProps = getStatusProps(timesheet.status);
-  const canSubmit = timesheet.status === TimesheetStatus.IN_PROGRESS && (isOwner || isManagerUser);
+  const isPeriodEditable = timesheet.status === TimesheetStatus.IN_PROGRESS;
+  const canSubmit = isPeriodEditable && (isOwner || isManagerUser);
   const canReview = timesheet.status === TimesheetStatus.SUBMITTED && isManagerUser;
+
+  const periodLockedMessage: string | null = ((): string | null => {
+    switch (timesheet.status) {
+      case TimesheetStatus.SUBMITTED:
+        return 'Esta folha já foi submetida e está a aguardar aprovação — as entradas não podem ser editadas.';
+      case TimesheetStatus.APPROVED:
+        return 'Esta folha já foi aprovada — as entradas não podem ser editadas.';
+      case TimesheetStatus.REJECTED:
+        return 'Esta folha foi rejeitada e não pode ser editada nem submetida novamente. Contacte o seu gestor.';
+      case TimesheetStatus.IN_PROGRESS:
+        return null;
+    }
+  })();
 
   return (
     <div>
@@ -224,6 +238,18 @@ export function TimesheetDetailPage(): React.JSX.Element {
           </div>
         )}
       </div>
+
+      {periodLockedMessage !== null && (
+        <div className="mb-6 rounded-md border border-amber-400 bg-amber-50 p-4 text-sm text-amber-800">
+          {periodLockedMessage}
+        </div>
+      )}
+
+      {updateEntryMutation.isError && (
+        <div className="mb-6 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          Não foi possível guardar a alteração. Tente novamente.
+        </div>
+      )}
 
       {canReview && (
         <div className="mb-6 max-w-md">
@@ -294,7 +320,7 @@ export function TimesheetDetailPage(): React.JSX.Element {
                 {daysInPeriod.map((date) => {
                   const entry = findEntryForDate(date);
                   const hasDeficit = entry !== undefined && entry.workedHours < entry.plannedHours;
-                  const isEditable = entry !== undefined && !entry.isLocked;
+                  const isEditable = entry !== undefined && !entry.isLocked && isPeriodEditable;
 
                   return (
                     <tr
