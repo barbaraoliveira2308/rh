@@ -49,12 +49,34 @@ export class TimesheetsController {
   @ApiOperation({ summary: 'Listar folhas de horas (com filtros)' })
   @HttpCode(HttpStatus.OK)
   async findAll(
+    @Req() req: Request,
     @Query('employee_id') employeeId?: string,
     @Query('year') year?: number,
     @Query('month') month?: number,
     @Query('status') status?: TimesheetStatus,
   ): Promise<TimesheetPeriod[]> {
-    return this.timesheetsService.findAll({ employeeId, year, month, status });
+    const user = req.user as JwtPayload;
+    const isAdminOrManager =
+      user.roles.includes(RoleEnum.ADMIN) ||
+      user.roles.includes(RoleEnum.MANAGER) ||
+      user.roles.includes(RoleEnum.APPROVER);
+
+    let callerEmployeeId: string | undefined;
+
+    if (!isAdminOrManager) {
+      callerEmployeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
+
+      if (employeeId && employeeId !== callerEmployeeId) {
+        throw new ForbiddenException('Apenas pode ver as suas próprias folhas de horas');
+      }
+    }
+
+    return this.timesheetsService.findAll({
+      employeeId: isAdminOrManager ? employeeId : callerEmployeeId,
+      year,
+      month,
+      status,
+    });
   }
 
   @Get('timesheets/export')

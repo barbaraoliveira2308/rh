@@ -161,6 +161,39 @@ describe('Timesheets (e2e)', () => {
       expect(Array.isArray(res.body)).toBe(true);
     });
 
+    it('should only return own timesheets for employee, not other employees', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/timesheets')
+        .set('Authorization', 'Bearer ' + empToken)
+        .expect(200);
+
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBeGreaterThan(0);
+      for (const period of res.body as TimesheetPeriod[]) {
+        expect(period.employeeId).toBe(empEmployeeId);
+      }
+    });
+
+    it('should return 403 when employee requests another employee_id', async () => {
+      await request(app.getHttpServer())
+        .get('/api/timesheets?employee_id=' + adminEmployeeId)
+        .set('Authorization', 'Bearer ' + empToken)
+        .expect(403);
+    });
+
+    it('should return all employees timesheets for admin', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/timesheets')
+        .set('Authorization', 'Bearer ' + adminToken)
+        .expect(200);
+
+      const employeeIds = new Set(
+        (res.body as TimesheetPeriod[]).map((period) => period.employeeId),
+      );
+      expect(employeeIds.has(empEmployeeId)).toBe(true);
+      expect(employeeIds.has(adminEmployeeId)).toBe(true);
+    });
+
     it('should return 401 without token', async () => {
       await request(app.getHttpServer()).get('/api/timesheets').expect(401);
     });
