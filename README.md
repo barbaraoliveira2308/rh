@@ -135,15 +135,15 @@ Popula a BD com uma organização fictícia pequena (~8 pessoas, 2 gestores/2 ap
 
 Password de todos os utilizadores de demo: `Demo123!`.
 
-| Email                             | Papel    | Departamento     |
-| --------------------------------- | -------- | ---------------- |
-| `mariana.ferreira@hr-suite.local` | Manager  | Engenharia       |
-| `tiago.rocha@hr-suite.local`      | Manager  | Consultoria      |
-| `carla.mendes@hr-suite.local`     | Approver | Comercial        |
-| `diogo.pinto@hr-suite.local`      | Approver | Recursos Humanos |
-| `sofia.almeida@hr-suite.local`    | Employee | Engenharia       |
-| `rui.cardoso@hr-suite.local`      | Employee | Engenharia       |
-| `beatriz.nunes@hr-suite.local`    | Employee | Consultoria      |
+| Email                             | Papel    | Cargo               | Departamento     |
+| --------------------------------- | -------- | ------------------- | ---------------- |
+| `mariana.ferreira@hr-suite.local` | Manager  | Head of Engineering | Engenharia       |
+| `tiago.rocha@hr-suite.local`      | Manager  | Head of Consulting  | Consultoria      |
+| `carla.mendes@hr-suite.local`     | Approver | Account Director    | Comercial        |
+| `diogo.pinto@hr-suite.local`      | Approver | HR Lead             | Recursos Humanos |
+| `sofia.almeida@hr-suite.local`    | Employee | Software Engineer   | Engenharia       |
+| `rui.cardoso@hr-suite.local`      | Employee | Software Engineer   | Engenharia       |
+| `beatriz.nunes@hr-suite.local`    | Employee | Consultant          | Consultoria      |
 
 Para a caixa de entrada/aprovações, entra como `mariana.ferreira` — tem itens pendentes reais de `sofia.almeida` (timesheet de agosto + pedido de férias + despesa).
 
