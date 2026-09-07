@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
@@ -10,44 +11,22 @@ import type { ExpenseReport, ExpenseReportStatus } from '@/types/expenses';
 
 const statusVariantMap: Record<ExpenseReportStatus, 'default' | 'warning' | 'success' | 'danger'> =
   {
-    DRAFT: 'default',
-    PENDING: 'warning',
-    APPROVED: 'success',
-    REJECTED: 'danger',
+    draft: 'default',
+    pending: 'warning',
+    approved: 'success',
+    sent_for_payment: 'warning',
+    paid: 'success',
+    rejected: 'danger',
   };
 
 const statusLabelMap: Record<ExpenseReportStatus, string> = {
-  DRAFT: 'Rascunho',
-  PENDING: 'Pendente',
-  APPROVED: 'Aprovado',
-  REJECTED: 'Rejeitado',
+  draft: 'Rascunho',
+  pending: 'Pendente',
+  approved: 'Aprovado',
+  sent_for_payment: 'Enviado para pagamento',
+  paid: 'Pago',
+  rejected: 'Rejeitado',
 };
-
-const columns: Column<ExpenseReport>[] = [
-  {
-    key: 'title',
-    header: 'Título',
-    cell: (row) => <span className="font-medium">{row.title}</span>,
-  },
-  {
-    key: 'period',
-    header: 'Período',
-    cell: (row) =>
-      `${new Date(row.periodStart).toLocaleDateString('pt-PT')} - ${new Date(row.periodEnd).toLocaleDateString('pt-PT')}`,
-  },
-  {
-    key: 'totalAmount',
-    header: 'Total',
-    cell: (row) => `${row.totalAmount.toFixed(2)} €`,
-  },
-  {
-    key: 'status',
-    header: 'Estado',
-    cell: (row) => (
-      <StatusBadge label={statusLabelMap[row.status]} variant={statusVariantMap[row.status]} />
-    ),
-  },
-];
 
 export function ExpensesListPage(): React.JSX.Element {
   const navigate = useNavigate();
@@ -56,6 +35,45 @@ export function ExpensesListPage(): React.JSX.Element {
     queryKey: ['expenses'],
     queryFn: () => fetchExpenses(),
   });
+
+  const columns = React.useMemo<Column<ExpenseReport>[]>(
+    () => [
+      {
+        key: 'title',
+        header: 'Título',
+        cell: (row): React.ReactNode => (
+          <button
+            type="button"
+            className="font-medium text-brand-800 hover:underline"
+            onClick={() => {
+              void navigate(`/expenses/${row.id}`);
+            }}
+          >
+            {row.title}
+          </button>
+        ),
+      },
+      {
+        key: 'period',
+        header: 'Período',
+        cell: (row): React.ReactNode =>
+          `${new Date(row.periodStart).toLocaleDateString('pt-PT')} - ${new Date(row.periodEnd).toLocaleDateString('pt-PT')}`,
+      },
+      {
+        key: 'totalAmount',
+        header: 'Total',
+        cell: (row): React.ReactNode => `${row.totalAmount.toFixed(2)} €`,
+      },
+      {
+        key: 'status',
+        header: 'Estado',
+        cell: (row): React.ReactNode => (
+          <StatusBadge label={statusLabelMap[row.status]} variant={statusVariantMap[row.status]} />
+        ),
+      },
+    ],
+    [navigate],
+  );
 
   return (
     <div>

@@ -1,8 +1,10 @@
 export enum ExpenseReportStatus {
-  DRAFT = 'DRAFT',
-  PENDING = 'PENDING',
-  APPROVED = 'APPROVED',
-  REJECTED = 'REJECTED',
+  DRAFT = 'draft',
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  SENT_FOR_PAYMENT = 'sent_for_payment',
+  PAID = 'paid',
+  REJECTED = 'rejected',
 }
 
 export interface ExpenseCategory {
@@ -16,12 +18,14 @@ export interface ExpenseCategory {
 
 export interface ExpenseItem {
   id: string;
-  expenseReportId: string;
+  reportId: string;
   categoryId: string;
   description: string;
   amount: number;
+  currency: string;
   expenseDate: string;
   receiptUrl: string | null;
+  isDuplicate: boolean;
   createdAt: string;
   category?: ExpenseCategory;
 }
@@ -41,6 +45,7 @@ export interface ExpenseReport {
   approvedAt: string | null;
   approvedBy: string | null;
   rejectionReason: string | null;
+  paidAt: string | null;
   createdAt: string;
   updatedAt: string;
   employee?: {
@@ -66,4 +71,13 @@ export interface CreateExpenseItemRequest {
   amount: number;
   expenseDate: string;
   receiptUrl?: string;
+}
+
+export interface ApproveExpenseRequest {
+  comment?: string;
+}
+
+export interface RejectExpenseRequest {
+  reason: string;
+  comment?: string;
 }

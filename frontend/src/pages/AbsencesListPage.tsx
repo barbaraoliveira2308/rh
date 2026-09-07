@@ -1,5 +1,6 @@
 import * as React from 'react';
 import dayjs from 'dayjs';
+import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
@@ -57,6 +58,7 @@ function getEmployeeName(absence: AbsenceRequest): string {
 type StatusFilter = AbsenceStatus | 'all';
 
 export function AbsencesListPage(): React.JSX.Element {
+  const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const today = new Date();
   const currentYear = today.getFullYear();
@@ -257,7 +259,17 @@ export function AbsencesListPage(): React.JSX.Element {
     {
       key: 'type',
       header: 'Tipo',
-      cell: (row: AbsenceRequest) => row.absenceType?.name ?? '-',
+      cell: (row: AbsenceRequest) => (
+        <button
+          type="button"
+          className="text-brand-800 hover:underline"
+          onClick={() => {
+            void navigate(`/absences/${row.id}`);
+          }}
+        >
+          {row.absenceType?.name ?? '-'}
+        </button>
+      ),
     },
     {
       key: 'startDate',

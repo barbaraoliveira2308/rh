@@ -1,6 +1,7 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle, XCircle } from 'lucide-react';
+import { CheckCircle, XCircle, Eye } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { StatusBadge, type BadgeVariant } from '@/components/StatusBadge';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
@@ -19,7 +20,18 @@ import {
   rejectWorkflowItem,
   bulkApproveWorkflowItems,
 } from '@/api/workflow.api';
-import { WorkflowItemPriority, type WorkflowItem, type BulkApproveResult } from '@/types/workflow';
+import {
+  WorkflowItemPriority,
+  WorkflowItemType,
+  type WorkflowItem,
+  type BulkApproveResult,
+} from '@/types/workflow';
+
+const detailRouteByType: Record<WorkflowItemType, string> = {
+  [WorkflowItemType.TIMESHEET]: '/timesheets',
+  [WorkflowItemType.ABSENCE]: '/absences',
+  [WorkflowItemType.EXPENSE]: '/expenses',
+};
 
 const typeLabelMap: Record<string, string> = {
   TIMESHEET: 'Timesheet',
@@ -48,6 +60,7 @@ const priorityVariantMap: Record<WorkflowItemPriority, BadgeVariant> = {
 };
 
 export function WorkflowInboxPage(): React.JSX.Element {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [typeFilter, setTypeFilter] = React.useState<string>('');
   const [rejectItem, setRejectItem] = React.useState<WorkflowItem | null>(null);
@@ -222,6 +235,16 @@ export function WorkflowInboxPage(): React.JSX.Element {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          void navigate(`${detailRouteByType[item.type]}/${item.referenceId}`);
+                        }}
+                      >
+                        <Eye className="mr-1 h-4 w-4" />
+                        Ver detalhes
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"

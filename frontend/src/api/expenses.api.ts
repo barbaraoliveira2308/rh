@@ -5,6 +5,8 @@ import type {
   ExpenseItem,
   CreateExpenseReportRequest,
   CreateExpenseItemRequest,
+  ApproveExpenseRequest,
+  RejectExpenseRequest,
 } from '@/types/expenses';
 
 export async function fetchExpenses(params?: {
@@ -43,5 +45,21 @@ export async function submitExpenseReport(id: string): Promise<ExpenseReport> {
 
 export async function fetchExpenseCategories(): Promise<ExpenseCategory[]> {
   const response = await apiClient.get<ExpenseCategory[]>('/expenses/categories');
+  return response.data;
+}
+
+export async function approveExpense(
+  id: string,
+  data: ApproveExpenseRequest,
+): Promise<ExpenseReport> {
+  const response = await apiClient.post<ExpenseReport>(`/expenses/${id}/approve`, data);
+  return response.data;
+}
+
+export async function rejectExpense(
+  id: string,
+  data: RejectExpenseRequest,
+): Promise<ExpenseReport> {
+  const response = await apiClient.post<ExpenseReport>(`/expenses/${id}/reject`, data);
   return response.data;
 }
