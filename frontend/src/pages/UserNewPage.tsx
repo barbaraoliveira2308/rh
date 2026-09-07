@@ -166,8 +166,8 @@ export function UserNewPage(): React.JSX.Element {
   });
 
   const { data: managers } = useQuery({
-    queryKey: ['employees', { status: EmployeeStatus.ACTIVE, limit: 1000 }],
-    queryFn: () => fetchEmployees({ status: EmployeeStatus.ACTIVE, limit: 1000 }),
+    queryKey: ['employees', { status: EmployeeStatus.ACTIVE, limit: 100 }],
+    queryFn: () => fetchEmployees({ status: EmployeeStatus.ACTIVE, limit: 100 }),
   });
 
   const departmentOptions: SelectOption[] = React.useMemo(

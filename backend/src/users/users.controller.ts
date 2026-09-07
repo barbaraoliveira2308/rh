@@ -89,11 +89,15 @@ export class UsersController {
   ): Promise<Employee> {
     const user = req.user as JwtPayload;
     const isAdmin = user.roles.includes(RoleEnum.ADMIN);
-    const isManager = user.roles.includes(RoleEnum.MANAGER);
 
-    if (!isAdmin && !isManager) {
+    if (!isAdmin) {
       const callerEmployeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
-      if (callerEmployeeId !== id) {
+      const isSelf = callerEmployeeId === id;
+      const isManager = user.roles.includes(RoleEnum.MANAGER);
+      const isManagerOfTarget =
+        !isSelf && isManager && (await this.usersService.isManagerOfEmployee(callerEmployeeId, id));
+
+      if (!isSelf && !isManagerOfTarget) {
         throw new ForbiddenException('Não tem permissão para editar este colaborador');
       }
     }

@@ -352,4 +352,36 @@ describe('UsersService', () => {
       expect(mockEmployeeRepository.update).not.toHaveBeenCalled();
     });
   });
+
+  describe('isManagerOfEmployee', () => {
+    const hierarchy: Record<string, Employee> = {
+      'emp-1': makeEmployee({ id: 'emp-1', managerId: 'mgr-direct' }),
+      'mgr-direct': makeEmployee({ id: 'mgr-direct', managerId: 'mgr-indirect' }),
+      'mgr-indirect': makeEmployee({ id: 'mgr-indirect', managerId: null }),
+      'other-emp': makeEmployee({ id: 'other-emp', managerId: 'other-mgr' }),
+      'other-mgr': makeEmployee({ id: 'other-mgr', managerId: null }),
+    };
+
+    beforeEach(() => {
+      mockEmployeeRepository.findOne.mockImplementation((opts: { where: { id: string } }) =>
+        Promise.resolve(hierarchy[opts.where.id] ?? null),
+      );
+    });
+
+    it('should return true for the direct manager', async () => {
+      await expect(service.isManagerOfEmployee('mgr-direct', 'emp-1')).resolves.toBe(true);
+    });
+
+    it('should return true for an indirect manager (manager of the manager)', async () => {
+      await expect(service.isManagerOfEmployee('mgr-indirect', 'emp-1')).resolves.toBe(true);
+    });
+
+    it('should return false when the manager is unrelated to the employee', async () => {
+      await expect(service.isManagerOfEmployee('other-mgr', 'emp-1')).resolves.toBe(false);
+    });
+
+    it('should return false when the employee has no manager chain', async () => {
+      await expect(service.isManagerOfEmployee('mgr-direct', 'mgr-indirect')).resolves.toBe(false);
+    });
+  });
 });

@@ -1,14 +1,42 @@
 import * as React from 'react';
 import { useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Controller, FormProvider, Path, useForm, useFormContext } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import dayjs from 'dayjs';
 import { PageHeader } from '@/components/PageHeader';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { StatusBadge, type BadgeVariant } from '@/components/StatusBadge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { fetchEmployee } from '@/api/users.api';
-import { EmployeeStatus } from '@/types/users';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { FormField } from '@/components/FormField';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  fetchEmployee,
+  updateEmployee,
+  fetchDepartments,
+  fetchJobTitles,
+  fetchEmployees,
+} from '@/api/users.api';
+import { useAuthStore } from '@/stores/auth.store';
+import { getErrorMessage } from '@/lib/utils';
+import { EmployeeStatus, type UpdateEmployeeRequest } from '@/types/users';
 
 function getStatusLabel(status: EmployeeStatus): string {
   switch (status) {
@@ -54,8 +82,247 @@ function DetailItem({ label, value }: DetailItemProps): React.JSX.Element {
   );
 }
 
+const editSchema = z.object({
+  firstName: z.string().min(1, 'O nome próprio é obrigatório'),
+  lastName: z.string().min(1, 'O apelido é obrigatório'),
+  email: z.string().email('Email inválido'),
+  personalEmail: z.string().optional(),
+  phone: z.string().optional(),
+  nif: z.string().optional(),
+  birthDate: z.string().optional(),
+  nationality: z.string().optional(),
+  gender: z.string().optional(),
+  address: z.string().optional(),
+  employeeNumber: z.string().min(1, 'O número de colaborador é obrigatório'),
+  departmentId: z.string().optional(),
+  jobTitleId: z.string().optional(),
+  managerId: z.string().optional(),
+  employmentStartDate: z.string().min(1, 'A data de início é obrigatória'),
+  employmentEndDate: z.string().optional(),
+  workLocation: z.string().optional(),
+  status: z.nativeEnum(EmployeeStatus),
+  iban: z.string().optional(),
+});
+
+type EditForm = z.infer<typeof editSchema>;
+
+const statusOptions = [
+  { value: EmployeeStatus.ACTIVE, label: 'Ativo' },
+  { value: EmployeeStatus.INACTIVE, label: 'Inativo' },
+  { value: EmployeeStatus.ON_LEAVE, label: 'Em licença' },
+];
+
+interface SelectOption {
+  value: string;
+  label: string;
+}
+
+interface SelectFieldProps {
+  name: Path<EditForm>;
+  label: string;
+  options: SelectOption[];
+  placeholder?: string;
+}
+
+function SelectField({ name, label, options, placeholder }: SelectFieldProps): React.JSX.Element {
+  const { control, formState } = useFormContext<EditForm>();
+  const error = formState.errors[name]?.message;
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={name}>{label}</Label>
+      <Controller
+        name={name}
+        control={control}
+        render={({ field }) => (
+          <Select
+            value={field.value ?? ''}
+            onValueChange={(value) => {
+              field.onChange(value || undefined);
+            }}
+          >
+            <SelectTrigger id={name} aria-invalid={Boolean(error)}>
+              <SelectValue placeholder={placeholder ?? label} />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      />
+      {error && <p className="text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+interface EditEmployeeDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  employeeId: string;
+  defaultValues: EditForm;
+}
+
+function EditEmployeeDialog({
+  open,
+  onOpenChange,
+  employeeId,
+  defaultValues,
+}: EditEmployeeDialogProps): React.JSX.Element {
+  const queryClient = useQueryClient();
+
+  const methods = useForm<EditForm>({
+    resolver: zodResolver(editSchema),
+    values: defaultValues,
+  });
+
+  const { data: departments } = useQuery({
+    queryKey: ['departments'],
+    queryFn: fetchDepartments,
+  });
+
+  const { data: jobTitles } = useQuery({
+    queryKey: ['jobTitles'],
+    queryFn: fetchJobTitles,
+  });
+
+  const { data: managers } = useQuery({
+    queryKey: ['employees', { status: EmployeeStatus.ACTIVE, limit: 100 }],
+    queryFn: () => fetchEmployees({ status: EmployeeStatus.ACTIVE, limit: 100 }),
+  });
+
+  const departmentOptions: SelectOption[] = React.useMemo(
+    () =>
+      departments?.map((department) => ({ value: department.id, label: department.name })) ?? [],
+    [departments],
+  );
+
+  const jobTitleOptions: SelectOption[] = React.useMemo(
+    () => jobTitles?.map((jobTitle) => ({ value: jobTitle.id, label: jobTitle.name })) ?? [],
+    [jobTitles],
+  );
+
+  const managerOptions: SelectOption[] = React.useMemo(
+    () =>
+      managers?.data
+        .filter((manager) => manager.id !== employeeId)
+        .map((manager) => ({
+          value: manager.id,
+          label: `${manager.firstName} ${manager.lastName}`,
+        })) ?? [],
+    [managers, employeeId],
+  );
+
+  const updateMutation = useMutation({
+    mutationFn: (values: EditForm) => {
+      const payload: UpdateEmployeeRequest = {};
+      for (const [key, value] of Object.entries(values)) {
+        if (value !== '') {
+          (payload as Record<string, unknown>)[key] = value;
+        }
+      }
+      return updateEmployee(employeeId, payload);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['employee', employeeId] });
+      onOpenChange(false);
+    },
+  });
+
+  const onSubmit = (values: EditForm): void => {
+    updateMutation.mutate(values);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Editar Colaborador</DialogTitle>
+        </DialogHeader>
+        <FormProvider {...methods}>
+          <form
+            onSubmit={(event) => void methods.handleSubmit(onSubmit)(event)}
+            className="space-y-4"
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField name="firstName" label="Nome próprio" />
+              <FormField name="lastName" label="Apelido" />
+              <FormField name="email" label="Email" type="email" />
+              <FormField name="personalEmail" label="Email pessoal" type="email" />
+              <FormField name="phone" label="Telefone" type="tel" />
+              <FormField name="nif" label="NIF" />
+              <FormField name="birthDate" label="Data de nascimento" type="date" />
+              <FormField name="nationality" label="Nacionalidade" />
+              <FormField name="gender" label="Género" />
+              <FormField name="address" label="Morada" />
+              <FormField name="employeeNumber" label="Número de colaborador" />
+              <SelectField
+                name="departmentId"
+                label="Departamento"
+                placeholder="Selecionar departamento"
+                options={departmentOptions}
+              />
+              <SelectField
+                name="jobTitleId"
+                label="Cargo"
+                placeholder="Selecionar cargo"
+                options={jobTitleOptions}
+              />
+              <SelectField
+                name="managerId"
+                label="Gestor"
+                placeholder="Selecionar gestor"
+                options={managerOptions}
+              />
+              <FormField name="employmentStartDate" label="Data de início" type="date" />
+              <FormField name="employmentEndDate" label="Data de fim" type="date" />
+              <FormField name="workLocation" label="Local de trabalho" />
+              <SelectField
+                name="status"
+                label="Estado"
+                placeholder="Selecionar estado"
+                options={statusOptions}
+              />
+              <FormField name="iban" label="IBAN" />
+            </div>
+
+            {updateMutation.isError && (
+              <p className="text-sm text-red-600">
+                {getErrorMessage(updateMutation.error, 'Ocorreu um erro ao guardar as alterações.')}
+              </p>
+            )}
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  onOpenChange(false);
+                }}
+                disabled={updateMutation.isPending}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={updateMutation.isPending}>
+                {updateMutation.isPending ? <LoadingSpinner size={16} /> : 'Guardar Alterações'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </FormProvider>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function UserDetailPage(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
+  const permissions = useAuthStore((state) => state.permissions);
+  const isAdmin = permissions.includes('admin:*') || permissions.some((p) => p.startsWith('admin'));
+  const canEdit = isAdmin || permissions.includes('manager');
+  const [editOpen, setEditOpen] = React.useState(false);
 
   if (!id) {
     return <p className="text-sm text-red-600">ID inválido.</p>;
@@ -87,12 +354,44 @@ export function UserDetailPage(): React.JSX.Element {
     ? `${employee.manager.firstName} ${employee.manager.lastName}`
     : '-';
 
+  const editDefaultValues: EditForm = {
+    firstName: employee.firstName,
+    lastName: employee.lastName,
+    email: employee.email,
+    personalEmail: employee.personalEmail ?? '',
+    phone: employee.phone ?? '',
+    nif: employee.nif ?? '',
+    birthDate: employee.birthDate ?? '',
+    nationality: employee.nationality ?? '',
+    gender: employee.gender ?? '',
+    address: employee.address ?? '',
+    employeeNumber: employee.employeeNumber,
+    departmentId: employee.departmentId ?? '',
+    jobTitleId: employee.jobTitleId ?? '',
+    managerId: employee.managerId ?? '',
+    employmentStartDate: employee.employmentStartDate,
+    employmentEndDate: employee.employmentEndDate ?? '',
+    workLocation: employee.workLocation ?? '',
+    status: employee.status,
+    iban: employee.iban ?? '',
+  };
+
   return (
     <div>
       <PageHeader
         title={fullName}
         description={employee.email}
         breadcrumb={[{ label: 'Colaboradores', href: '/users' }, { label: fullName }]}
+        action={
+          canEdit
+            ? {
+                label: 'Editar',
+                onClick: (): void => {
+                  setEditOpen(true);
+                },
+              }
+            : undefined
+        }
       />
 
       <Tabs defaultValue="personal">
@@ -189,6 +488,15 @@ export function UserDetailPage(): React.JSX.Element {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {canEdit && (
+        <EditEmployeeDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          employeeId={id}
+          defaultValues={editDefaultValues}
+        />
+      )}
     </div>
   );
 }

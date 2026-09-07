@@ -332,6 +332,35 @@ export class UsersService {
     });
   }
 
+  async isManagerOfEmployee(potentialManagerId: string, employeeId: string): Promise<boolean> {
+    const visited = new Set<string>();
+    let currentId: string | null = employeeId;
+
+    while (currentId) {
+      if (visited.has(currentId)) {
+        return false;
+      }
+      visited.add(currentId);
+
+      const current = await this.employeeRepository.findOne({
+        where: { id: currentId },
+        select: ['id', 'managerId'],
+      });
+
+      if (!current?.managerId) {
+        return false;
+      }
+
+      if (current.managerId === potentialManagerId) {
+        return true;
+      }
+
+      currentId = current.managerId;
+    }
+
+    return false;
+  }
+
   private async wouldCreateCircularHierarchy(
     employeeId: string,
     potentialManagerId: string,
