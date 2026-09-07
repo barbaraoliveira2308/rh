@@ -15,9 +15,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { fetchExpense, approveExpense, rejectExpense } from '@/api/expenses.api';
+import {
+  fetchExpense,
+  approveExpense,
+  rejectExpense,
+  addExpenseItem,
+  submitExpenseReport,
+  fetchExpenseCategories,
+} from '@/api/expenses.api';
 import { useAuthStore } from '@/stores/auth.store';
+import { getErrorMessage } from '@/lib/utils';
 import { ExpenseReportStatus, type ExpenseItem } from '@/types/expenses';
 
 const MANAGER_ROLES = ['admin', 'manager', 'approver'];
@@ -58,6 +73,10 @@ export function ExpenseDetailPage(): React.JSX.Element {
 
   const [rejectDialogOpen, setRejectDialogOpen] = React.useState(false);
   const [rejectReason, setRejectReason] = React.useState('');
+  const [newItemCategoryId, setNewItemCategoryId] = React.useState('');
+  const [newItemDescription, setNewItemDescription] = React.useState('');
+  const [newItemAmount, setNewItemAmount] = React.useState('');
+  const [newItemDate, setNewItemDate] = React.useState('');
 
   const expenseQuery = useQuery({
     queryKey: ['expense', id],
@@ -65,10 +84,15 @@ export function ExpenseDetailPage(): React.JSX.Element {
     enabled: id !== '',
   });
 
+  const categoriesQuery = useQuery({
+    queryKey: ['expense-categories'],
+    queryFn: () => fetchExpenseCategories(),
+  });
+
   const approveMutation = useMutation({
     mutationFn: () => approveExpense(id, {}),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(['expense', id], updated);
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['expense', id] });
       void queryClient.invalidateQueries({ queryKey: ['workflow-inbox'] });
       void queryClient.invalidateQueries({ queryKey: ['workflow-count'] });
     },
@@ -76,12 +100,36 @@ export function ExpenseDetailPage(): React.JSX.Element {
 
   const rejectMutation = useMutation({
     mutationFn: () => rejectExpense(id, { reason: rejectReason.trim() }),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(['expense', id], updated);
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['expense', id] });
       void queryClient.invalidateQueries({ queryKey: ['workflow-inbox'] });
       void queryClient.invalidateQueries({ queryKey: ['workflow-count'] });
       setRejectDialogOpen(false);
       setRejectReason('');
+    },
+  });
+
+  const addItemMutation = useMutation({
+    mutationFn: () =>
+      addExpenseItem(id, {
+        categoryId: newItemCategoryId,
+        description: newItemDescription,
+        amount: Number(newItemAmount),
+        expenseDate: newItemDate,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['expense', id] });
+      setNewItemCategoryId('');
+      setNewItemDescription('');
+      setNewItemAmount('');
+      setNewItemDate('');
+    },
+  });
+
+  const submitMutation = useMutation({
+    mutationFn: () => submitExpenseReport(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['expense', id] });
     },
   });
 
@@ -104,10 +152,13 @@ export function ExpenseDetailPage(): React.JSX.Element {
   }
 
   const canReview = report.status === ExpenseReportStatus.PENDING && isManagerUser;
+  const isOwner = user !== null && user.email === report.employee?.email;
+  const canEditDraft = report.status === ExpenseReportStatus.DRAFT && isOwner;
   const employeeName = report.employee
     ? `${report.employee.firstName} ${report.employee.lastName}`
     : report.employeeId;
   const items = report.items ?? [];
+  const canSubmit = canEditDraft && items.length > 0;
 
   return (
     <div>
@@ -146,11 +197,25 @@ export function ExpenseDetailPage(): React.JSX.Element {
             </Button>
           </div>
         )}
+        {canEditDraft && (
+          <Button
+            onClick={() => {
+              submitMutation.mutate();
+            }}
+            disabled={!canSubmit || submitMutation.isPending}
+            title={canSubmit ? undefined : 'Adicione pelo menos um item antes de submeter'}
+          >
+            Submeter para Aprovação
+          </Button>
+        )}
       </div>
 
-      {(approveMutation.isError || rejectMutation.isError) && (
+      {(approveMutation.isError || rejectMutation.isError || submitMutation.isError) && (
         <div className="mb-6 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          Não foi possível concluir a ação. Tente novamente.
+          {getErrorMessage(
+            approveMutation.error ?? rejectMutation.error ?? submitMutation.error,
+            'Não foi possível concluir a ação. Tente novamente.',
+          )}
         </div>
       )}
 
@@ -253,6 +318,87 @@ export function ExpenseDetailPage(): React.JSX.Element {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {canEditDraft && (
+            <div className="mt-6 border-t pt-6">
+              <h4 className="mb-3 text-sm font-semibold">Adicionar Item</h4>
+              {addItemMutation.isError && (
+                <p className="mb-3 text-sm text-red-800">
+                  {getErrorMessage(
+                    addItemMutation.error,
+                    'Não foi possível adicionar o item. Verifique os dados e tente novamente.',
+                  )}
+                </p>
+              )}
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                <div>
+                  <Label>Categoria</Label>
+                  <Select value={newItemCategoryId} onValueChange={setNewItemCategoryId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecionar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(categoriesQuery.data ?? []).map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Descrição</Label>
+                  <Input
+                    value={newItemDescription}
+                    onChange={(event) => {
+                      setNewItemDescription(event.target.value);
+                    }}
+                    placeholder="Descrição"
+                  />
+                </div>
+                <div>
+                  <Label>Valor (€)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={newItemAmount}
+                    onChange={(event) => {
+                      setNewItemAmount(event.target.value);
+                    }}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <Label>Data</Label>
+                  <Input
+                    type="date"
+                    value={newItemDate}
+                    onChange={(event) => {
+                      setNewItemDate(event.target.value);
+                    }}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    className="w-full"
+                    disabled={
+                      newItemCategoryId === '' ||
+                      newItemDescription === '' ||
+                      Number(newItemAmount) <= 0 ||
+                      newItemDate === '' ||
+                      addItemMutation.isPending
+                    }
+                    onClick={() => {
+                      addItemMutation.mutate();
+                    }}
+                  >
+                    Adicionar
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>

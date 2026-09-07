@@ -13,7 +13,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { fetchExpenseCategories, createExpenseReport } from '@/api/expenses.api';
+import {
+  fetchExpenseCategories,
+  createExpenseReport,
+  addExpenseItem,
+  submitExpenseReport,
+} from '@/api/expenses.api';
+import { getErrorMessage } from '@/lib/utils';
 import type { ExpenseCategory } from '@/types/expenses';
 
 interface ItemForm {
@@ -45,12 +51,37 @@ export function ExpenseNewPage(): React.JSX.Element {
     queryFn: () => fetchExpenseCategories(),
   });
 
-  const createMutation = useMutation({
-    mutationFn: () =>
-      createExpenseReport({ title, periodStart, periodEnd, notes: notes || undefined }),
-    onSuccess: (_report) => {
+  const isValidItem = (item: ItemForm): boolean =>
+    item.categoryId !== '' && item.description !== '' && item.amount > 0 && item.expenseDate !== '';
+
+  const saveMutation = useMutation({
+    mutationFn: async (submitForApproval: boolean) => {
+      const report = await createExpenseReport({
+        title,
+        periodStart,
+        periodEnd,
+        notes: notes || undefined,
+      });
+
+      for (const item of items) {
+        if (!isValidItem(item)) continue;
+        await addExpenseItem(report.id, {
+          categoryId: item.categoryId,
+          description: item.description,
+          amount: item.amount,
+          expenseDate: item.expenseDate,
+        });
+      }
+
+      if (submitForApproval) {
+        await submitExpenseReport(report.id);
+      }
+
+      return report;
+    },
+    onSuccess: (report) => {
       void queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      void navigate('/expenses');
+      void navigate(`/expenses/${report.id}`);
     },
   });
 
@@ -104,17 +135,17 @@ export function ExpenseNewPage(): React.JSX.Element {
     setDuplicateWarnings(warnings);
   };
 
-  const handleSubmit = (): void => {
+  const handleSaveDraft = (): void => {
     checkDuplicates();
     if (title && periodStart && periodEnd) {
-      createMutation.mutate();
+      saveMutation.mutate(false);
     }
   };
 
   const handleSubmitForApproval = (): void => {
     checkDuplicates();
     if (title && periodStart && periodEnd) {
-      createMutation.mutate();
+      saveMutation.mutate(true);
     }
   };
 
@@ -322,15 +353,24 @@ export function ExpenseNewPage(): React.JSX.Element {
             </div>
           )}
 
+          {saveMutation.isError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+              {getErrorMessage(
+                saveMutation.error,
+                'Não foi possível guardar o relatório. Tente novamente.',
+              )}
+            </div>
+          )}
+
           <div className="flex flex-col gap-3">
             <Button
               onClick={() => {
-                handleSubmit();
+                handleSaveDraft();
               }}
-              disabled={!title || !periodStart || !periodEnd || createMutation.isPending}
+              disabled={!title || !periodStart || !periodEnd || saveMutation.isPending}
               className="w-full"
             >
-              {createMutation.isPending ? 'A criar...' : 'Guardar Rascunho'}
+              {saveMutation.isPending ? 'A guardar...' : 'Guardar Rascunho'}
             </Button>
             <Button
               variant="outline"
@@ -341,8 +381,8 @@ export function ExpenseNewPage(): React.JSX.Element {
                 !title ||
                 !periodStart ||
                 !periodEnd ||
-                items.length === 0 ||
-                createMutation.isPending
+                items.filter(isValidItem).length === 0 ||
+                saveMutation.isPending
               }
               className="w-full"
             >

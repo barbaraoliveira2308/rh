@@ -18,6 +18,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { fetchAbsence, approveAbsence, rejectAbsence } from '@/api/absences.api';
 import { useAuthStore } from '@/stores/auth.store';
+import { getErrorMessage } from '@/lib/utils';
 import { AbsenceStatus } from '@/types/absences';
 
 const MANAGER_ROLES = ['admin', 'manager', 'approver'];
@@ -62,8 +63,8 @@ export function AbsenceDetailPage(): React.JSX.Element {
 
   const approveMutation = useMutation({
     mutationFn: () => approveAbsence(id, {}),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(['absence', id], updated);
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['absence', id] });
       void queryClient.invalidateQueries({ queryKey: ['workflow-inbox'] });
       void queryClient.invalidateQueries({ queryKey: ['workflow-count'] });
     },
@@ -71,8 +72,8 @@ export function AbsenceDetailPage(): React.JSX.Element {
 
   const rejectMutation = useMutation({
     mutationFn: () => rejectAbsence(id, { reason: rejectReason.trim() }),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(['absence', id], updated);
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['absence', id] });
       void queryClient.invalidateQueries({ queryKey: ['workflow-inbox'] });
       void queryClient.invalidateQueries({ queryKey: ['workflow-count'] });
       setRejectDialogOpen(false);
@@ -144,7 +145,10 @@ export function AbsenceDetailPage(): React.JSX.Element {
 
       {(approveMutation.isError || rejectMutation.isError) && (
         <div className="mb-6 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          Não foi possível concluir a ação. Tente novamente.
+          {getErrorMessage(
+            approveMutation.error ?? rejectMutation.error,
+            'Não foi possível concluir a ação. Tente novamente.',
+          )}
         </div>
       )}
 
