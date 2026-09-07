@@ -244,6 +244,7 @@ function PoliciesTable({ status }: { status?: PolicyStatus }): React.JSX.Element
 export function PoliciesListPage(): React.JSX.Element {
   const permissions = useAuthStore((state) => state.permissions);
   const isAdmin = permissions.includes('admin:*') || permissions.some((p) => p.startsWith('admin'));
+  const canManage = isAdmin || permissions.includes('manager');
   const [dialogOpen, setDialogOpen] = React.useState(false);
 
   return (
@@ -253,7 +254,7 @@ export function PoliciesListPage(): React.JSX.Element {
         description="Repositório centralizado e pesquisável de políticas e conhecimento organizacional"
       />
 
-      {isAdmin && (
+      {canManage && (
         <div className="mb-4 flex justify-end">
           <Button
             onClick={() => {
@@ -266,7 +267,7 @@ export function PoliciesListPage(): React.JSX.Element {
         </div>
       )}
 
-      {isAdmin ? (
+      {canManage ? (
         <Tabs defaultValue="published">
           <TabsList>
             <TabsTrigger value="published">Publicadas</TabsTrigger>

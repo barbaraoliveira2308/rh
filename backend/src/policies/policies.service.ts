@@ -30,9 +30,9 @@ export class PoliciesService {
     q?: string,
     category?: string,
     status?: PolicyStatus,
-    isAdmin = false,
+    canManage = false,
   ): Promise<Policy[]> {
-    const effectiveStatus = isAdmin && status ? status : PolicyStatus.PUBLISHED;
+    const effectiveStatus = canManage && status ? status : PolicyStatus.PUBLISHED;
     const query = this.policyRepository
       .createQueryBuilder('p')
       .where('p.status = :status', { status: effectiveStatus });

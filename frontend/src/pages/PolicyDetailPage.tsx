@@ -150,6 +150,7 @@ export function PolicyDetailPage(): React.JSX.Element {
   const queryClient = useQueryClient();
   const permissions = useAuthStore((state) => state.permissions);
   const isAdmin = permissions.includes('admin:*') || permissions.some((p) => p.startsWith('admin'));
+  const canManage = isAdmin || permissions.includes('manager');
 
   const [editOpen, setEditOpen] = React.useState(false);
   const [archiveOpen, setArchiveOpen] = React.useState(false);
@@ -167,13 +168,13 @@ export function PolicyDetailPage(): React.JSX.Element {
   const { data: versions } = useQuery({
     queryKey: ['policy-versions', id],
     queryFn: () => fetchPolicyVersions(id ?? ''),
-    enabled: !!id && isAdmin,
+    enabled: !!id && canManage,
   });
 
   const { data: employeesResponse } = useQuery({
     queryKey: ['policies-employees'],
     queryFn: () => fetchEmployees({ limit: 100 }),
-    enabled: isAdmin,
+    enabled: canManage,
   });
 
   const authorName = React.useMemo(() => {
@@ -239,7 +240,7 @@ export function PolicyDetailPage(): React.JSX.Element {
         </div>
       )}
 
-      {isAdmin && (
+      {canManage && (
         <div className="mb-4 flex flex-wrap gap-2">
           <Button
             variant="outline"
@@ -249,7 +250,7 @@ export function PolicyDetailPage(): React.JSX.Element {
           >
             Editar (nova versão)
           </Button>
-          {policy.status === PolicyStatus.DRAFT && (
+          {isAdmin && policy.status === PolicyStatus.DRAFT && (
             <Button
               onClick={() => {
                 publishMutation.mutate();
@@ -259,7 +260,7 @@ export function PolicyDetailPage(): React.JSX.Element {
               {publishMutation.isPending ? <LoadingSpinner size={16} /> : 'Publicar'}
             </Button>
           )}
-          {policy.status === PolicyStatus.PUBLISHED && (
+          {isAdmin && policy.status === PolicyStatus.PUBLISHED && (
             <Button
               variant="destructive"
               onClick={() => {
@@ -276,7 +277,7 @@ export function PolicyDetailPage(): React.JSX.Element {
         <CardContent className="whitespace-pre-wrap pt-6 text-sm">{policy.content}</CardContent>
       </Card>
 
-      {isAdmin && versions && versions.length > 1 && (
+      {canManage && versions && versions.length > 1 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Histórico de Versões</CardTitle>

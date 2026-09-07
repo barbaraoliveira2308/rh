@@ -45,8 +45,8 @@ export class PoliciesController {
     @Query('status') status?: PolicyStatus,
   ) {
     const user = req.user as JwtPayload;
-    const isAdmin = user.roles.includes(RoleEnum.ADMIN);
-    return this.policiesService.findAll(q, category, status, isAdmin);
+    const canManage = user.roles.includes(RoleEnum.ADMIN) || user.roles.includes(RoleEnum.MANAGER);
+    return this.policiesService.findAll(q, category, status, canManage);
   }
 
   @Get(':id')
@@ -56,24 +56,24 @@ export class PoliciesController {
   }
 
   @Get(':id/versions')
-  @Roles(RoleEnum.ADMIN)
-  @ApiOperation({ summary: 'Listar versões de uma política (admin)' })
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
+  @ApiOperation({ summary: 'Listar versões de uma política (admin, gestor)' })
   async findVersions(@Param('id') id: string) {
     return this.policiesService.findVersions(id);
   }
 
   @Post()
-  @Roles(RoleEnum.ADMIN)
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Criar política (admin)' })
+  @ApiOperation({ summary: 'Criar política (admin, gestor)' })
   async create(@Body() dto: CreatePolicyDto, @Req() req: Request) {
     const user = req.user as JwtPayload;
     return this.policiesService.create(dto, user.sub);
   }
 
   @Patch(':id')
-  @Roles(RoleEnum.ADMIN)
-  @ApiOperation({ summary: 'Atualizar política — cria nova versão (admin)' })
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
+  @ApiOperation({ summary: 'Atualizar política — cria nova versão (admin, gestor)' })
   async update(@Param('id') id: string, @Body() dto: UpdatePolicyDto) {
     return this.policiesService.update(id, dto);
   }
