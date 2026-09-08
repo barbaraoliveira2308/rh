@@ -329,7 +329,7 @@ Feature: Gestão de Projetos
 - A remoção de alocação é um _soft delete_: define `endDate` para a data atual em vez de apagar o registo.
 - A verificação de sobreposição limita-se a alocações ativas (`endDate IS NULL`) no mesmo projeto; não valida interseção completa de intervalos de datas.
 - O `UpdateProjectDto` aceita `status`, mas o campo é ignorado para transições de estado.
-- **P-053**: `alertDaysBeforeEnd` de `Project` e `ProjectAllocation` passa a `dto.alertDaysBeforeEnd ?? SystemSetting.projectEndAlertDays` na criação (antes hardcoded `30`/`15` respetivamente) — valor único partilhado entre os dois, distinção de defaults anterior removida. Ver `specs/admin/SPEC.md` ("Wiring de Admin Settings ao runtime — Grupo B") para o detalhe completo.
+- **P-053**: `alertDaysBeforeEnd` de `Project` e `ProjectAllocation` passa a `dto.alertDaysBeforeEnd ?? SystemSetting.projectEndAlertDays` na criação (antes hardcoded `30`/`15` respetivamente) — valor único partilhado entre os dois, distinção de defaults anterior removida. Ver `specs/ADMIN.md` ("Wiring de Admin Settings ao runtime — Grupo B") para o detalhe completo.
 
 ### Testes
 

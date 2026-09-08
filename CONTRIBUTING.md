@@ -29,7 +29,7 @@ Exemplos:
 
 ## Novo Módulo — Checklist
 
-- [ ] **Spec**: criar `specs/<modulo>/SPEC.md` com descrição funcional e técnica
+- [ ] **Spec**: criar `specs/<MODULO>.md` com descrição funcional e técnica
 - [ ] **Entities**: definir entidades TypeORM no `backend/src/<modulo>/entities/`
 - [ ] **DTOs**: criar DTOs de validação com `class-validator` e `@ApiProperty()`
 - [ ] **Service**: implementar lógica de negócio no `backend/src/<modulo>/services/`

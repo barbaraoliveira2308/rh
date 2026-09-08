@@ -115,7 +115,7 @@ PDF, DOC/DOCX, XLS/XLSX, PNG/JPG, ZIP
 - **Não foi implementada** a entidade `DocumentPermission`; permissões por documento, equipa ou role não estão contempladas nesta fase.
 - **Não foi implementado** o endpoint de distribuição massiva (`POST /api/v1/documents/bulk-distribute`).
 - **Não existe** controlo explícito de documentos GDPR sensíveis nem fluxo de permissões explícitas.
-- **P-054**: purga automática da lixeira implementada — `DocumentsService.purgeExpiredTrash()` (`@Cron('0 4 * * *')`, diário) usa `SystemSetting.documentsTrashRetentionDays` (por defeito 30 dias) para encontrar documentos com `deletedAt` além do prazo e chama o `purge()` já existente (que antes desta fase nunca tinha nenhum caminho de código a invocá-lo). Ver `specs/admin/SPEC.md` ("Wiring de Admin Settings ao runtime — Grupo C") para o detalhe completo.
+- **P-054**: purga automática da lixeira implementada — `DocumentsService.purgeExpiredTrash()` (`@Cron('0 4 * * *')`, diário) usa `SystemSetting.documentsTrashRetentionDays` (por defeito 30 dias) para encontrar documentos com `deletedAt` além do prazo e chama o `purge()` já existente (que antes desta fase nunca tinha nenhum caminho de código a invocá-lo). Ver `specs/ADMIN.md` ("Wiring de Admin Settings ao runtime — Grupo C") para o detalhe completo.
 - **Não existe** distinção em runtime entre repositório público e privado na listagem; filtros são meramente por `isPublic`/`ownerId` quando fornecidos.
 - **Tipos de ficheiro** aceites no upload derivam da extensão do ficheiro enviado; validação de conteúdo MIME não está implementada.
 

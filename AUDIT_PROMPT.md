@@ -28,7 +28,7 @@ Se algum destes ficheiros não existir ou tiver um caminho diferente do assumido
 
 - Stack: NestJS (backend) + React 18 (frontend) + TypeORM + PostgreSQL, monorepo pnpm (`backend/`, `frontend/`, `shared/`).
 - 23 módulos, todos `Implemented` no backend (nenhum em `Draft`). Todos têm frontend próprio.
-- Auditoria (`hr.audit_logs`) ligada em todos os eventos mínimos da spec (`specs/audit/SPEC.md`) desde P-068.
+- Auditoria (`hr.audit_logs`) ligada em todos os eventos mínimos da spec (`specs/AUDIT.md`) desde P-068.
 - Wiring de Admin Settings ao runtime concluído desde P-059 (15/15 parâmetros de `SystemSetting`).
 - `LegalEntity` ligada a `Contract`/`Expenses`/`Absences`/`Calendar`/`Timesheets` desde P-069/P-071.
 - 439/439 testes unitários do backend a passar; suite e2e 7/7 ficheiros (51/51 testes) a passar — à data de escrita deste prompt. Confirma o número atual correndo `pnpm test` (backend) e `pnpm run test:e2e` antes de reportar qualquer coisa sobre testes — pode ter mudado.
@@ -37,7 +37,7 @@ Se algum destes ficheiros não existir ou tiver um caminho diferente do assumido
 
 Para cada módulo, nesta ordem:
 
-1. **Lê a spec completa**: `specs/<módulo>/SPEC.md`, incluindo especialmente as secções "Notas de Implementação" (o que foi _de facto_ construído, muitas vezes diferente do desenho original), "Simplificações/Decisões" (âmbito deliberadamente reduzido) e "Questões em Aberto" (ambiguidades nunca resolvidas — não as reportes como bugs, já são conhecidas).
+1. **Lê a spec completa**: `specs/<MÓDULO>.md`, incluindo especialmente as secções "Notas de Implementação" (o que foi _de facto_ construído, muitas vezes diferente do desenho original), "Simplificações/Decisões" (âmbito deliberadamente reduzido) e "Questões em Aberto" (ambiguidades nunca resolvidas — não as reportes como bugs, já são conhecidas).
 2. **Lê o código backend real**: `backend/src/<módulo>/` — controller(s), service(s), entities, DTOs, module. Confirma:
    - Todos os endpoints listados na spec existem no controller com o método HTTP certo?
    - Existem endpoints no controller que não estão documentados na spec? (pode ser normal — muitos módulos já adicionaram endpoints além da spec original, ex: `GET /timesheets/export`; verifica se está nas "Notas de Implementação" antes de o reportares como surpresa).

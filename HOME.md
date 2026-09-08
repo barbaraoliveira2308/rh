@@ -32,33 +32,33 @@ Plataforma de Gestão de Recursos Humanos — **NestJS + React 18 + TypeORM + Po
 
 ## Especificações por módulo
 
-Cada módulo tem uma spec técnica (SDD) própria em `specs/<módulo>/SPEC.md`. Índice completo com estado (`Implemented`/`Draft`) e histórico de versões: [specs/README.md](specs/README.md).
+Cada módulo tem uma spec técnica (SDD) própria em `specs/<MÓDULO>.md`. Índice completo com estado (`Implemented`/`Draft`) e histórico de versões: [specs/README.md](specs/README.md).
 
-| #   | Módulo                      | Spec                                                       |
-| --- | --------------------------- | ---------------------------------------------------------- |
-| 01  | Autenticação & Segurança    | [specs/auth/SPEC.md](specs/auth/SPEC.md)                   |
-| 02  | Utilizadores & RBAC         | [specs/users/SPEC.md](specs/users/SPEC.md)                 |
-| 03  | Equipas & Organograma       | [specs/teams/SPEC.md](specs/teams/SPEC.md)                 |
-| 04  | Clientes                    | [specs/clients/SPEC.md](specs/clients/SPEC.md)             |
-| 05  | Projetos                    | [specs/projects/SPEC.md](specs/projects/SPEC.md)           |
-| 06  | Capacidade & Alocação       | [specs/capacity/SPEC.md](specs/capacity/SPEC.md)           |
-| 07  | Assiduidade & Timesheets    | [specs/timesheets/SPEC.md](specs/timesheets/SPEC.md)       |
-| 08  | Ausências                   | [specs/absences/SPEC.md](specs/absences/SPEC.md)           |
-| 09  | Despesas & Reembolsos       | [specs/expenses/SPEC.md](specs/expenses/SPEC.md)           |
-| 10  | Gestão Documental           | [specs/documents/SPEC.md](specs/documents/SPEC.md)         |
-| 11  | Contratos                   | [specs/contracts/SPEC.md](specs/contracts/SPEC.md)         |
-| 12  | Workflow & Caixa de Entrada | [specs/workflow/SPEC.md](specs/workflow/SPEC.md)           |
-| 13  | Calendário Organizacional   | [specs/calendar/SPEC.md](specs/calendar/SPEC.md)           |
-| 14  | Relatórios                  | [specs/reports/SPEC.md](specs/reports/SPEC.md)             |
-| 15  | Dashboard de Recursos       | [specs/dashboard/SPEC.md](specs/dashboard/SPEC.md)         |
-| 16  | Dashboard Financeiro        | [specs/financials/SPEC.md](specs/financials/SPEC.md)       |
-| 17  | Políticas Internas          | [specs/policies/SPEC.md](specs/policies/SPEC.md)           |
-| 18  | Formação & Talento          | [specs/training/SPEC.md](specs/training/SPEC.md)           |
-| 19  | Helpdesk Interno            | [specs/helpdesk/SPEC.md](specs/helpdesk/SPEC.md)           |
-| 20  | Notificações & Alertas      | [specs/notifications/SPEC.md](specs/notifications/SPEC.md) |
-| 21  | Auditoria                   | [specs/audit/SPEC.md](specs/audit/SPEC.md)                 |
-| 22  | GDPR & Conformidade         | [specs/gdpr/SPEC.md](specs/gdpr/SPEC.md)                   |
-| 23  | Administração do Sistema    | [specs/admin/SPEC.md](specs/admin/SPEC.md)                 |
+| #   | Módulo                      | Spec                                             |
+| --- | --------------------------- | ------------------------------------------------ |
+| 01  | Autenticação & Segurança    | [specs/AUTH.md](specs/AUTH.md)                   |
+| 02  | Utilizadores & RBAC         | [specs/USERS.md](specs/USERS.md)                 |
+| 03  | Equipas & Organograma       | [specs/TEAMS.md](specs/TEAMS.md)                 |
+| 04  | Clientes                    | [specs/CLIENTS.md](specs/CLIENTS.md)             |
+| 05  | Projetos                    | [specs/PROJECTS.md](specs/PROJECTS.md)           |
+| 06  | Capacidade & Alocação       | [specs/CAPACITY.md](specs/CAPACITY.md)           |
+| 07  | Assiduidade & Timesheets    | [specs/TIMESHEETS.md](specs/TIMESHEETS.md)       |
+| 08  | Ausências                   | [specs/ABSENCES.md](specs/ABSENCES.md)           |
+| 09  | Despesas & Reembolsos       | [specs/EXPENSES.md](specs/EXPENSES.md)           |
+| 10  | Gestão Documental           | [specs/DOCUMENTS.md](specs/DOCUMENTS.md)         |
+| 11  | Contratos                   | [specs/CONTRACTS.md](specs/CONTRACTS.md)         |
+| 12  | Workflow & Caixa de Entrada | [specs/WORKFLOW.md](specs/WORKFLOW.md)           |
+| 13  | Calendário Organizacional   | [specs/CALENDAR.md](specs/CALENDAR.md)           |
+| 14  | Relatórios                  | [specs/REPORTS.md](specs/REPORTS.md)             |
+| 15  | Dashboard de Recursos       | [specs/DASHBOARD.md](specs/DASHBOARD.md)         |
+| 16  | Dashboard Financeiro        | [specs/FINANCIALS.md](specs/FINANCIALS.md)       |
+| 17  | Políticas Internas          | [specs/POLICIES.md](specs/POLICIES.md)           |
+| 18  | Formação & Talento          | [specs/TRAINING.md](specs/TRAINING.md)           |
+| 19  | Helpdesk Interno            | [specs/HELPDESK.md](specs/HELPDESK.md)           |
+| 20  | Notificações & Alertas      | [specs/NOTIFICATIONS.md](specs/NOTIFICATIONS.md) |
+| 21  | Auditoria                   | [specs/AUDIT.md](specs/AUDIT.md)                 |
+| 22  | GDPR & Conformidade         | [specs/GDPR.md](specs/GDPR.md)                   |
+| 23  | Administração do Sistema    | [specs/ADMIN.md](specs/ADMIN.md)                 |
 
 ## Manutenção desta página
 
