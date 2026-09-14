@@ -22,7 +22,15 @@ import {
   FileBarChart,
   ShieldCheck,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import Badge from '@mui/material/Badge';
+import Box from '@mui/material/Box';
+import IconButton from '@mui/material/IconButton';
+import List from '@mui/material/List';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Toolbar from '@mui/material/Toolbar';
+import Typography from '@mui/material/Typography';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUiStore } from '@/stores/ui.store';
@@ -36,24 +44,24 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', href: '/', icon: <LayoutDashboard className="h-4 w-4" /> },
-  { label: 'Colaboradores', href: '/users', icon: <Users className="h-4 w-4" /> },
-  { label: 'Organograma', href: '/org-chart', icon: <Network className="h-4 w-4" /> },
-  { label: 'Projetos', href: '/projects', icon: <FolderKanban className="h-4 w-4" /> },
-  { label: 'Timesheets', href: '/timesheets', icon: <Clock className="h-4 w-4" /> },
-  { label: 'Ausências', href: '/absences', icon: <CalendarDays className="h-4 w-4" /> },
-  { label: 'Calendário', href: '/calendar', icon: <Calendar className="h-4 w-4" /> },
-  { label: 'Caixa de Entrada', href: '/workflow/inbox', icon: <Inbox className="h-4 w-4" /> },
-  { label: 'Despesas', href: '/expenses', icon: <Wallet className="h-4 w-4" /> },
-  { label: 'Financeiro', href: '/analytics/financials', icon: <BarChart3 className="h-4 w-4" /> },
-  { label: 'Capacidade', href: '/capacity', icon: <Gauge className="h-4 w-4" /> },
-  { label: 'Helpdesk', href: '/helpdesk', icon: <LifeBuoy className="h-4 w-4" /> },
-  { label: 'Políticas', href: '/policies', icon: <BookOpen className="h-4 w-4" /> },
-  { label: 'Formação', href: '/training', icon: <GraduationCap className="h-4 w-4" /> },
-  { label: 'Relatórios', href: '/reports', icon: <FileBarChart className="h-4 w-4" /> },
-  { label: 'Privacidade', href: '/gdpr', icon: <ShieldCheck className="h-4 w-4" /> },
-  { label: 'Notificações', href: '/notifications', icon: <Bell className="h-4 w-4" /> },
-  { label: 'Administração', href: '/admin/settings', icon: <Settings className="h-4 w-4" /> },
+  { label: 'Dashboard', href: '/', icon: <LayoutDashboard size={18} /> },
+  { label: 'Colaboradores', href: '/users', icon: <Users size={18} /> },
+  { label: 'Organograma', href: '/org-chart', icon: <Network size={18} /> },
+  { label: 'Projetos', href: '/projects', icon: <FolderKanban size={18} /> },
+  { label: 'Timesheets', href: '/timesheets', icon: <Clock size={18} /> },
+  { label: 'Ausências', href: '/absences', icon: <CalendarDays size={18} /> },
+  { label: 'Calendário', href: '/calendar', icon: <Calendar size={18} /> },
+  { label: 'Caixa de Entrada', href: '/workflow/inbox', icon: <Inbox size={18} /> },
+  { label: 'Despesas', href: '/expenses', icon: <Wallet size={18} /> },
+  { label: 'Financeiro', href: '/analytics/financials', icon: <BarChart3 size={18} /> },
+  { label: 'Capacidade', href: '/capacity', icon: <Gauge size={18} /> },
+  { label: 'Helpdesk', href: '/helpdesk', icon: <LifeBuoy size={18} /> },
+  { label: 'Políticas', href: '/policies', icon: <BookOpen size={18} /> },
+  { label: 'Formação', href: '/training', icon: <GraduationCap size={18} /> },
+  { label: 'Relatórios', href: '/reports', icon: <FileBarChart size={18} /> },
+  { label: 'Privacidade', href: '/gdpr', icon: <ShieldCheck size={18} /> },
+  { label: 'Notificações', href: '/notifications', icon: <Bell size={18} /> },
+  { label: 'Administração', href: '/admin/settings', icon: <Settings size={18} /> },
 ];
 
 const adminOnlyRoutes = ['/analytics/financials', '/admin/settings'];
@@ -85,78 +93,120 @@ export function AppLayout(): React.JSX.Element {
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <aside
-        className={cn(
-          'fixed left-0 top-0 z-40 h-screen w-64 transform border-r bg-card transition-transform duration-200 ease-in-out md:relative md:translate-x-0',
-          !sidebarOpen && '-translate-x-full md:hidden',
-        )}
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
+      <Box
+        component="aside"
+        sx={{
+          position: { xs: 'fixed', md: 'relative' },
+          zIndex: 40,
+          display: sidebarOpen ? 'block' : 'none',
+          width: 256,
+          height: '100vh',
+          flexShrink: 0,
+          bgcolor: 'background.paper',
+          borderRight: 1,
+          borderColor: 'divider',
+        }}
       >
-        <div className="flex h-16 items-center border-b px-6">
-          <Link to="/" className="text-xl font-bold text-brand-800">
+        <Toolbar sx={{ px: 3 }}>
+          <Typography
+            component={Link}
+            to="/"
+            variant="h6"
+            color="primary"
+            sx={{ fontWeight: 700, textDecoration: 'none' }}
+          >
             HR Suite
-          </Link>
-        </div>
-        <nav className="space-y-1 p-4">
+          </Typography>
+        </Toolbar>
+        <List component="nav" sx={{ px: 1.5, py: 1 }}>
           {navItems
             .filter((item) => !adminOnlyRoutes.includes(item.href) || isAdmin)
             .filter((item) => !managerOrAdminRoutes.includes(item.href) || isManagerOrAdmin)
-            .map((item) => (
-              <Link
-                key={item.href}
-                to={item.href}
-                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                {item.icon}
-                {item.label}
-                {item.href === '/workflow/inbox' && (inboxCount?.count ?? 0) > 0 && (
-                  <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-brand-800 text-xs text-white">
-                    {String(inboxCount?.count ?? 0)}
-                  </span>
-                )}
-              </Link>
-            ))}
-        </nav>
-      </aside>
+            .map((item) => {
+              const hasInboxCount = item.href === '/workflow/inbox' && (inboxCount?.count ?? 0) > 0;
+              const label = hasInboxCount
+                ? `${item.label} (${String(inboxCount?.count ?? 0)})`
+                : item.label;
+              return (
+                <ListItemButton
+                  key={item.href}
+                  component={Link}
+                  to={item.href}
+                  sx={{ borderRadius: 1, mb: 0.25 }}
+                >
+                  <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}>
+                    {item.icon}
+                  </ListItemIcon>
+                  <ListItemText primary={item.label} />
+                  {hasInboxCount && (
+                    <Badge
+                      color="primary"
+                      badgeContent={inboxCount?.count}
+                      max={99}
+                      aria-label={label}
+                    />
+                  )}
+                </ListItemButton>
+              );
+            })}
+        </List>
+      </Box>
 
-      <div className="flex flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-card px-4 shadow-sm">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={toggleSidebar} className="md:hidden">
-              <Menu className="h-5 w-5" />
-            </Button>
-            <span className="text-sm text-muted-foreground">
+      <Box sx={{ display: 'flex', minWidth: 0, flex: 1, flexDirection: 'column' }}>
+        <Box
+          component="header"
+          sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 30,
+            display: 'flex',
+            height: 64,
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: 1,
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+            px: 2,
+            boxShadow: 1,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <IconButton onClick={toggleSidebar} aria-label="Alternar menu">
+              <Menu size={20} />
+            </IconButton>
+            <Typography variant="body2" color="text.secondary">
               Bem-vindo, {user?.username ?? 'Utilizador'}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative"
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <IconButton
+              aria-label="Notificações"
               onClick={() => {
                 void navigate('/notifications');
               }}
             >
-              <Bell className="h-5 w-5" />
-              {(unreadCount?.count ?? 0) > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-brand-800 text-[10px] text-white">
-                  {(unreadCount?.count ?? 0) > 9 ? '9+' : String(unreadCount?.count ?? 0)}
-                </span>
-              )}
+              <Badge color="primary" badgeContent={unreadCount?.count ?? 0} max={9}>
+                <Bell size={20} />
+              </Badge>
+            </IconButton>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Terminar sessão"
+              onClick={() => void handleLogout()}
+            >
+              <LogOut size={20} />
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => void handleLogout()}>
-              <LogOut className="h-5 w-5" />
-            </Button>
-          </div>
-        </header>
+          </Box>
+        </Box>
 
-        <main className="flex-1 overflow-auto p-6">
-          <div className="mx-auto max-w-7xl">
+        <Box component="main" sx={{ flex: 1, overflow: 'auto', p: { xs: 2, md: 3 } }}>
+          <Box sx={{ mx: 'auto', maxWidth: 1440 }}>
             <Outlet />
-          </div>
-        </main>
-      </div>
-    </div>
+          </Box>
+        </Box>
+      </Box>
+    </Box>
   );
 }

@@ -5,7 +5,10 @@
 ```mermaid
 graph TB
     subgraph Frontend
-        REACT[React 18 + Vite]
+        SHELL[srhShell / React 18 + Vite]
+        FEDERATION[Module Federation host]
+        SHARED_UI[Shared UI: MUI + Emotion]
+        REMOTES[Domain remotes: Users, Timesheets, Absences, Expenses]
         TAILWIND[Tailwind CSS]
         TANSTACK[TanStack Query]
         ZUSTAND[Zustand]
@@ -53,7 +56,10 @@ graph TB
         KC[Keycloak IDP]
     end
 
-    REACT --> AXIOS
+    SHELL --> FEDERATION
+    SHELL --> SHARED_UI
+    SHELL -. gradual extraction .-> REMOTES
+    SHELL --> AXIOS
     AXIOS --> NESTJS
     NESTJS --> PG
     NESTJS --> REDIS
