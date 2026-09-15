@@ -15,18 +15,6 @@ const ResetPasswordPage = React.lazy(() =>
 const DashboardPage = React.lazy(() =>
   import('@/pages/DashboardPage').then((m) => ({ default: m.DashboardPage })),
 );
-const UsersListPage = React.lazy(() =>
-  import('@/pages/UsersListPage').then((m) => ({ default: m.UsersListPage })),
-);
-const UserDetailPage = React.lazy(() =>
-  import('@/pages/UserDetailPage').then((m) => ({ default: m.UserDetailPage })),
-);
-const UserNewPage = React.lazy(() =>
-  import('@/pages/UserNewPage').then((m) => ({ default: m.UserNewPage })),
-);
-const OrgChartPage = React.lazy(() =>
-  import('@/pages/OrgChartPage').then((m) => ({ default: m.OrgChartPage })),
-);
 const ProjectsListPage = React.lazy(() =>
   import('@/pages/ProjectsListPage').then((m) => ({ default: m.ProjectsListPage })),
 );
@@ -111,6 +99,9 @@ const AppLayout = React.lazy(() =>
 const AuthLayout = React.lazy(() =>
   import('@/layouts/AuthLayout').then((m) => ({ default: m.AuthLayout })),
 );
+const UsersRemoteApp = React.lazy(() =>
+  import('srhUsersRemote/UsersRemoteApp').then((module) => ({ default: module.UsersRemoteApp })),
+);
 
 function ProtectedRoute({ children }: { children: React.ReactNode }): React.JSX.Element {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -156,10 +147,7 @@ export function App(): React.JSX.Element {
                 }
               >
                 <Route path="/" element={<DashboardPage />} />
-                <Route path="/users" element={<UsersListPage />} />
-                <Route path="/users/new" element={<UserNewPage />} />
-                <Route path="/users/:id" element={<UserDetailPage />} />
-                <Route path="/org-chart" element={<OrgChartPage />} />
+                <Route path="/users/*" element={<UsersRemoteApp />} />
                 <Route path="/projects" element={<ProjectsListPage />} />
                 <Route path="/projects/:id" element={<ProjectDetailPage />} />
                 <Route path="/projects/:id/allocations" element={<ProjectAllocationsPage />} />

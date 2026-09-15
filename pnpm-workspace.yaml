@@ -1,6 +1,7 @@
 packages:
   - 'backend'
   - 'frontend'
+  - 'frontend/remotes/users'
   - 'shared'
 allowBuilds:
   '@scarf/scarf': true

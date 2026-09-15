@@ -8,7 +8,9 @@ export default defineConfig({
     react(),
     federation({
       name: 'srhShell',
-      remotes: {},
+      remotes: {
+        srhUsersRemote: 'http://localhost:5174/assets/remoteEntry.js',
+      },
       shared: {
         react: { singleton: true },
         'react-dom': { singleton: true },
