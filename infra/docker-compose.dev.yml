@@ -60,7 +60,7 @@ services:
         condition: service_healthy
 
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest
     container_name: srh-minio-dev
     restart: unless-stopped
     ports:
@@ -166,6 +166,7 @@ services:
       - '5173:5173'
     environment:
       VITE_API_URL: http://localhost:3000/api
+      VITE_DEV_API_TARGET: http://backend:3000
       VITE_KEYCLOAK_URL: http://localhost:8080
       VITE_KEYCLOAK_REALM: hr-suite
       VITE_KEYCLOAK_CLIENT_ID: srh-frontend
