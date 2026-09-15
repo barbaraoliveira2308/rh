@@ -42,9 +42,14 @@ pnpm --filter @bridge351/srh-backend run migration:run
 # 5. Popular dados de base (roles, permissões, admin)
 pnpm --filter @bridge351/srh-backend run seed
 
-# 6. Iniciar desenvolvimento
+# 6. Iniciar desenvolvimento do shell e dos microfrontends
 pnpm dev
 ```
+
+O comando `pnpm dev` inicia o shell em `http://localhost:5173` e o remote Users em
+`http://localhost:5174`. O backend é fornecido pelo Docker em `http://localhost:3000`.
+Para executar o backend localmente em vez do container, usar `pnpm dev:backend` depois de
+parar o serviço Docker correspondente.
 
 Após iniciar:
 

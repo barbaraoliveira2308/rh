@@ -4,7 +4,8 @@
   "private": true,
   "description": "HR Suite — Sistema de Gestão de Recursos Humanos",
   "scripts": {
-    "dev": "pnpm -r run dev",
+    "dev": "pnpm --parallel --filter @bridge351/srh-frontend --filter @bridge351/srh-users-remote run dev",
+    "dev:backend": "pnpm --filter @bridge351/srh-backend run dev",
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,yml,yaml,md}\"",
