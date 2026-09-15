@@ -10,6 +10,13 @@ CREATE DATABASE srh_test;
 CREATE SCHEMA IF NOT EXISTS hr;
 \c srh
 
+-- Base de dados própria do Keycloak, requerida por KC_DB_URL_DATABASE no docker-compose.dev.yml.
+CREATE DATABASE keycloak;
+
+\c keycloak
+CREATE SCHEMA IF NOT EXISTS keycloak;
+\c srh
+
 CREATE ROLE hr_app WITH LOGIN PASSWORD 'change_me';
 
 GRANT CONNECT ON DATABASE srh TO hr_app;
