@@ -13,7 +13,8 @@
 ## 2. Estado atual (resumo — confirmar sempre contra o `PROJECT_STATE.md`)
 
 - Stack: NestJS + React 18 + TypeORM + PostgreSQL, monorepo pnpm (`backend/`, `frontend/`, `shared/`).
-- Última fase concluída: **P-088** (correção do arranque em dev e produção, a partir de um relatório de consultoria externa com 9 gaps entre o Quickstart do `README.md` e a realidade; nenhum módulo funcional tocado — toda a fase é arranque/infra/documentação). Os 3 modos (Modo A tudo em Docker, Modo B app no host, Produção) foram validados de raiz pelo utilizador.
+- Última fase concluída: **P-089** (só documentação — abertura do trabalho **UC-driven no módulo Auth**: nova tabela de estado por caso de uso em `specs/AUTH.md`, riscos `R-061`/`R-062`/`R-063` registados, e este ficheiro reorientado para o backlog de Auth. Nenhum código tocado). **A próxima fase é P-090 = UC-AUTH-004 — ver secção 3, o âmbito já está decidido; não voltes a apresentar o menu antigo de candidatos.**
+- Fase anterior: **P-088** (correção do arranque em dev e produção, a partir de um relatório de consultoria externa com 9 gaps entre o Quickstart do `README.md` e a realidade; nenhum módulo funcional tocado — toda a fase é arranque/infra/documentação). Os 3 modos (Modo A tudo em Docker, Modo B app no host, Produção) foram validados de raiz pelo utilizador.
 - **23 dos 23 módulos** da spec (`specs/README.md`) `Implemented` no backend — nenhum módulo em `Draft`.
 - **Todos os 23 módulos têm frontend próprio** — Notificações (P-041) foi o último em falta.
 - **Wiring de Admin Settings ao runtime concluído**: os **15 dos 15 parâmetros de `SystemSetting`** estão ligados ao runtime — 5 em P-052 (`defaultDailyHours`, `contractExpiryAlertDays`, `underallocationThresholdPercentage`, `maxLoginAttempts`, `lockoutPeriodMinutes`) + 3 em P-053 (`defaultCountry`, `defaultCurrency`, `projectEndAlertDays`) + 1 em P-054 (`documentsTrashRetentionDays`) + 1 em P-055 (`gdprPostExitRetentionYears`) + 1 em P-056 (`timesheetSubmissionDeadlineDay`) + 2 em P-057 (`defaultVacationDaysPerYear`, `carryOverVacationDays`) + 1 em P-059 (`mfaRequiredForAdmin`); `companyName` e `sessionTimeoutMinutes` avaliados e conscientemente deixados por ligar em P-053 (não são candidatos a reabrir sem razão nova). `LegalEntity` (fora de `SystemSetting`, mesmo módulo Admin) continua só armazenado — nunca fez parte do âmbito de nenhuma decisão de wiring até agora.
@@ -80,6 +81,29 @@
 
 ## 3. O que falta — candidatos à próxima fase
 
+**O foco das próximas fases já está decidido pelo utilizador (P-089): completar o módulo Auth, caso de uso a caso de uso.** A lista "Backlog Auth" abaixo é a sequência acordada — não voltes a perguntar qual a área de foco enquanto ela não estiver esgotada, e não a reordenes por iniciativa própria. O resto desta secção continua a ser o backlog geral, para quando o trabalho de Auth terminar.
+
+### Backlog Auth — UC-driven (decidido em P-089)
+
+Uma fase por caso de uso, um commit por fase, todas no branch `feature/auth-uc`. O estado por caso de uso vive na tabela no topo da secção "Casos de Uso" de `specs/AUTH.md` — **é essa a fonte de verdade**, e atualizá-la faz parte das Acções de Fecho de cada uma destas fases. A ordem é por dependência, não por importância.
+
+| Fase      | Âmbito                                              | Porquê nesta posição                                                                                                                  |
+| --------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **P-090** | **UC-AUTH-004** (Logout)                            | O mais pequeno, e constrói a revogação real de sessão que a fase seguinte reutiliza. Corrige o refresh token que sobrevive ao logout. |
+| P-091     | **UC-AUTH-003** (Recuperação de Password)           | Passo 7 reutiliza a revogação de P-090; falta a página que consome o token e a correção da rota do link do email.                     |
+| P-092     | **UC-AUTH-005** (Configurar MFA)                    | Tem de vir antes de UC-AUTH-001 — sem UI de self-service ninguém consegue chegar ao estado "MFA ativo" pelo produto.                  |
+| P-093     | **UC-AUTH-001** (Login)                             | Contrato do desafio MFA (agora testável por uma pessoa real), 403 no bloqueio, e a decisão `username` vs. `email`.                    |
+| P-094     | **UC-AUTH-002** (Login via SSO)                     | O mais isolado e o que mais depende do ambiente (exige Keycloak a correr). Ver `R-063` — decidir se entra no âmbito desta fase.       |
+| P-095     | **BR-AUTH-005** (timeout de sessão por inatividade) | Não é um caso de uso, mas é da spec. Ligar `sessionTimeoutMinutes`, hoje configurável na UI de Admin e ligado a nada.                 |
+
+Notas para quem pegar nisto:
+
+- **P-095 reabre uma decisão fechada.** `sessionTimeoutMinutes` foi avaliado e conscientemente deixado por ligar em P-053 (Grupo B). Reabre-se agora porque BR-AUTH-005 exige o comportamento, não por esquecimento — registar como decisão nova, não como correção de um lapso.
+- **`R-061` interage com P-095.** Um timeout deslizante por inatividade sobre um `Map` em memória continua a perder-se em cada reinício. Vale a pena decidir `R-061` antes ou em conjunto com P-095.
+- **Regra 1 continua a aplicar-se dentro de cada fase.** O texto numerado do caso de uso é a fronteira do âmbito. `R-061`/`R-062`/`R-063` não pertencem a nenhum caso de uso e **não podem** ser acrescentados por iniciativa própria a uma destas fases — exigem decisão explícita do utilizador.
+
+### Backlog geral (retomar quando o trabalho de Auth terminar)
+
 Não escolhas por conta própria; usa esta lista para apresentar opções ao utilizador (ver secção 4).
 
 - Wiring de Admin Settings ao runtime **concluído desde P-059** (15/15 parâmetros de `SystemSetting`). `companyName`/`sessionTimeoutMinutes` (Grupo B) continuam conscientemente deixados por ligar (P-053) — não são candidatos a reabrir sem razão nova.
@@ -108,19 +132,24 @@ Não escolhas por conta própria; usa esta lista para apresentar opções ao uti
 - **`R-057`/`R-059` (descobertos em P-088) — limpeza de configuração**: `SENTRY_DSN` e `PROMETHEUS_ENABLED` não são lidas por nenhum código (decidir entre ligar ou remover do `.env.example`); `docs/openapi.json` é regenerado a cada arranque em dev mas não está no `.gitignore`.
 - **`R-058`/`R-060` (descobertos em P-088) — fixação do Node e cache de tipos do frontend**: sem `.nvmrc` (host 22 vs Docker/CI 20; o utilizador recusou explicitamente o `.nvmrc` em P-088) e `frontend/tsconfig.tsbuildinfo` fora de qualquer pasta de output. Ambos benignos hoje.
 
-A próxima sessão tem um backlog concreto (a lista acima) — não precisa de uma nova área de foco do utilizador, só de uma escolha de âmbito dentro dos achados da auditoria (ou confirmação de que quer mudar de foco).
+- **`R-061` (descoberto em P-089) — sessões vivem num `Map` em memória do processo (`CacheService`)**: `JwtAuthGuard` valida cada pedido contra esse `Map` e nunca contra `hr.sessions`; `RateLimitGuard` tem o mesmo problema. Reiniciar o backend termina todas as sessões; com mais do que uma instância a autenticação parte-se. O Redis já existe no `docker-compose` e na CI, mas este módulo não o usa. Ver `specs/GLOBAL-TASKS-RISKS.md`.
+- **`R-062` (descoberto em P-089) — access e refresh token em `localStorage`** (`frontend/src/stores/auth.store.ts`): um XSS expõe um refresh token de 7 dias. Ver `specs/GLOBAL-TASKS-RISKS.md`.
+- **`R-063` (descoberto em P-089) — SSO sem `state` nem PKCE**: `getAuthorizationUrl()` não envia `state` e o callback nunca o valida. Só se materializa quando o SSO for ligado — ou seja, em **P-094**, que mexe exatamente nesse código. Ver `specs/GLOBAL-TASKS-RISKS.md`.
+
+A próxima sessão **não precisa de escolher área de foco** — é P-090 (UC-AUTH-004), conforme a tabela "Backlog Auth" acima. O backlog geral fica em espera até os casos de uso de Auth estarem fechados.
 
 ## 4. Antes de avançar
 
-Por regra 2 e 3 do `AGENTS.md`: não decidas sozinho qual destes itens atacar a seguir. Pergunta ao utilizador, no formato da regra 7:
+**A área de foco já foi decidida em P-089 — não a voltes a perguntar.** A próxima fase é **P-090 = UC-AUTH-004 (Logout)**, conforme a tabela "Backlog Auth" da secção 3. Abre `specs/AUTH.md`, lê o caso de uso completo (fluxo principal numerado + a linha correspondente na tabela de estado) e começa por aí.
 
-```
-QUESTÃO [ID]: Restam 2 achados Altos (todos funcionalidade a construir) e 24 Médios + 14 Baixos da auditoria de 2026-08-16 (`AUDIT_REPORT_2026-08-16.md`) por atacar. Qual deve ser o foco desta sessão?
-Opções sugeridas: Users @GdprSensitive (âmbito/ambiguidades já esclarecidos em P-083 — ver `Q-USR-006` a `Q-USR-008` em `specs/USERS.md`, responder essas 3 antes de implementar), Notifications retry (BR-NOT-004), levantamento dos Médios/Baixos antes de decidir, rotação de chaves JWT (`R-049`, se surgir razão de produto/segurança), Workflow multi-etapa/ApprovalFlow (feature maior, exigiria resolver `Q-ABS-003` primeiro), ou uma área de foco totalmente nova
-Impacto: define a área a trabalhar e o número de fase seguinte (P-089)
-```
+O que as regras 2 e 3 do `AGENTS.md` continuam a exigir é o resto: **qualquer decisão de implementação que o texto do caso de uso não cubra para o trabalho e gera uma pergunta**, no formato da regra 7. Exemplos concretos que vão aparecer nestas fases:
 
-Só depois de teres resposta é que abres a spec correspondente e começas a implementar.
+- P-090: a revogação passa a consultar `hr.sessions`, ou continua só na cache e o logout passa a apagar também a chave `refresh:<hash>`? (A segunda é menor; a primeira toca `R-061`.)
+- P-092: os códigos de recuperação são guardados com que hash, e quantos? O caso de uso diz "apresenta códigos de recuperação" e mais nada.
+- P-093: `username` passa a ser credencial de login (passo 1 do UC) ou regista-se o desvio? A spec e o código divergem desde sempre.
+- P-094: `R-063` (`state`/PKCE) entra no âmbito desta fase ou fica em aberto?
+
+A fronteira de âmbito de cada fase é **o texto numerado do caso de uso**. Nada fora dele entra sem decisão explícita do utilizador — e isso inclui `R-061`/`R-062`/`R-063`, por muito tentador que seja corrigi-los enquanto se está no ficheiro certo.
 
 ## 5. Regras críticas a não esquecer
 
