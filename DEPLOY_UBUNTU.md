@@ -119,11 +119,20 @@ Confirma que tudo arrancou:
 docker compose -f infra/docker-compose.prod.yml ps
 ```
 
-## 7. Criar a base de dados do Keycloak (passo obrigatório)
+## 7. Base de dados do Keycloak (automático num volume novo)
 
-O `infra/init.sql` só cria a base de dados `srh` (a da aplicação) — **não** cria a base de dados
-`keycloak` que o próprio Keycloak precisa. Sem este passo, o container `srh-keycloak-prod` fica em
-crash-loop com `database "keycloak" does not exist`.
+O Keycloak precisa de uma base de dados `keycloak` própria. É criada pelo
+`infra/postgres/init-prod.sql`, que o serviço `postgres` monta em
+`/docker-entrypoint-initdb.d/`. **Num servidor novo não há nada a fazer** — confirma apenas que o
+container não está em crash-loop:
+
+```bash
+docker compose -f infra/docker-compose.prod.yml ps keycloak
+```
+
+O Docker só corre os scripts de inicialização na **primeira** criação do volume. Se o volume
+`postgres-data` já existia antes desta versão, o script é ignorado e o `srh-keycloak-prod` fica em
+crash-loop com `database "keycloak" does not exist`. Nesse caso, criar à mão, uma só vez:
 
 ```bash
 docker exec -it srh-postgres-prod psql -U srh_user -d srh -c "CREATE DATABASE keycloak;"
@@ -133,14 +142,20 @@ docker compose -f infra/docker-compose.prod.yml restart keycloak
 
 (Substitui `srh_user` pelo valor real de `POSTGRES_USER` no teu `.env`, se o tiveres alterado.)
 
-## 8. Criar o bucket de documentos no MinIO (passo obrigatório)
+## 8. Bucket de documentos no MinIO (automático)
 
-O MinIO não vem com nenhum bucket por omissão, e a aplicação não o cria sozinha — uploads de
-documentos falham até este passo ser feito manualmente:
+O bucket é criado pelo serviço one-shot `createbuckets` do `docker-compose.prod.yml`, que arranca
+com o stack, cria o bucket e termina. Confirma que correu bem:
+
+```bash
+docker compose -f infra/docker-compose.prod.yml logs createbuckets
+```
+
+Se for preciso criar à mão (o cliente `mc` vem incluído na imagem do MinIO):
 
 ```bash
 docker exec srh-minio-prod mc alias set local http://localhost:9000 <STORAGE_ACCESS_KEY> <STORAGE_SECRET_KEY>
-docker exec srh-minio-prod mc mb local/srh-documents
+docker exec srh-minio-prod mc mb --ignore-existing local/srh-documents
 ```
 
 (Usa os valores reais de `STORAGE_ACCESS_KEY`/`STORAGE_SECRET_KEY` do teu `.env`, gerados no passo 5;
@@ -213,11 +228,11 @@ Credenciais (ver `README.md`/mensagens anteriores para a lista completa):
 
 ## Troubleshooting
 
-| Sintoma                                     | Causa provável                                                      | Correção                                                                                                                                                                                       |
-| ------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Login falha com erro 500 genérico           | Passo 5 (`generate-secrets.sh`) não foi feito, chaves JWT inválidas | Repetir o passo 5 e `docker compose ... restart backend`                                                                                                                                       |
-| `srh-keycloak-prod` reinicia em loop        | Base de dados `keycloak` não existe (passo 7 em falta)              | Fazer o passo 7                                                                                                                                                                                |
-| Upload de documento falha                   | Bucket `srh-documents` não existe (passo 8 em falta)                | Fazer o passo 8                                                                                                                                                                                |
-| `docker compose up` falha por porta ocupada | Outro serviço já usa a porta 80 no servidor                         | Parar esse serviço ou mudar `ports: '80:80'` do serviço `frontend` no compose                                                                                                                  |
-| `seed:demo` não consegue ligar à BD         | A correr a partir de outra máquina, não do próprio servidor         | Este comando só funciona localmente no servidor (Postgres só ouve em `127.0.0.1`)                                                                                                              |
-| Backend reinicia sem nunca ficar pronto     | `seed:prod` falhou no arranque (ex.: schema ainda não pronto)       | `docker compose -f infra/docker-compose.prod.yml logs backend`; normalmente resolve-se com `docker compose -f infra/docker-compose.prod.yml restart backend` depois do Postgres estar saudável |
+| Sintoma                                     | Causa provável                                                                                                                        | Correção                                                                                                                                                                                       |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Login falha com erro 500 genérico           | Passo 5 (`generate-secrets.sh`) não foi feito, chaves JWT inválidas                                                                   | Repetir o passo 5 e `docker compose -f infra/docker-compose.prod.yml --env-file .env up -d --force-recreate backend` — `restart` não chega, um contentor mantém o ambiente com que foi criado  |
+| `srh-keycloak-prod` reinicia em loop        | Base de dados `keycloak` não existe — volume `postgres-data` criado antes de existir o `init-prod.sql`, que só corre em volumes novos | Aplicar o passo 7 à mão                                                                                                                                                                        |
+| Upload de documento falha                   | Bucket `srh-documents` não existe — o serviço `createbuckets` falhou                                                                  | Ver `docker compose -f infra/docker-compose.prod.yml logs createbuckets`; em alternativa criar à mão (passo 8)                                                                                 |
+| `docker compose up` falha por porta ocupada | Outro serviço já usa a porta 80 no servidor                                                                                           | Parar esse serviço ou mudar `ports: '80:80'` do serviço `frontend` no compose                                                                                                                  |
+| `seed:demo` não consegue ligar à BD         | A correr a partir de outra máquina, não do próprio servidor                                                                           | Este comando só funciona localmente no servidor (Postgres só ouve em `127.0.0.1`)                                                                                                              |
+| Backend reinicia sem nunca ficar pronto     | `seed:prod` falhou no arranque (ex.: schema ainda não pronto)                                                                         | `docker compose -f infra/docker-compose.prod.yml logs backend`; normalmente resolve-se com `docker compose -f infra/docker-compose.prod.yml restart backend` depois do Postgres estar saudável |
