@@ -20,57 +20,184 @@ O HR Suite é uma plataforma completa de RH que cobre:
 | Ferramenta | Versão | Notas                 |
 | ---------- | ------ | --------------------- |
 | Node.js    | >= 20  | `nvm use 20`          |
-| pnpm       | >= 9   | `npm i -g pnpm`       |
+| pnpm       | 9.15.9 | Ver nota abaixo       |
 | Docker     | >= 24  | Com Docker Compose v2 |
 | PostgreSQL | 16     | Fornecido pelo Docker |
 
+> A versão do pnpm está fixada no campo `packageManager` do `package.json`. Não é preciso
+> instalá-la à mão: com o corepack ativo (`corepack enable`, incluído no Node 20+) qualquer
+> comando `pnpm` dentro deste repositório usa automaticamente a 9.15.9, seja qual for a versão
+> global — e o pnpm 10+ faz o mesmo por si. O `pnpm-lock.yaml` é `lockfileVersion 9.0`, que o
+> pnpm 8 não consegue ler.
+
 ## Quickstart
 
+Existem **dois modos de desenvolvimento, mutuamente exclusivos** — escolhe um antes de
+começar. O `infra/docker-compose.dev.yml` não define apenas infraestrutura: define também os
+serviços `backend` e `frontend`. Subir tudo com `up -d` e depois correr `pnpm dev` deixa as
+portas 3000 e 5173 ocupadas e o segundo arranque falha.
+
+| Modo                                 | Quem corre a aplicação             | Quando usar                                           |
+| ------------------------------------ | ---------------------------------- | ----------------------------------------------------- |
+| **A** — tudo em Docker               | contentores `backend` e `frontend` | pôr o sistema a correr sem configurar nada no host    |
+| **B** — infra em Docker, app no host | `pnpm dev`                         | desenvolver com hot reload, debugger e testes no host |
+
+### Passos comuns aos dois modos
+
+> **Lê isto antes de copiar o passo 2.** O `generate-secrets.sh` gera as chaves JWT, mas
+> também `POSTGRES_PASSWORD`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY` e
+> `MFA_ENCRYPTION_KEY`. O Postgres só lê `POSTGRES_PASSWORD` quando **inicializa** o volume:
+> se já tiveres um volume `srh-dev_postgres-data`, a password gerada deixa de bater certo com
+> a que está guardada, e o backend e o Keycloak passam a falhar com
+> `password authentication failed for user "srh_user"`.
+>
+> - **Instalação nova** (sem volume): corre o passo 2 tal como está.
+> - **Stack que já existiu**: salta o `generate-secrets.sh` e roda **apenas** as quatro chaves
+>   JWT — ver [Troubleshooting](#jwt_access_private_key-não-configurado).
+>
+> Confirma em que caso estás:
+>
+> ```bash
+> docker volume ls --filter name=srh-dev_postgres-data
+> ```
+
 ```bash
-# 1. Instalar dependências (monorepo)
+# 1. Instalar dependências (monorepo). Necessário nos dois modos: os comandos de
+#    migração e de seed correm sempre a partir do host.
 pnpm install
 
-# 2. Criar .env (ver secção Variáveis de Ambiente)
+# 2. Criar o .env e gerar segredos reais.
+#    O 2.º comando é só para instalações novas — ver o aviso acima.
 cp .env.example .env
+./scripts/generate-secrets.sh >> .env
+```
 
-# 3. Iniciar serviços de infraestrutura
-docker compose -f infra/docker-compose.dev.yml --env-file .env up -d
+O segundo comando do passo 2 não é opcional numa instalação nova: o `.env.example` traz
+`JWT_ACCESS_PRIVATE_KEY=change_me_run_generate_secrets_sh`, que não é uma chave RSA. Como os
+tokens são assinados com RS256, sem ele o login rebenta com `secretOrPrivateKey must be an
+asymmetric key when using RS256`. Os valores acrescentados no fim do ficheiro sobrepõem-se aos
+que vieram do `.env.example`.
 
-# 4. Executar migrações da base de dados
+### Modo A — tudo em Docker
+
+```bash
+# 3. Subir o stack completo (infraestrutura + backend + frontend)
+docker compose -f infra/docker-compose.dev.yml --env-file .env up -d --build
+
+# 4. Migrações e dados de base (a partir do host; o .env aponta POSTGRES_HOST=localhost)
 pnpm --filter @bridge351/srh-backend run migration:run
+pnpm --filter @bridge351/srh-backend run seed
+```
 
-# 5. Popular dados de base (roles, permissões, admin)
+Não corras `pnpm dev` neste modo — o passo 3 já arrancou o backend e o frontend.
+
+### Modo B — infraestrutura em Docker, aplicação no host
+
+```bash
+# 3. Subir SÓ a infraestrutura, nomeando os serviços explicitamente
+docker compose -f infra/docker-compose.dev.yml --env-file .env \
+  up -d postgres redis keycloak minio createbuckets rabbitmq mailpit
+
+# 4. O backend lê um .env relativo ao seu cwd (backend/), não o da raiz
+cp .env backend/.env
+
+# 5. O Vite também lê o .env a partir de frontend/, não da raiz
+cp frontend/.env.example frontend/.env
+
+# 6. Migrações e dados de base
+pnpm --filter @bridge351/srh-backend run migration:run
 pnpm --filter @bridge351/srh-backend run seed
 
-# 6. Iniciar desenvolvimento
+# 7. Arrancar backend e frontend no host
 pnpm dev
 ```
 
-Após iniciar:
+> **Porquê o passo 4:** `pnpm -r run dev` coloca o cwd em `backend/`, e o `ConfigModule`
+> carrega `.env` a partir do cwd. O `.env` da raiz só é lido pelo `data-source.ts` e pelos
+> seed runners, que resolvem o caminho de forma absoluta — por isso a base de dados liga, mas
+> o `JwtService` rebenta no arranque. O mesmo vale para o frontend: o Vite carrega
+> `frontend/.env`, e não o da raiz.
+
+### Aceder
 
 - **Frontend**: http://localhost:5173
 - **Backend**: http://localhost:3000/api
 - **Swagger** (dev/staging): http://localhost:3000/api/docs
-- **Keycloak**: http://localhost:8080
+- **Keycloak**: http://localhost:8080 (realm `hr-suite`)
+- **Mailpit** (emails de dev): http://localhost:8025
+- **MinIO** (consola): http://localhost:9001
+
+Credenciais criadas pelo `run seed`:
+
+| Email                  | Password    | Papel |
+| ---------------------- | ----------- | ----- |
+| `admin@hr-suite.local` | `Admin123!` | admin |
+
+Para uma organização fictícia completa com utilizadores de demonstração, ver
+[Dados de Demo](#dados-de-demo).
 
 ## Produção
 
 ```bash
-# 1. Instalar dependências e fazer build
+# 1. Instalar dependências (o seed de demonstração, opcional, corre a partir do host)
 pnpm install
 
-# 2. Criar e preencher .env
+# 2. Criar o .env e gerar segredos reais (as chaves JWT do .env.example são
+#    placeholders e não são chaves RSA válidas — ver Quickstart)
 cp .env.example .env
+./scripts/generate-secrets.sh >> .env
 
-# 3. Subir infraestrutura + backend + frontend via Docker
-docker compose -f infra/docker-compose.prod.yml --env-file .env up -d
+# 3. Acrescentar os valores próprios de produção (ver aviso abaixo).
+#    Trocar <ip-ou-domínio-do-servidor> pelo endereço real — num teste local, `localhost`.
+cat <<'EOF' >> .env
 
-# 4. Executar migrações e seed
-pnpm --filter @bridge351/srh-backend run migration:run
-pnpm --filter @bridge351/srh-backend run seed
+KEYCLOAK_ADMIN=admin
+KEYCLOAK_ADMIN_PASSWORD=troca_esta_password
+KEYCLOAK_HOSTNAME=<ip-ou-domínio-do-servidor>
+RABBITMQ_USER=srh_app
+RABBITMQ_PASSWORD=troca_esta_password
+BACKEND_CORS_ORIGIN=http://<ip-ou-domínio-do-servidor>
+EOF
+
+# 4. Subir infraestrutura + backend + frontend
+docker compose -f infra/docker-compose.prod.yml --env-file .env up -d --build
+```
+
+> **O passo 3 não é opcional.** Cinco daquelas variáveis não existem no `.env.example` — o compose de
+> desenvolvimento tem valores por omissão para elas, o de produção não. E o Docker Compose
+> **não falha** quando uma variável sem valor por omissão não está definida: substitui-a por
+> string vazia e emite apenas um aviso (`variable is not set. Defaulting to a blank string.`).
+> O resultado seria um Keycloak sem credenciais de administrador e um RabbitMQ sem utilizador,
+> a falhar em runtime em vez de dar um erro claro de configuração.
+>
+> Num teste local, `KEYCLOAK_HOSTNAME=localhost` serve.
+
+> **Três variáveis do `.env.example` não têm efeito nenhum em produção:**
+>
+> - `SMTP_*` — o `docker-compose.prod.yml` não as passa ao bloco `environment:` do serviço
+>   `backend`, e em produção o backend não lê nenhum ficheiro `.env` (o `.dockerignore` exclui
+>   `**/.env` da imagem). Como o `NotificationsService` só cria o transporte de email se
+>   `SMTP_HOST` estiver definido, o envio de emails fica **desativado** — sem erro, e as
+>   notificações in-app continuam a funcionar. Para ativar email em produção é preciso
+>   acrescentar as `SMTP_*` ao `environment:` do serviço `backend`.
+> - `SENTRY_DSN` — não é lida por nenhum ficheiro em `backend/src` nem `frontend/src`, e
+>   `@sentry/*` não é dependência do projeto. É configuração morta.
+> - `PROMETHEUS_ENABLED` — também não é lida em lado nenhum. O `AdminService` chama
+>   `collectDefaultMetrics()` no construtor sem qualquer condição, por isso as métricas são
+>   sempre recolhidas e a variável não liga nem desliga nada.
+
+**Não é preciso correr migrações nem o seed à mão.** O `CMD` do `backend/Dockerfile` corre
+`schema:create`, `migration:run:prod` e `seed:prod` sempre que o container do backend arranca,
+antes de iniciar o servidor. Confirma nos logs:
+
+```bash
+docker compose -f infra/docker-compose.prod.yml --env-file .env logs backend | grep -iE "seed|migration"
 ```
 
 O Docker Compose espera encontrar o ficheiro `.env` através de `--env-file .env` (executado a partir da raiz do projecto).
+
+Para dados de demonstração, ver [Dados de Demo](#dados-de-demo). Para instalar num servidor
+Ubuntu limpo (firewall, Docker, TLS, etc.), seguir o [DEPLOY_UBUNTU.md](DEPLOY_UBUNTU.md).
 
 ## Variáveis de Ambiente
 
@@ -99,13 +226,13 @@ Para gerar valores aleatórios seguros para os segredos abaixo (`JWT_ACCESS_PRIV
 | `JWT_REFRESH_EXPIRES_IN`  | Expiração do refresh token                      | `7d`                            |
 | `MFA_ENCRYPTION_KEY`      | Chave AES-256-GCM para MFA secrets              | `change_me_mfa_key_32_bytes`    |
 | `KEYCLOAK_URL`            | URL do Keycloak                                 | `http://localhost:8080`         |
-| `KEYCLOAK_REALM`          | Realm do Keycloak                               | `srh`                           |
+| `KEYCLOAK_REALM`          | Realm do Keycloak — ver nota abaixo             | `hr-suite`                      |
 | `KEYCLOAK_CLIENT_ID`      | Client ID do backend no Keycloak                | `srh-backend`                   |
-| `VITE_API_BASE_URL`       | URL da API (frontend)                           | `http://localhost:3000/api`     |
+| `VITE_API_URL`            | URL da API (frontend) — ver nota abaixo         | `http://localhost:3000/api`     |
 | `VITE_KEYCLOAK_URL`       | URL do Keycloak (frontend)                      | `http://localhost:8080`         |
-| `VITE_KEYCLOAK_REALM`     | Realm do Keycloak (frontend)                    | `srh`                           |
+| `VITE_KEYCLOAK_REALM`     | Realm do Keycloak (frontend)                    | `hr-suite`                      |
 | `VITE_KEYCLOAK_CLIENT_ID` | Client ID do frontend no Keycloak               | `srh-frontend`                  |
-| `STORAGE_ENDPOINT`        | Endpoint do MinIO/S3                            | `localhost:9000`                |
+| `STORAGE_ENDPOINT`        | Endpoint do MinIO/S3 (com esquema `http://`)    | `http://localhost:9000`         |
 | `STORAGE_ACCESS_KEY`      | Access key do MinIO/S3                          | `change_me`                     |
 | `STORAGE_SECRET_KEY`      | Secret key do MinIO/S3                          | `change_me`                     |
 | `STORAGE_BUCKET`          | Bucket de documentos                            | `srh-documents`                 |
@@ -113,13 +240,26 @@ Para gerar valores aleatórios seguros para os segredos abaixo (`JWT_ACCESS_PRIV
 | `STORAGE_USE_SSL`         | Usar SSL para storage                           | `false`                         |
 | `REDIS_HOST`              | Host do Redis                                   | `localhost`                     |
 | `REDIS_PORT`              | Porta do Redis                                  | `6379`                          |
-| `SENTRY_DSN`              | DSN do Sentry (opcional)                        | —                               |
-| `PROMETHEUS_ENABLED`      | Activar métricas Prometheus                     | `false`                         |
-| `SMTP_HOST`               | Host SMTP                                       | `localhost`                     |
+| `SENTRY_DSN`              | Não utilizada — ver [Produção](#produção)       | —                               |
+| `PROMETHEUS_ENABLED`      | Não utilizada — ver [Produção](#produção)       | —                               |
+| `SMTP_HOST`               | Host SMTP (só dev — ver [Produção](#produção))  | `localhost`                     |
 | `SMTP_PORT`               | Porta SMTP                                      | `1025`                          |
 | `SMTP_USER`               | Utilizador SMTP                                 | —                               |
 | `SMTP_PASS`               | Password SMTP                                   | —                               |
 | `SMTP_FROM`               | Remetente de emails                             | `noreply@srh.bridge351.com`     |
+
+> **Duas notas sobre estas variáveis:**
+>
+> - As `VITE_*` são substituídas pelo Vite em tempo de _build_, não lidas em tempo de
+>   execução. Em produção são passadas como `args` de build no `docker-compose.prod.yml` e o
+>   `frontend/Dockerfile` recebe-as via `ARG`; mudá-las obriga a reconstruir a imagem do
+>   frontend. Em produção, `VITE_API_URL` é `/api`, servido pelo proxy do nginx
+>   (`frontend/nginx.conf`) — **nunca vazio**, porque `''` não aciona o valor por omissão do
+>   código e os pedidos perderiam o prefixo `/api`.
+> - `KEYCLOAK_REALM` tem de ser `hr-suite`, que é o realm importado pelo
+>   `infra/keycloak/realm-export.json`. As variáveis `VITE_KEYCLOAK_*` estão documentadas por
+>   completude mas nenhuma é lida por código em `frontend/src` — o login por email/password
+>   não depende delas.
 
 ## Dados de Demo
 
@@ -127,7 +267,8 @@ Depois de `pnpm run seed` (roles/RBAC, categorias, tipos de ausência — pré-r
 
 ```bash
 pnpm --filter @bridge351/srh-backend run seed:demo
-# ou, a partir de dentro do container/rede Docker:
+# Variante que força POSTGRES_HOST=localhost, para quando o .env aponta para um
+# nome da rede Docker (ex.: `postgres`) mas o comando corre a partir do host:
 pnpm --filter @bridge351/srh-backend run seed:demo:host
 ```
 
@@ -154,15 +295,15 @@ Para a caixa de entrada/aprovações, entra como `mariana.ferreira` — tem iten
 ```
 .
 ├── backend/          # API NestJS (TypeScript)
-│   ├── src/          # Código fonte (25 módulos)
+│   ├── src/          # Código fonte (26 módulos)
 │   └── test/         # Testes e2e (jest + supertest)
 ├── frontend/         # SPA React 18 + Vite + Tailwind
 │   ├── src/          # Código fonte
 │   └── e2e/          # Testes e2e (Playwright)
 ├── shared/           # Tipos e constantes partilhadas
-├── spec/             # Especificações técnicas (SDD)
+├── specs/            # Especificações técnicas (SDD)
 ├── infra/            # Docker Compose (dev/prod)
-├── docs/             # Documentação gerada (openapi.json)
+├── docs/             # ARCHITECTURE.md, AUDIT_PROCESS.md + openapi.json gerado
 ├── images/           # Recursos visuais
 ├── .github/          # CI/CD workflows
 ├── PROJECT_STATE.md  # Estado actual do projecto
@@ -172,20 +313,29 @@ Para a caixa de entrada/aprovações, entra como `mariana.ferreira` — tem iten
 ## Links Úteis
 
 - [Especificações Técnicas](./specs/README.md)
-- [Documentação OpenAPI](./docs/openapi.json)
+- Documentação OpenAPI — servida em http://localhost:3000/api/docs e escrita em
+  `docs/openapi.json` ao arrancar o backend em dev/staging (ficheiro gerado, não versionado)
 - [Estado do Projecto](./PROJECT_STATE.md)
 - [Arquitectura](./docs/ARCHITECTURE.md)
 - [Processo de Auditoria](./docs/AUDIT_PROCESS.md)
 
 ## Troubleshooting
 
-### `ERESOLVE` ao instalar dependências
+### `ERR_PNPM_OUTDATED_LOCKFILE`
+
+O `pnpm-lock.yaml` não corresponde aos `package.json`. Regenerar e commitar o lockfile:
 
 ```bash
 pnpm install --no-frozen-lockfile
 ```
 
-### `relation "hr.user" does not exist`
+A CI corre `pnpm install --frozen-lockfile` de propósito, para que um lockfile
+dessincronizado falhe lá em vez de chegar a uma imagem de produção.
+
+(`ERESOLVE` é um erro do **npm**, não do pnpm — se o vires, estás a correr `npm install` em
+vez de `pnpm install`.)
+
+### `relation "hr.users" does not exist`
 
 As migrações não foram executadas:
 
@@ -193,18 +343,90 @@ As migrações não foram executadas:
 pnpm --filter @bridge351/srh-backend run migration:run
 ```
 
-### `JWT_ACCESS_PRIVATE_KEY não configurado`
+### `password authentication failed for user "srh_user"`
 
-O ficheiro `.env` não existe ou está incompleto:
+O backend e o Keycloak não ligam à base de dados (o backend fica de pé mas não responde na
+porta 3000; o Keycloak entra em crash-loop com `Failed to obtain JDBC connection`).
+
+Quase sempre significa que o `generate-secrets.sh` correu sobre um volume que já existia: o
+Postgres só lê `POSTGRES_PASSWORD` quando **inicializa** o volume, por isso a password
+guardada continua a ser a antiga enquanto o `.env` já tem a nova.
+
+Para manter os dados, sincroniza a password guardada com a do `.env` (a ligação pelo socket
+local dentro do contentor não pede password):
 
 ```bash
-cp .env.example .env
-# editar .env com valores adequados
+docker exec srh-postgres-dev psql -U srh_user -d postgres \
+  -c "ALTER USER srh_user WITH PASSWORD '<valor de POSTGRES_PASSWORD no .env>';"
+
+docker compose -f infra/docker-compose.dev.yml --env-file .env \
+  up -d --force-recreate backend keycloak
 ```
 
-### Porta 3000 já ocupada
+Em alternativa, para começar de raiz (**apaga a base de dados**, incluindo a do Keycloak):
 
-Alterar `BACKEND_PORT` no `.env` ou parar o processo em conflito.
+```bash
+docker compose -f infra/docker-compose.dev.yml --env-file .env down
+docker volume rm srh-dev_postgres-data
+docker compose -f infra/docker-compose.dev.yml --env-file .env up -d
+pnpm --filter @bridge351/srh-backend run migration:run
+pnpm --filter @bridge351/srh-backend run seed
+```
+
+### `JWT_ACCESS_PRIVATE_KEY não configurado`
+
+Ou o ficheiro de ambiente não foi encontrado, ou as chaves nele são os _placeholders_ do
+`.env.example`. São dois problemas diferentes:
+
+**1. O backend a correr no host não encontra o `.env`** (Modo B). O `ConfigModule` carrega
+`.env` a partir do cwd, e `pnpm -r run dev` coloca o cwd em `backend/`. Copiar o `.env` da
+raiz não resolve — é preciso o ficheiro em `backend/`:
+
+```bash
+cp .env backend/.env
+```
+
+**2. As chaves são `change_me_run_generate_secrets_sh`.** Não são chaves RSA, e o RS256
+exige um PEM assimétrico. Num stack ainda não inicializado, gera tudo de novo:
+
+```bash
+./scripts/generate-secrets.sh >> .env
+```
+
+Se a base de dados e o MinIO **já têm volumes criados**, o comando acima rodaria também a
+`POSTGRES_PASSWORD` e as chaves do MinIO e partiria a autenticação. Nesse caso substitui só
+as quatro chaves JWT:
+
+```bash
+ap=$(openssl genrsa 2048 2>/dev/null); au=$(printf '%s' "$ap" | openssl rsa -pubout 2>/dev/null)
+rp=$(openssl genrsa 2048 2>/dev/null); ru=$(printf '%s' "$rp" | openssl rsa -pubout 2>/dev/null)
+sed -i \
+  -e "s|^JWT_ACCESS_PRIVATE_KEY=.*|JWT_ACCESS_PRIVATE_KEY=$(printf '%s\n' "$ap" | openssl base64 -A)|" \
+  -e "s|^JWT_ACCESS_PUBLIC_KEY=.*|JWT_ACCESS_PUBLIC_KEY=$(printf '%s\n' "$au" | openssl base64 -A)|" \
+  -e "s|^JWT_REFRESH_PRIVATE_KEY=.*|JWT_REFRESH_PRIVATE_KEY=$(printf '%s\n' "$rp" | openssl base64 -A)|" \
+  -e "s|^JWT_REFRESH_PUBLIC_KEY=.*|JWT_REFRESH_PUBLIC_KEY=$(printf '%s\n' "$ru" | openssl base64 -A)|" \
+  .env
+```
+
+Depois recria o contentor — `docker restart` não chega, porque um contentor mantém o
+ambiente com que foi criado:
+
+```bash
+docker compose -f infra/docker-compose.dev.yml --env-file .env up -d --force-recreate backend
+```
+
+### Porta 3000 ou 5173 já ocupada
+
+Quase sempre significa que os dois modos do [Quickstart](#quickstart) foram misturados: o
+`docker-compose.dev.yml` inclui os serviços `backend` e `frontend`, por isso um `up -d` sem
+nomear serviços já arranca a aplicação, e o `pnpm dev` a seguir colide com ela. Ou paras os
+contentores da aplicação (Modo B):
+
+```bash
+docker compose -f infra/docker-compose.dev.yml --env-file .env stop backend frontend
+```
+
+ou não corres `pnpm dev` (Modo A). Em alternativa, alterar `BACKEND_PORT` no `.env`.
 
 ### `docker compose` não encontrado
 
@@ -214,13 +436,23 @@ Certificar que o Docker Compose v2 está instalado:
 docker compose version
 ```
 
-### Erro de permissões no MinIO
+### `NoSuchBucket` ou erro de permissões no MinIO
 
-Verificar se o bucket `srh-documents` foi criado:
+O bucket é criado pelo serviço one-shot `createbuckets` do `docker-compose.dev.yml`, que
+corre uma vez e termina. Confirmar que correu bem:
 
 ```bash
-docker compose -f infra/docker-compose.dev.yml exec minio mc mb data/srh-documents
+docker compose -f infra/docker-compose.dev.yml --env-file .env logs createbuckets
 ```
+
+Para o recriar manualmente (idempotente):
+
+```bash
+docker compose -f infra/docker-compose.dev.yml --env-file .env up createbuckets
+```
+
+Em produção existe o mesmo serviço no `docker-compose.prod.yml` — basta trocar `dev` por
+`prod` nos comandos acima.
 
 ### Playwright — browser not found
 
