@@ -165,7 +165,17 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token inválido ou expirado');
     }
 
+    const parsed = JSON.parse(sessionData) as { userId: string; sessionId: string };
+
     await this.cacheService.del(`refresh:${oldRefreshHash}`);
+
+    // O logout marca a sessão como revogada em hr.sessions mas não consegue apagar a chave
+    // `refresh:<hash>` (não conhece o hash do refresh token), pelo que a revogação tem de ser
+    // verificada aqui — vale também para changePassword()/confirmResetPassword().
+    const session = await this.sessionRepository.findOneBy({ id: parsed.sessionId });
+    if (!session || session.revokedAt) {
+      throw new UnauthorizedException('Sessão revogada ou inexistente');
+    }
 
     const user = await this.userRepository.findOneBy({ id: payload.sub });
     if (!user?.isActive) {
@@ -185,8 +195,6 @@ export class AuthService {
 
     const newAccessHash = this.jwtService.computeTokenHash(newAccessToken);
     const newRefreshHash = this.jwtService.computeTokenHash(newRefreshToken);
-
-    const parsed = JSON.parse(sessionData) as { userId: string; sessionId: string };
 
     await this.sessionRepository.update({ id: parsed.sessionId }, { tokenHash: newAccessHash });
 

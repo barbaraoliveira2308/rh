@@ -121,6 +121,31 @@ describe('Auth (e2e)', () => {
     it('should return 401 without token', () => {
       return request(app.getHttpServer()).post('/api/auth/logout').expect(401);
     });
+
+    it('deve invalidar access token e refresh token após logout (UC-AUTH-004 passos 2 e 3)', async () => {
+      const loginRes = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ email: 'admin@hr-suite.local', password: 'Admin123!' })
+        .expect(200);
+
+      const accessToken = loginRes.body.accessToken;
+      const refreshToken = loginRes.body.refreshToken;
+
+      await request(app.getHttpServer())
+        .post('/api/auth/logout')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .get('/api/auth/me')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(401);
+
+      await request(app.getHttpServer())
+        .post('/api/auth/refresh')
+        .send({ refreshToken })
+        .expect(401);
+    });
   });
 
   describe('GET /api/auth/me', () => {

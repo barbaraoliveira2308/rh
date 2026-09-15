@@ -58,6 +58,7 @@ describe('AuthService', () => {
       create: jest.fn((data: Partial<Session>) => data),
       save: jest.fn((data: Partial<Session>) => Promise.resolve({ id: 'session-1', ...data })),
       update: jest.fn(),
+      findOneBy: jest.fn(() => Promise.resolve({ id: 'session-1', revokedAt: null })),
     };
     mockUserRoleRepo = {
       find: jest.fn().mockResolvedValue([]),
@@ -304,6 +305,26 @@ describe('AuthService', () => {
       mockCacheService.get.mockResolvedValue(null);
 
       await expect(service.refresh('refresh-token')).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('deve lançar UnauthorizedException se a sessão tiver sido revogada (UC-AUTH-004 passo 2)', async () => {
+      mockCacheService.get.mockResolvedValue(
+        JSON.stringify({ userId: 'user-1', sessionId: 'session-1' }),
+      );
+      mockSessionRepo.findOneBy.mockResolvedValue({ id: 'session-1', revokedAt: new Date() });
+
+      await expect(service.refresh('refresh-token')).rejects.toThrow(UnauthorizedException);
+      expect(mockJwtService.generateAccessToken).not.toHaveBeenCalled();
+    });
+
+    it('deve lançar UnauthorizedException se a sessão não existir (decisão P090-02)', async () => {
+      mockCacheService.get.mockResolvedValue(
+        JSON.stringify({ userId: 'user-1', sessionId: 'session-inexistente' }),
+      );
+      mockSessionRepo.findOneBy.mockResolvedValue(null);
+
+      await expect(service.refresh('refresh-token')).rejects.toThrow(UnauthorizedException);
+      expect(mockJwtService.generateAccessToken).not.toHaveBeenCalled();
     });
 
     it('deve lançar UnauthorizedException se o utilizador estiver inativo', async () => {
