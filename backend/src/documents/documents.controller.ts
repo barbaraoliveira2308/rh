@@ -1,3 +1,5 @@
+/// <reference types="multer" />
+
 import {
   Controller,
   Get,

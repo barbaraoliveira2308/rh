@@ -22,6 +22,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "resolveJsonModule": true,
+    "types": ["node", "jest"],
     "paths": {
       "@bridge351/srh-shared": ["../shared/src"],
       "@bridge351/srh-shared/*": ["../shared/src/*"]
