@@ -158,7 +158,7 @@ export class AuthController {
     return { message: 'Password alterada com sucesso' };
   }
 
-  @Post('password/reset')
+  @Post('password/reset-request')
   @ApiOperation({ summary: 'Solicitar reset de password' })
   @HttpCode(HttpStatus.OK)
   async resetPassword(@Body() dto: ResetPasswordDto): Promise<{ message: string }> {
@@ -166,8 +166,8 @@ export class AuthController {
     return { message: 'Email enviado se a conta existir' };
   }
 
-  @Post('password/reset/confirm')
-  @ApiOperation({ summary: 'Confirmar reset de password com token' })
+  @Post('password/reset')
+  @ApiOperation({ summary: 'Definir nova password com token de reset' })
   @HttpCode(HttpStatus.OK)
   async confirmResetPassword(@Body() dto: ConfirmResetPasswordDto): Promise<{ message: string }> {
     await this.authService.confirmResetPassword(dto.token, dto.newPassword);

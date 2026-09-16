@@ -94,7 +94,11 @@ describe('AuthService', () => {
       del: jest.fn(),
     };
     mockConfigService = {
-      get: jest.fn().mockReturnValue('http://localhost:3000'),
+      // Origens distintas de propósito: FRONTEND_URL é a SPA, APP_URL é o backend. Os testes
+      // que dependem de links para o utilizador têm de falhar se alguém trocar uma pela outra.
+      get: jest.fn((key: string) =>
+        key === 'FRONTEND_URL' ? 'http://localhost:5173' : 'http://localhost:3000',
+      ),
     };
     mockAdminService = {
       getSettings: jest.fn().mockResolvedValue({
@@ -477,7 +481,13 @@ describe('AuthService', () => {
       expect(mockNotificationsService.sendEmail).toHaveBeenCalledWith(
         testEmail,
         'password-reset',
-        expect.objectContaining({ resetUrl: expect.stringContaining('token=') as string }),
+        expect.objectContaining({
+          // Tem de apontar para a SPA (FRONTEND_URL) e para a rota que consome o token,
+          // não para a origem do backend nem para a página que só pede o reset.
+          resetUrl: expect.stringMatching(
+            /^http:\/\/localhost:5173\/auth\/reset-password\/confirm\?token=[0-9a-f]{64}$/,
+          ) as string,
+        }),
       );
       expect(mockAuditService.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'PASSWORD_RESET_REQUESTED', userId: 'user-1' }),
@@ -506,7 +516,7 @@ describe('AuthService', () => {
       );
     });
 
-    it('deve lançar BadRequestException se o token estiver expirado', async () => {
+    it('deve distinguir token expirado de token inválido (UC-AUTH-003 fluxo alternativo 3a)', async () => {
       mockPasswordResetTokenRepo.findOne.mockResolvedValue({
         userId: 'user-1',
         usedAt: null,
@@ -514,7 +524,13 @@ describe('AuthService', () => {
       });
 
       await expect(service.confirmResetPassword('expired-token', 'New-Pass1!')).rejects.toThrow(
-        BadRequestException,
+        /expirado/i,
+      );
+
+      mockPasswordResetTokenRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.confirmResetPassword('bad-token', 'New-Pass1!')).rejects.toThrow(
+        /inválido/i,
       );
     });
 

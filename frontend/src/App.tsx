@@ -12,6 +12,11 @@ const LoginPage = React.lazy(() =>
 const ResetPasswordPage = React.lazy(() =>
   import('@/pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })),
 );
+const ResetPasswordConfirmPage = React.lazy(() =>
+  import('@/pages/ResetPasswordConfirmPage').then((m) => ({
+    default: m.ResetPasswordConfirmPage,
+  })),
+);
 const DashboardPage = React.lazy(() =>
   import('@/pages/DashboardPage').then((m) => ({ default: m.DashboardPage })),
 );
@@ -146,6 +151,7 @@ export function App(): React.JSX.Element {
               >
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+                <Route path="/auth/reset-password/confirm" element={<ResetPasswordConfirmPage />} />
               </Route>
 
               <Route

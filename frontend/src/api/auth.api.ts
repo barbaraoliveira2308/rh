@@ -5,6 +5,7 @@ import type {
   AuthTokens,
   LoginResponse,
   ResetPasswordRequest,
+  ConfirmResetPasswordRequest,
 } from '@/types/auth';
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api';
@@ -45,6 +46,16 @@ export async function logout(accessToken: string): Promise<void> {
 
 export async function requestPasswordReset(
   data: ResetPasswordRequest,
+): Promise<{ message: string }> {
+  const response = await publicClient.post<{ message: string }>(
+    '/auth/password/reset-request',
+    data,
+  );
+  return response.data;
+}
+
+export async function confirmPasswordReset(
+  data: ConfirmResetPasswordRequest,
 ): Promise<{ message: string }> {
   const response = await publicClient.post<{ message: string }>('/auth/password/reset', data);
   return response.data;

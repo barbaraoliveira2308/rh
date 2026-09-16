@@ -152,6 +152,15 @@ services:
       MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-dev_mfa_encryption_key_change_in_prod}
       BACKEND_PORT: 3000
       BACKEND_CORS_ORIGIN: ${BACKEND_CORS_ORIGIN:-http://localhost:5173}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      # SMTP_HOST fixo em 'mailpit' (nome do serviço): o valor de .env é 'localhost',
+      # correto para o backend a correr no host (Modo B) mas inalcançável de dentro do
+      # container. Sem isto o transporter fica null e os emails são descartados em silêncio.
+      SMTP_HOST: mailpit
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@hr-suite.local}
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_REALM: hr-suite
       KEYCLOAK_CLIENT_ID: srh-backend

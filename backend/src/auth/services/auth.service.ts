@@ -347,9 +347,11 @@ export class AuthService {
       }),
     );
 
-    const appUrl = this.configService.get<string>('APP_URL', 'http://localhost:3000');
+    // FRONTEND_URL (não APP_URL): este link é para o utilizador, tem de apontar para a SPA.
+    // APP_URL é a origem do backend e é usada pelo redirect_uri do SSO.
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
     await this.notificationsService.sendEmail(user.email, 'password-reset', {
-      resetUrl: `${appUrl}/reset-password?token=${rawToken}`,
+      resetUrl: `${frontendUrl}/auth/reset-password/confirm?token=${rawToken}`,
       expiresInMinutes: PASSWORD_RESET_TOKEN_TTL_MS / 60000,
     });
 
@@ -366,8 +368,14 @@ export class AuthService {
     const tokenHash = this.jwtService.computeTokenHash(token);
     const resetToken = await this.passwordResetTokenRepository.findOne({ where: { tokenHash } });
 
-    if (!resetToken || resetToken.usedAt || resetToken.expiresAt < new Date()) {
-      throw new BadRequestException('Token de reset inválido ou expirado');
+    if (!resetToken || resetToken.usedAt) {
+      throw new BadRequestException('Token de reset inválido');
+    }
+
+    // UC-AUTH-003 fluxo alternativo 3a: distinguir expirado de inválido, para o frontend poder
+    // oferecer "pedir novo link" em vez de um beco sem saída.
+    if (resetToken.expiresAt < new Date()) {
+      throw new BadRequestException('Token de reset expirado. Pede um novo link de recuperação.');
     }
 
     const user = await this.userRepository.findOne({

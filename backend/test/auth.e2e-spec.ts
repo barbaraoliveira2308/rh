@@ -6,6 +6,7 @@ import { DataSource } from 'typeorm';
 import { dataSourceOptions } from '../src/database/data-source';
 import { rbacSeed } from '../src/database/seeds';
 import { hash } from 'argon2';
+import { NotificationsService } from '../src/notifications/services/notifications.service';
 
 process.env.MFA_ENCRYPTION_KEY = 'change_me_mfa_key_32_bytes';
 
@@ -217,6 +218,72 @@ describe('Auth (e2e)', () => {
         { email: 'admin@hr-suite.local' },
         { passwordHash: await hash('Admin123!') },
       );
+    });
+  });
+
+  describe('Reset de password (UC-AUTH-003)', () => {
+    it('deve responder 200 mesmo para email inexistente (fluxo alternativo 2a)', () => {
+      return request(app.getHttpServer())
+        .post('/api/auth/password/reset-request')
+        .send({ email: 'nao-existe@hr-suite.local' })
+        .expect(200);
+    });
+
+    it('deve rejeitar um token de reset inválido', () => {
+      return request(app.getHttpServer())
+        .post('/api/auth/password/reset')
+        .send({ token: 'token-que-nao-existe', newPassword: 'OutraPass123!' })
+        .expect(400);
+    });
+
+    it('deve completar o fluxo de ponta a ponta: pedido, email, nova password, login', async () => {
+      const notifications = app.get(NotificationsService);
+      let resetUrl = '';
+      const spy = jest
+        .spyOn(notifications, 'sendEmail')
+        .mockImplementation((_to: string, _code: string, variables: Record<string, unknown>) => {
+          resetUrl = variables.resetUrl as string;
+          return Promise.resolve();
+        });
+
+      try {
+        await request(app.getHttpServer())
+          .post('/api/auth/password/reset-request')
+          .send({ email: 'admin@hr-suite.local' })
+          .expect(200);
+
+        expect(resetUrl).toContain('/auth/reset-password/confirm?token=');
+        const token = new URL(resetUrl).searchParams.get('token');
+        expect(token).toBeTruthy();
+
+        await request(app.getHttpServer())
+          .post('/api/auth/password/reset')
+          .send({ token, newPassword: 'ResetPass123!' })
+          .expect(200);
+
+        // O token é de uso único.
+        await request(app.getHttpServer())
+          .post('/api/auth/password/reset')
+          .send({ token, newPassword: 'OutraPass456!' })
+          .expect(400);
+
+        await request(app.getHttpServer())
+          .post('/api/auth/login')
+          .send({ email: 'admin@hr-suite.local', password: 'Admin123!' })
+          .expect(401);
+
+        await request(app.getHttpServer())
+          .post('/api/auth/login')
+          .send({ email: 'admin@hr-suite.local', password: 'ResetPass123!' })
+          .expect(200);
+      } finally {
+        spy.mockRestore();
+        const userRepo = dataSource.getRepository('User');
+        await userRepo.update(
+          { email: 'admin@hr-suite.local' },
+          { passwordHash: await hash('Admin123!') },
+        );
+      }
     });
   });
 });
