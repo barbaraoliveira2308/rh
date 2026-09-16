@@ -72,7 +72,7 @@ pnpm install
 
 ```bash
 cp .env.example .env
-./scripts/generate-secrets.sh >> .env
+./scripts/generate-secrets.sh
 ```
 
 ⚠️ **Passo obrigatório, não opcional.** Os placeholders do `.env.example` (`JWT_ACCESS_PRIVATE_KEY=change_me_run_generate_secrets_sh`,

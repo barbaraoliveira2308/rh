@@ -44,39 +44,37 @@ portas 3000 e 5173 ocupadas e o segundo arranque falha.
 
 ### Passos comuns aos dois modos
 
-> **Lê isto antes de copiar o passo 2.** O `generate-secrets.sh` gera as chaves JWT, mas
-> também `POSTGRES_PASSWORD`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY` e
-> `MFA_ENCRYPTION_KEY`. O Postgres só lê `POSTGRES_PASSWORD` quando **inicializa** o volume:
-> se já tiveres um volume `srh-dev_postgres-data`, a password gerada deixa de bater certo com
-> a que está guardada, e o backend e o Keycloak passam a falhar com
-> `password authentication failed for user "srh_user"`.
->
-> - **Instalação nova** (sem volume): corre o passo 2 tal como está.
-> - **Stack que já existiu**: salta o `generate-secrets.sh` e roda **apenas** as quatro chaves
->   JWT — ver [Troubleshooting](#jwt_access_private_key-não-configurado).
->
-> Confirma em que caso estás:
->
-> ```bash
-> docker volume ls --filter name=srh-dev_postgres-data
-> ```
-
 ```bash
 # 1. Instalar dependências (monorepo). Necessário nos dois modos: os comandos de
 #    migração e de seed correm sempre a partir do host.
 pnpm install
 
 # 2. Criar o .env e gerar segredos reais.
-#    O 2.º comando é só para instalações novas — ver o aviso acima.
 cp .env.example .env
-./scripts/generate-secrets.sh >> .env
+./scripts/generate-secrets.sh
 ```
 
 O segundo comando do passo 2 não é opcional numa instalação nova: o `.env.example` traz
 `JWT_ACCESS_PRIVATE_KEY=change_me_run_generate_secrets_sh`, que não é uma chave RSA. Como os
 tokens são assinados com RS256, sem ele o login rebenta com `secretOrPrivateKey must be an
-asymmetric key when using RS256`. Os valores acrescentados no fim do ficheiro sobrepõem-se aos
-que vieram do `.env.example`.
+asymmetric key when using RS256`.
+
+O script escreve **dentro** do `.env`, substituindo cada chave no sítio. Não uses `>> .env`:
+isso acrescenta uma segunda cópia de cada chave e o `dotenv` passa a ler a última, o que
+torna o ficheiro enganador.
+
+Por omissão só preenche o que falta, por isso é seguro correr outra vez — um valor real já
+definido é mantido. Para regenerar de propósito, usa `--rotate`:
+
+```bash
+./scripts/generate-secrets.sh --rotate jwt     # só as 4 chaves JWT
+./scripts/generate-secrets.sh --rotate all     # tudo (pede confirmação)
+```
+
+`POSTGRES_PASSWORD` é o caso especial: o Postgres só a lê quando **inicializa** o volume, por
+isso mudá-la no `.env` depois disso não muda a que está guardada — só parte o backend e o
+Keycloak. Se o volume já existir, o script recusa-se a rodá-la e diz-te o que fazer (ver
+[Troubleshooting](#password-authentication-failed-for-user-srh_user)).
 
 ### Modo A — tudo em Docker
 
@@ -145,7 +143,7 @@ pnpm install
 # 2. Criar o .env e gerar segredos reais (as chaves JWT do .env.example são
 #    placeholders e não são chaves RSA válidas — ver Quickstart)
 cp .env.example .env
-./scripts/generate-secrets.sh >> .env
+./scripts/generate-secrets.sh
 
 # 3. Acrescentar os valores próprios de produção (ver aviso abaixo).
 #    Trocar <ip-ou-domínio-do-servidor> pelo endereço real — num teste local, `localhost`.
@@ -348,20 +346,32 @@ pnpm --filter @bridge351/srh-backend run migration:run
 O backend e o Keycloak não ligam à base de dados (o backend fica de pé mas não responde na
 porta 3000; o Keycloak entra em crash-loop com `Failed to obtain JDBC connection`).
 
-Quase sempre significa que o `generate-secrets.sh` correu sobre um volume que já existia: o
-Postgres só lê `POSTGRES_PASSWORD` quando **inicializa** o volume, por isso a password
-guardada continua a ser a antiga enquanto o `.env` já tem a nova.
+Quase sempre significa que a `POSTGRES_PASSWORD` do `.env` deixou de bater certo com a que
+está guardada no volume: o Postgres só a lê quando **inicializa** o volume, e a partir daí
+ignora-a. O `generate-secrets.sh` já se recusa a rodá-la com o volume criado, mas o
+desencontro ainda acontece se alguém editar o `.env` à mão, correr o script com `--force`,
+ou usar `>> .env` (que acrescenta uma segunda `POSTGRES_PASSWORD` — o `dotenv` e o
+`docker compose` leem a **última**, que não é a do volume).
+
+Confirma primeiro se há chaves duplicadas no `.env`:
+
+```bash
+grep -oE '^[A-Z_]+=' .env | sort | uniq -d
+```
 
 Para manter os dados, sincroniza a password guardada com a do `.env` (a ligação pelo socket
 local dentro do contentor não pede password):
 
 ```bash
 docker exec srh-postgres-dev psql -U srh_user -d postgres \
-  -c "ALTER USER srh_user WITH PASSWORD '<valor de POSTGRES_PASSWORD no .env>';"
+  -c "ALTER USER srh_user WITH PASSWORD '$(grep '^POSTGRES_PASSWORD=' .env | cut -d= -f2-)';"
 
 docker compose -f infra/docker-compose.dev.yml --env-file .env \
   up -d --force-recreate backend keycloak
 ```
+
+Se o `.env` tinha duplicados, corre o `./scripts/generate-secrets.sh` depois: colapsa cada
+chave repetida numa linha só, mantendo o valor que estava a ser usado.
 
 Em alternativa, para começar de raiz (**apaga a base de dados**, incluindo a do Keycloak):
 
@@ -387,25 +397,18 @@ cp .env backend/.env
 ```
 
 **2. As chaves são `change_me_run_generate_secrets_sh`.** Não são chaves RSA, e o RS256
-exige um PEM assimétrico. Num stack ainda não inicializado, gera tudo de novo:
+exige um PEM assimétrico. O script substitui os placeholders no sítio e deixa o resto como
+está, por isso serve tanto num stack novo como num que já existe:
 
 ```bash
-./scripts/generate-secrets.sh >> .env
+./scripts/generate-secrets.sh
 ```
 
-Se a base de dados e o MinIO **já têm volumes criados**, o comando acima rodaria também a
-`POSTGRES_PASSWORD` e as chaves do MinIO e partiria a autenticação. Nesse caso substitui só
-as quatro chaves JWT:
+Se as chaves já forem reais e mesmo assim quiseres novas, pede a rotação explícita — isto
+invalida todas as sessões ativas:
 
 ```bash
-ap=$(openssl genrsa 2048 2>/dev/null); au=$(printf '%s' "$ap" | openssl rsa -pubout 2>/dev/null)
-rp=$(openssl genrsa 2048 2>/dev/null); ru=$(printf '%s' "$rp" | openssl rsa -pubout 2>/dev/null)
-sed -i \
-  -e "s|^JWT_ACCESS_PRIVATE_KEY=.*|JWT_ACCESS_PRIVATE_KEY=$(printf '%s\n' "$ap" | openssl base64 -A)|" \
-  -e "s|^JWT_ACCESS_PUBLIC_KEY=.*|JWT_ACCESS_PUBLIC_KEY=$(printf '%s\n' "$au" | openssl base64 -A)|" \
-  -e "s|^JWT_REFRESH_PRIVATE_KEY=.*|JWT_REFRESH_PRIVATE_KEY=$(printf '%s\n' "$rp" | openssl base64 -A)|" \
-  -e "s|^JWT_REFRESH_PUBLIC_KEY=.*|JWT_REFRESH_PUBLIC_KEY=$(printf '%s\n' "$ru" | openssl base64 -A)|" \
-  .env
+./scripts/generate-secrets.sh --rotate jwt
 ```
 
 Depois recria o contentor — `docker restart` não chega, porque um contentor mantém o
