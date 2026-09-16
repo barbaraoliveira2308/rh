@@ -13,6 +13,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      # Cria a base de dados do Keycloak. Só corre na primeira inicialização do volume.
+      - ./postgres/init-prod.sql:/docker-entrypoint-initdb.d/init-prod.sql:ro
     deploy:
       resources:
         limits:
@@ -90,6 +92,23 @@ services:
         limits:
           memory: 1g
           cpus: '1.0'
+
+  # Serviço one-shot: cria o bucket de documentos e termina. Sem isto, os uploads
+  # falham com NoSuchBucket — nem o compose nem o StorageService criam o bucket.
+  createbuckets:
+    image: quay.io/minio/mc:latest
+    container_name: srh-createbuckets-prod
+    restart: 'no'
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 '${STORAGE_ACCESS_KEY}' '${STORAGE_SECRET_KEY}' >/dev/null 2>&1; do
+        echo 'à espera do MinIO...'; sleep 2;
+      done;
+      mc mb --ignore-existing 'local/${STORAGE_BUCKET:-srh-documents}'
+      "
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -172,7 +191,7 @@ services:
       context: ..
       dockerfile: frontend/Dockerfile
       args:
-        VITE_API_BASE_URL: ''
+        VITE_API_URL: /api
         VITE_KEYCLOAK_URL: http://keycloak:8080
         VITE_KEYCLOAK_REALM: hr-suite
         VITE_KEYCLOAK_CLIENT_ID: srh-frontend
