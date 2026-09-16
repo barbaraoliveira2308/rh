@@ -148,6 +148,7 @@ export function App(): React.JSX.Element {
               >
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/users/*" element={<UsersRemoteApp />} />
+                <Route path="/org-chart" element={<Navigate to="/users/org-chart" replace />} />
                 <Route path="/projects" element={<ProjectsListPage />} />
                 <Route path="/projects/:id" element={<ProjectDetailPage />} />
                 <Route path="/projects/:id/allocations" element={<ProjectAllocationsPage />} />
