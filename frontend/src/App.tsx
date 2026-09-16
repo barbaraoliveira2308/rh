@@ -99,9 +99,20 @@ const AppLayout = React.lazy(() =>
 const AuthLayout = React.lazy(() =>
   import('@/layouts/AuthLayout').then((m) => ({ default: m.AuthLayout })),
 );
-const UsersRemoteApp = React.lazy(() =>
-  import('srhUsersRemote/UsersRemoteApp').then((module) => ({ default: module.UsersRemoteApp })),
-);
+const UsersRemoteApp = React.lazy(async () => {
+  const remoteModule = (await import('srhUsersRemote/UsersRemoteApp')) as unknown as
+    React.ComponentType | { UsersRemoteApp?: React.ComponentType; default?: React.ComponentType };
+  const component =
+    typeof remoteModule === 'function'
+      ? remoteModule
+      : (remoteModule.UsersRemoteApp ?? remoteModule.default);
+
+  if (!component) {
+    throw new Error('Users remote did not expose a renderable component');
+  }
+
+  return { default: component };
+});
 
 function ProtectedRoute({ children }: { children: React.ReactNode }): React.JSX.Element {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);

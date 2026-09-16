@@ -16,3 +16,5 @@ export function UsersRemoteApp(): React.JSX.Element {
     </Routes>
   );
 }
+
+export default UsersRemoteApp;
