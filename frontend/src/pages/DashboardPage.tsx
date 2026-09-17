@@ -1,5 +1,9 @@
+import * as React from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
 import {
   Users,
   FolderKanban,
@@ -50,6 +54,7 @@ const typeLabelMap: Record<string, string> = {
 
 export function DashboardPage(): React.JSX.Element {
   const navigate = useNavigate();
+  const announcementsEndRef = React.useRef<HTMLDivElement | null>(null);
   const permissions = useAuthStore((state) => state.permissions);
   const isAdmin = permissions.includes('admin:*') || permissions.some((p) => p.startsWith('admin'));
   const isManagerOrAdmin = isAdmin || permissions.includes('manager');
@@ -114,6 +119,24 @@ export function DashboardPage(): React.JSX.Element {
     queryFn: fetchOpenOpportunities,
   });
 
+  React.useEffect(() => {
+    const element = announcementsEndRef.current;
+    if (!element) return;
+    const observer = new IntersectionObserver((entries): void => {
+      if (
+        entries[0]?.isIntersecting &&
+        announcementsQuery.hasNextPage &&
+        !announcementsQuery.isFetchingNextPage
+      ) {
+        void announcementsQuery.fetchNextPage();
+      }
+    });
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+    };
+  }, [announcementsQuery]);
+
   const alerts: Notification[] = (notificationsData?.items ?? []).filter(
     (n) =>
       n.type.includes('contract') || n.type.includes('project') || n.type.includes('allocation'),
@@ -139,60 +162,56 @@ export function DashboardPage(): React.JSX.Element {
         description="Visão geral do sistema de gestão de recursos humanos"
       />
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Colaboradores Ativos
-            </CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{String(employeesData?.total ?? '-')}</p>
-          </CardContent>
-        </Card>
+      <Box
+        sx={{
+          display: 'grid',
+          gap: 2,
+          mb: 3,
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
+        }}
+      >
+        {[
+          { label: 'Colaboradores Ativos', value: employeesData?.total ?? '-', icon: Users },
+          { label: 'Projetos Ativos', value: projects?.length ?? '-', icon: FolderKanban },
+          { label: 'Timesheets Pendentes', value: pendingTimesheets?.length ?? '-', icon: Clock },
+          {
+            label: 'Ausências Pendentes',
+            value: pendingAbsences?.length ?? '-',
+            icon: CalendarDays,
+          },
+        ].map(({ label, value, icon: Icon }) => (
+          <Card key={label}>
+            <CardContent>
+              <Box
+                sx={{
+                  alignItems: 'center',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  mb: 1,
+                }}
+              >
+                <Typography color="text.secondary" variant="body2">
+                  {label}
+                </Typography>
+                <Icon color="action" size={18} />
+              </Box>
+              <Typography variant="h4">{String(value)}</Typography>
+            </CardContent>
+          </Card>
+        ))}
+      </Box>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Projetos Ativos
-            </CardTitle>
-            <FolderKanban className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{String(projects?.length ?? '-')}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Timesheets Pendentes
-            </CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{String(pendingTimesheets?.length ?? '-')}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Ausências Pendentes
-            </CardTitle>
-            <CalendarDays className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{String(pendingAbsences?.length ?? '-')}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="mb-6 grid gap-6 lg:grid-cols-2">
+      <Box
+        sx={{
+          display: 'grid',
+          gap: 3,
+          mb: 3,
+          gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, 1fr)' },
+        }}
+      >
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Ocupação da Equipa</CardTitle>
+            <CardTitle>Ocupação da Equipa</CardTitle>
           </CardHeader>
           <CardContent>
             {chartData.length > 0 ? (
@@ -208,83 +227,114 @@ export function DashboardPage(): React.JSX.Element {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex h-[300px] items-center justify-center">
+              <Box
+                sx={{
+                  alignItems: 'center',
+                  display: 'flex',
+                  height: 300,
+                  justifyContent: 'center',
+                }}
+              >
                 <LoadingSpinner />
-              </div>
+              </Box>
             )}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Pendentes de Aprovação</CardTitle>
+          <Box
+            sx={{ alignItems: 'center', display: 'flex', justifyContent: 'space-between', p: 2 }}
+          >
+            <CardTitle>Pendentes de Aprovação</CardTitle>
             <Button variant="ghost" size="sm" onClick={() => void navigate('/workflow/inbox')}>
               Ver todas <ArrowRight className="ml-1 h-4 w-4" />
             </Button>
-          </CardHeader>
+          </Box>
           <CardContent>
             {!pendingItems ? (
               <LoadingSpinner />
             ) : pendingItems.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
+              <Typography
+                color="text.secondary"
+                sx={{ py: 4, textAlign: 'center' }}
+                variant="body2"
+              >
                 Nenhum item pendente.
-              </p>
+              </Typography>
             ) : (
-              <ul className="divide-y">
+              <Stack divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}>
                 {pendingItems.slice(0, 5).map((item: WorkflowItem) => (
-                  <li key={item.id} className="flex items-center justify-between py-3">
-                    <div>
-                      <p className="text-sm font-medium">{typeLabelMap[item.type] ?? item.type}</p>
-                      <p className="text-xs text-muted-foreground">
+                  <Box
+                    key={item.id}
+                    sx={{
+                      alignItems: 'center',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      py: 1.5,
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="body2">
+                        {typeLabelMap[item.type] ?? item.type}
+                      </Typography>
+                      <Typography color="text.secondary" variant="caption">
                         {item.requestedAt
                           ? new Date(item.requestedAt).toLocaleDateString('pt-PT')
                           : '-'}
-                      </p>
-                    </div>
+                      </Typography>
+                    </Box>
                     <StatusBadge label="Pendente" variant="warning" />
-                  </li>
+                  </Box>
                 ))}
-              </ul>
+              </Stack>
             )}
           </CardContent>
         </Card>
-      </div>
+      </Box>
 
-      <div className="mb-6 grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Megaphone className="h-4 w-4" style={{ color: brandTokens.colors.emerald600 }} />
-              Comunicados publicados
+      <Box
+        sx={{
+          display: 'grid',
+          gap: 3,
+          mb: 3,
+          gridTemplateColumns: { xs: '1fr', lg: 'repeat(3, 1fr)' },
+        }}
+      >
+        <Card sx={{ gridColumn: { lg: 'span 2' } }}>
+          <Box
+            sx={{ alignItems: 'center', display: 'flex', justifyContent: 'space-between', p: 2 }}
+          >
+            <CardTitle>
+              <Box component="span" sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
+                <Megaphone size={18} style={{ color: brandTokens.colors.emerald600 }} />
+                Comunicados publicados
+              </Box>
             </CardTitle>
             <Button variant="ghost" size="sm" onClick={() => void navigate('/announcements')}>
               Ver mural <ArrowRight className="ml-1 h-4 w-4" />
             </Button>
-          </CardHeader>
+          </Box>
           <CardContent>
-            <div className="max-h-80 space-y-3 overflow-y-auto pr-2">
+            <Stack spacing={1.5} sx={{ maxHeight: 320, overflowY: 'auto', pr: 1 }}>
               {announcementItems.map((announcement) => (
-                <article key={announcement.id} className="rounded-md border p-3">
-                  <p className="text-sm font-semibold">{announcement.title}</p>
-                  <p className="mt-1 line-clamp-3 text-sm text-muted-foreground">
-                    {announcement.body}
-                  </p>
-                </article>
-              ))}
-              {announcementsQuery.hasNextPage && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void announcementsQuery.fetchNextPage()}
-                  disabled={announcementsQuery.isFetchingNextPage}
+                <Box
+                  key={announcement.id}
+                  sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}
                 >
-                  {announcementsQuery.isFetchingNextPage ? 'A carregar...' : 'Carregar mais'}
-                </Button>
-              )}
+                  <Typography variant="body2">{announcement.title}</Typography>
+                  <Typography color="text.secondary" sx={{ mt: 0.5 }} variant="body2">
+                    {announcement.body}
+                  </Typography>
+                </Box>
+              ))}
+              <Box ref={announcementsEndRef} aria-hidden="true" sx={{ minHeight: 8 }} />
+              {announcementsQuery.isFetchingNextPage && <LoadingSpinner size={20} />}
               {announcementItems.length === 0 && (
-                <p className="py-6 text-sm text-muted-foreground">Ainda não existem comunicados.</p>
+                <Typography color="text.secondary" sx={{ py: 3 }} variant="body2">
+                  Ainda não existem comunicados.
+                </Typography>
               )}
-            </div>
+            </Stack>
           </CardContent>
         </Card>
 
@@ -293,31 +343,51 @@ export function DashboardPage(): React.JSX.Element {
             <CardTitle className="text-base">Horas em falta</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold">{missingHours.toFixed(1)}h</p>
-            <p className="mt-1 text-sm text-muted-foreground">Por registar no período atual</p>
+            <Typography variant="h4">{missingHours.toFixed(1)}h</Typography>
+            <Typography color="text.secondary" sx={{ mt: 0.5 }} variant="body2">
+              Por registar no período atual
+            </Typography>
           </CardContent>
         </Card>
-      </div>
+      </Box>
 
-      <div className="mb-6 grid gap-6 lg:grid-cols-2">
+      <Box
+        sx={{
+          display: 'grid',
+          gap: 3,
+          mb: 3,
+          gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, 1fr)' },
+        }}
+      >
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Próximos eventos do calendário</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Box
+              sx={{
+                display: 'grid',
+                gap: 1.5,
+                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
+              }}
+            >
               {(calendarEvents ?? []).slice(0, 8).map((event) => (
-                <div key={event.id} className="rounded-md border p-3">
-                  <p className="text-sm font-medium">{event.title}</p>
-                  <p className="text-xs text-muted-foreground">
+                <Box
+                  key={event.id}
+                  sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}
+                >
+                  <Typography variant="body2">{event.title}</Typography>
+                  <Typography color="text.secondary" variant="caption">
                     {new Date(event.date).toLocaleDateString('pt-PT')}
-                  </p>
-                </div>
+                  </Typography>
+                </Box>
               ))}
               {(calendarEvents ?? []).length === 0 && (
-                <p className="text-sm text-muted-foreground">Sem eventos neste mês.</p>
+                <Typography color="text.secondary" variant="body2">
+                  Sem eventos neste mês.
+                </Typography>
               )}
-            </div>
+            </Box>
           </CardContent>
         </Card>
 
@@ -326,40 +396,49 @@ export function DashboardPage(): React.JSX.Element {
             <CardTitle className="text-base">Oportunidades em aberto</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <Stack spacing={1.5}>
               {(opportunities ?? []).slice(0, 5).map((opportunity) => (
-                <div key={opportunity.id} className="rounded-md border p-3">
-                  <p className="text-sm font-medium">{opportunity.title}</p>
-                  <p className="text-xs text-muted-foreground">
+                <Box
+                  key={opportunity.id}
+                  sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}
+                >
+                  <Typography variant="body2">{opportunity.title}</Typography>
+                  <Typography color="text.secondary" variant="caption">
                     {opportunity.location ?? 'Localização não definida'}
-                  </p>
-                </div>
+                  </Typography>
+                </Box>
               ))}
               {(opportunities ?? []).length === 0 && (
-                <p className="text-sm text-muted-foreground">Sem oportunidades abertas.</p>
+                <Typography color="text.secondary" variant="body2">
+                  Sem oportunidades abertas.
+                </Typography>
               )}
-            </div>
+            </Stack>
           </CardContent>
         </Card>
-      </div>
+      </Box>
 
       {alerts.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
-              Alertas
+            <CardTitle>
+              <Box component="span" sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
+                <AlertTriangle color="warning" size={18} />
+                Alertas
+              </Box>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="divide-y">
+            <Stack divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}>
               {alerts.slice(0, 10).map((alert: Notification) => (
-                <li key={alert.id} className="py-3">
-                  <p className="text-sm font-medium">{alert.title}</p>
-                  <p className="text-xs text-muted-foreground">{alert.body}</p>
-                </li>
+                <Box key={alert.id} sx={{ py: 1.5 }}>
+                  <Typography variant="body2">{alert.title}</Typography>
+                  <Typography color="text.secondary" variant="caption">
+                    {alert.body}
+                  </Typography>
+                </Box>
               ))}
-            </ul>
+            </Stack>
           </CardContent>
         </Card>
       )}
