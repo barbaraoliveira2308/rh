@@ -1,4 +1,8 @@
-import { cn } from '@/lib/utils';
+import Box from '@mui/material/Box';
+import Breadcrumbs from '@mui/material/Breadcrumbs';
+import Link from '@mui/material/Link';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
 import { Button } from '@/components/ui/button';
 
 interface PageHeaderProps {
@@ -21,38 +25,47 @@ export function PageHeader({
   className,
 }: PageHeaderProps): React.JSX.Element {
   return (
-    <div
-      className={cn(
-        'mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between',
-        className,
-      )}
+    <Stack
+      className={className}
+      direction={{ xs: 'column', sm: 'row' }}
+      spacing={2}
+      sx={{ mb: 3, alignItems: { sm: 'flex-start' }, justifyContent: 'space-between' }}
     >
-      <div>
+      <Box>
         {breadcrumb && breadcrumb.length > 0 && (
-          <nav className="mb-2 text-sm text-muted-foreground">
-            {breadcrumb.map((item, index) => (
-              <span key={index}>
-                {index > 0 && <span className="mx-2">/</span>}
-                {item.href ? (
-                  <a href={item.href} className="hover:text-foreground hover:underline">
-                    {item.label}
-                  </a>
-                ) : (
-                  <span>{item.label}</span>
-                )}
-              </span>
-            ))}
-          </nav>
+          <Breadcrumbs sx={{ mb: 1 }}>
+            {breadcrumb.map((item) =>
+              item.href ? (
+                <Link key={`${item.href}-${item.label}`} href={item.href} underline="hover">
+                  {item.label}
+                </Link>
+              ) : (
+                <Typography key={item.label} color="text.secondary" variant="body2">
+                  {item.label}
+                </Typography>
+              ),
+            )}
+          </Breadcrumbs>
         )}
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">{title}</h1>
-        {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
-      </div>
+        <Typography component="h1" variant="h4" sx={{ fontWeight: 700 }}>
+          {title}
+        </Typography>
+        {description && (
+          <Typography color="text.secondary" sx={{ mt: 0.5 }} variant="body2">
+            {description}
+          </Typography>
+        )}
+      </Box>
       {action && (
-        <Button onClick={action.onClick} className="shrink-0">
-          {action.icon && <span className="mr-2">{action.icon}</span>}
+        <Button onClick={action.onClick} sx={{ flexShrink: 0 }}>
+          {action.icon && (
+            <Box component="span" sx={{ mr: 1 }}>
+              {action.icon}
+            </Box>
+          )}
           {action.label}
         </Button>
       )}
-    </div>
+    </Stack>
   );
 }

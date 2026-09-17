@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+import Chip from '@mui/material/Chip';
 
 export type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
@@ -8,13 +8,13 @@ interface StatusBadgeProps {
   className?: string;
 }
 
-const variantStyles: Record<BadgeVariant, string> = {
-  default: 'bg-brand-100 text-brand-900',
-  success: 'bg-green-100 text-green-800',
-  warning: 'bg-amber-100 text-amber-800',
-  danger: 'bg-red-100 text-red-800',
-  info: 'bg-blue-100 text-blue-800',
-  neutral: 'bg-gray-100 text-gray-800',
+const variantColors: Record<BadgeVariant, 'default' | 'success' | 'warning' | 'error' | 'info'> = {
+  default: 'default',
+  success: 'success',
+  warning: 'warning',
+  danger: 'error',
+  info: 'info',
+  neutral: 'default',
 };
 
 export function StatusBadge({
@@ -22,15 +22,5 @@ export function StatusBadge({
   variant = 'default',
   className,
 }: StatusBadgeProps): React.JSX.Element {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-        variantStyles[variant],
-        className,
-      )}
-    >
-      {label}
-    </span>
-  );
+  return <Chip className={className} color={variantColors[variant]} label={label} size="small" />;
 }

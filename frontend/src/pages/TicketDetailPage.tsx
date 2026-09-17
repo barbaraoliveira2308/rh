@@ -77,11 +77,17 @@ function AssignDialog({
   ticketId: string;
 }): React.JSX.Element {
   const queryClient = useQueryClient();
+  const permissions = useAuthStore((state) => state.permissions);
+  const canListEmployees =
+    permissions.includes('admin:*') ||
+    permissions.some((permission) => permission.startsWith('admin')) ||
+    permissions.includes('manager');
   const [agentUserId, setAgentUserId] = React.useState('');
 
   const { data: employeesResponse } = useQuery({
     queryKey: ['helpdesk-employees'],
     queryFn: () => fetchEmployees({ limit: 100 }),
+    enabled: canListEmployees,
   });
 
   const assignMutation = useMutation({
@@ -138,6 +144,11 @@ export function TicketDetailPage(): React.JSX.Element {
   const { id = '' } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const permissions = useAuthStore((state) => state.permissions);
+  const canListEmployees =
+    permissions.includes('admin:*') ||
+    permissions.some((permission) => permission.startsWith('admin')) ||
+    permissions.includes('manager');
   const user = useAuthStore((state) => state.user);
   const roles = user?.roles ?? [];
   const isAdmin = roles.includes('admin');
@@ -171,6 +182,7 @@ export function TicketDetailPage(): React.JSX.Element {
   const { data: employeesResponse } = useQuery({
     queryKey: ['helpdesk-employees'],
     queryFn: () => fetchEmployees({ limit: 100 }),
+    enabled: canListEmployees,
   });
 
   const employeeNameByUserId = React.useMemo(() => {
