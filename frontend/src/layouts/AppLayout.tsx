@@ -21,6 +21,7 @@ import {
   GraduationCap,
   FileBarChart,
   ShieldCheck,
+  Megaphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -53,6 +54,7 @@ const navItems: NavItem[] = [
   { label: 'Relatórios', href: '/reports', icon: <FileBarChart className="h-4 w-4" /> },
   { label: 'Privacidade', href: '/gdpr', icon: <ShieldCheck className="h-4 w-4" /> },
   { label: 'Notificações', href: '/notifications', icon: <Bell className="h-4 w-4" /> },
+  { label: 'Comunicados', href: '/announcements', icon: <Megaphone className="h-4 w-4" /> },
   { label: 'Administração', href: '/admin/settings', icon: <Settings className="h-4 w-4" /> },
 ];
 

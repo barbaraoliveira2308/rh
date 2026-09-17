@@ -1,6 +1,14 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Users, FolderKanban, Clock, CalendarDays, ArrowRight, AlertTriangle } from 'lucide-react';
+import {
+  Users,
+  FolderKanban,
+  Clock,
+  CalendarDays,
+  ArrowRight,
+  AlertTriangle,
+  Megaphone,
+} from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -26,9 +34,13 @@ import { fetchAbsences } from '@/api/absences.api';
 import { fetchWorkflowInbox } from '@/api/workflow.api';
 import { fetchCapacityForecast } from '@/api/analytics.api';
 import { fetchNotifications } from '@/api/notifications.api';
+import { fetchAnnouncements } from '@/api/announcements.api';
+import { fetchMonthView } from '@/api/calendar.api';
+import { fetchOpenOpportunities } from '@/api/opportunities.api';
 import { useAuthStore } from '@/stores/auth.store';
 import type { WorkflowItem } from '@/types/workflow';
 import type { Notification } from '@/types/notifications';
+import { brandTokens } from '@/theme/brandTokens';
 
 const typeLabelMap: Record<string, string> = {
   TIMESHEET: 'Timesheet',
@@ -79,6 +91,29 @@ export function DashboardPage(): React.JSX.Element {
     queryFn: () => fetchNotifications(1, 50),
   });
 
+  const announcementsQuery = useInfiniteQuery({
+    queryKey: ['announcements', 'dashboard'],
+    queryFn: ({ pageParam }) => fetchAnnouncements(pageParam, 5),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (page) => (page.hasMore ? page.nextCursor : undefined),
+  });
+
+  const { data: calendarEvents } = useQuery({
+    queryKey: ['calendar', 'dashboard', new Date().getFullYear(), new Date().getMonth() + 1],
+    queryFn: () => fetchMonthView(new Date().getFullYear(), new Date().getMonth() + 1),
+  });
+
+  const { data: currentTimesheets } = useQuery({
+    queryKey: ['timesheets', 'dashboard', new Date().getFullYear(), new Date().getMonth() + 1],
+    queryFn: () =>
+      fetchTimesheets({ year: new Date().getFullYear(), month: new Date().getMonth() + 1 }),
+  });
+
+  const { data: opportunities } = useQuery({
+    queryKey: ['opportunities', 'open'],
+    queryFn: fetchOpenOpportunities,
+  });
+
   const alerts: Notification[] = (notificationsData?.items ?? []).filter(
     (n) =>
       n.type.includes('contract') || n.type.includes('project') || n.type.includes('allocation'),
@@ -90,6 +125,12 @@ export function DashboardPage(): React.JSX.Element {
       Alocada: f.allocatedCapacity,
       Disponivel: f.availableCapacity,
     })) ?? [];
+
+  const announcementItems = announcementsQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  const missingHours = (currentTimesheets ?? []).reduce(
+    (total, period) => total + Math.max(0, period.totalPlannedHours - period.totalWorkedHours),
+    0,
+  );
 
   return (
     <div>
@@ -205,6 +246,99 @@ export function DashboardPage(): React.JSX.Element {
                 ))}
               </ul>
             )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="mb-6 grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Megaphone className="h-4 w-4" style={{ color: brandTokens.colors.emerald600 }} />
+              Comunicados publicados
+            </CardTitle>
+            <Button variant="ghost" size="sm" onClick={() => void navigate('/announcements')}>
+              Ver mural <ArrowRight className="ml-1 h-4 w-4" />
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-80 space-y-3 overflow-y-auto pr-2">
+              {announcementItems.map((announcement) => (
+                <article key={announcement.id} className="rounded-md border p-3">
+                  <p className="text-sm font-semibold">{announcement.title}</p>
+                  <p className="mt-1 line-clamp-3 text-sm text-muted-foreground">
+                    {announcement.body}
+                  </p>
+                </article>
+              ))}
+              {announcementsQuery.hasNextPage && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void announcementsQuery.fetchNextPage()}
+                  disabled={announcementsQuery.isFetchingNextPage}
+                >
+                  {announcementsQuery.isFetchingNextPage ? 'A carregar...' : 'Carregar mais'}
+                </Button>
+              )}
+              {announcementItems.length === 0 && (
+                <p className="py-6 text-sm text-muted-foreground">Ainda não existem comunicados.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Horas em falta</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-semibold">{missingHours.toFixed(1)}h</p>
+            <p className="mt-1 text-sm text-muted-foreground">Por registar no período atual</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="mb-6 grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Próximos eventos do calendário</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {(calendarEvents ?? []).slice(0, 8).map((event) => (
+                <div key={event.id} className="rounded-md border p-3">
+                  <p className="text-sm font-medium">{event.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(event.date).toLocaleDateString('pt-PT')}
+                  </p>
+                </div>
+              ))}
+              {(calendarEvents ?? []).length === 0 && (
+                <p className="text-sm text-muted-foreground">Sem eventos neste mês.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Oportunidades em aberto</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {(opportunities ?? []).slice(0, 5).map((opportunity) => (
+                <div key={opportunity.id} className="rounded-md border p-3">
+                  <p className="text-sm font-medium">{opportunity.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {opportunity.location ?? 'Localização não definida'}
+                  </p>
+                </div>
+              ))}
+              {(opportunities ?? []).length === 0 && (
+                <p className="text-sm text-muted-foreground">Sem oportunidades abertas.</p>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
