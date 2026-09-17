@@ -1,5 +1,8 @@
 import React from 'react';
-import { AlertTriangle } from 'lucide-react';
+import Alert from '@mui/material/Alert';
+import AlertTitle from '@mui/material/AlertTitle';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
 import { Button } from '@/components/ui/button';
 
 interface ErrorBoundaryProps {
@@ -33,13 +36,26 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   render(): React.ReactNode {
     if (this.state.hasError) {
       return (
-        <div className="flex min-h-[50vh] flex-col items-center justify-center p-8 text-center">
-          <AlertTriangle className="mb-4 h-12 w-12 text-red-600" />
-          <h2 className="mb-2 text-xl font-semibold">Algo correu mal</h2>
-          <p className="mb-6 max-w-md text-muted-foreground">
+        <Box
+          sx={{
+            minHeight: '50vh',
+            p: 4,
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 2,
+          }}
+        >
+          <Alert severity="error" sx={{ maxWidth: 560, textAlign: 'left' }}>
+            <AlertTitle>Algo correu mal</AlertTitle>
             Ocorreu um erro inesperado. Tente recarregar a página ou contacte o suporte.
-          </p>
-          <div className="space-x-2">
+          </Alert>
+          <Typography color="text.secondary" variant="body2">
+            O estado da aplicação foi preservado para permitir uma nova tentativa.
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
             <Button onClick={this.handleReset}>Tentar novamente</Button>
             <Button
               variant="outline"
@@ -49,8 +65,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             >
               Recarregar página
             </Button>
-          </div>
-        </div>
+          </Box>
+        </Box>
       );
     }
 
