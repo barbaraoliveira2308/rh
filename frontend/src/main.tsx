@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider } from '@mui/material/styles';
 import './index.css';
 import { App } from './App';
@@ -14,6 +15,7 @@ if (!rootElement) {
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <ThemeProvider theme={muiTheme}>
+      <CssBaseline />
       <App />
     </ThemeProvider>
   </React.StrictMode>,
