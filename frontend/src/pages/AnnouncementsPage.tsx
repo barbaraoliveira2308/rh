@@ -6,7 +6,10 @@ import ImageIcon from '@mui/icons-material/Image';
 import LinkIcon from '@mui/icons-material/Link';
 import PollIcon from '@mui/icons-material/Poll';
 import VideoFileIcon from '@mui/icons-material/VideoFile';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
+import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
@@ -20,9 +23,14 @@ import {
   addAnnouncementLink,
   createAnnouncement,
   fetchAnnouncements,
+  respondToAnnouncementForm,
   uploadAnnouncementAsset,
 } from '@/api/announcements.api';
-import type { AnnouncementAssetType, AnnouncementFormField } from '@/types/announcements';
+import type {
+  AnnouncementAssetType,
+  AnnouncementForm,
+  AnnouncementFormField,
+} from '@/types/announcements';
 
 const defaultField: AnnouncementFormField = {
   name: 'email',
@@ -30,6 +38,108 @@ const defaultField: AnnouncementFormField = {
   type: 'email',
   required: true,
 };
+
+function AnnouncementFormCard({ form }: { form: AnnouncementForm }): React.JSX.Element {
+  const [answers, setAnswers] = React.useState<Record<string, unknown>>({});
+  const [submitted, setSubmitted] = React.useState(false);
+
+  const respondMutation = useMutation({
+    mutationFn: () => respondToAnnouncementForm(form.id, answers),
+    onSuccess: () => {
+      setSubmitted(true);
+    },
+  });
+
+  const hasMissingRequired = form.fields.some((field) => field.required && !answers[field.name]);
+
+  return (
+    <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, mt: 2, p: 2 }}>
+      <Stack spacing={2}>
+        <Typography variant="subtitle2">{form.title}</Typography>
+        {submitted ? (
+          <Typography color="success.main" variant="body2">
+            Resposta enviada.
+          </Typography>
+        ) : (
+          <>
+            {form.fields.map((field) => {
+              if (field.type === 'checkbox') {
+                return (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={Boolean(answers[field.name])}
+                        onChange={(event) => {
+                          setAnswers((prev) => ({ ...prev, [field.name]: event.target.checked }));
+                        }}
+                      />
+                    }
+                    key={field.name}
+                    label={field.label}
+                  />
+                );
+              }
+              if (field.type === 'select') {
+                return (
+                  <TextField
+                    fullWidth
+                    key={field.name}
+                    label={field.label}
+                    onChange={(event) => {
+                      setAnswers((prev) => ({ ...prev, [field.name]: event.target.value }));
+                    }}
+                    required={field.required}
+                    select
+                    size="small"
+                    value={answers[field.name] ?? ''}
+                  >
+                    {(field.options ?? []).map((option) => (
+                      <MenuItem key={option} value={option}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                );
+              }
+              return (
+                <TextField
+                  fullWidth
+                  key={field.name}
+                  label={field.label}
+                  minRows={field.type === 'textarea' ? 2 : undefined}
+                  multiline={field.type === 'textarea'}
+                  onChange={(event) => {
+                    setAnswers((prev) => ({ ...prev, [field.name]: event.target.value }));
+                  }}
+                  required={field.required}
+                  size="small"
+                  type={field.type === 'email' || field.type === 'number' ? field.type : 'text'}
+                  value={answers[field.name] ?? ''}
+                />
+              );
+            })}
+            {respondMutation.isError && (
+              <Typography color="error" variant="body2">
+                Não foi possível enviar a resposta.
+              </Typography>
+            )}
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                disabled={hasMissingRequired || respondMutation.isPending}
+                onClick={() => {
+                  respondMutation.mutate();
+                }}
+                type="button"
+              >
+                {respondMutation.isPending ? <LoadingSpinner size={18} /> : 'Responder'}
+              </Button>
+            </Box>
+          </>
+        )}
+      </Stack>
+    </Box>
+  );
+}
 
 export function AnnouncementsPage(): React.JSX.Element {
   const queryClient = useQueryClient();
@@ -288,11 +398,63 @@ export function AnnouncementsPage(): React.JSX.Element {
             </CardHeader>
             <CardContent>
               <Typography sx={{ whiteSpace: 'pre-wrap' }}>{item.body}</Typography>
-              {item.forms.length > 0 && (
-                <Typography color="primary" sx={{ mt: 2 }} variant="body2">
-                  Formulário: {item.forms[0]?.title}
-                </Typography>
+              {item.assets.length > 0 && (
+                <Box sx={{ mt: 2 }}>
+                  {item.assets.map((asset) => {
+                    if (asset.assetType === 'image') {
+                      return (
+                        <Box
+                          component="img"
+                          key={asset.id}
+                          src={asset.url}
+                          sx={{
+                            maxWidth: '100%',
+                            maxHeight: 320,
+                            borderRadius: 1,
+                            display: 'block',
+                          }}
+                        />
+                      );
+                    }
+                    if (asset.assetType === 'video') {
+                      return (
+                        <Box
+                          component="video"
+                          controls
+                          key={asset.id}
+                          src={asset.url}
+                          sx={{ width: '100%', maxHeight: 360, borderRadius: 1 }}
+                        />
+                      );
+                    }
+                    if (asset.assetType === 'document') {
+                      return (
+                        <a
+                          className="text-brand-800 hover:underline"
+                          href={asset.url}
+                          key={asset.id}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          {asset.fileName ?? 'Documento'}
+                        </a>
+                      );
+                    }
+                    return (
+                      <a
+                        className="text-brand-800 hover:underline"
+                        href={asset.url}
+                        key={asset.id}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        {asset.url}
+                      </a>
+                    );
+                  })}
+                </Box>
               )}
+              {item.forms[0] && <AnnouncementFormCard form={item.forms[0]} />}
             </CardContent>
           </Card>
         ))}

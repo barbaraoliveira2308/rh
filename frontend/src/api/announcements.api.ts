@@ -49,3 +49,11 @@ export async function uploadAnnouncementAsset(
   );
   return response.data;
 }
+
+export async function respondToAnnouncementForm(
+  formId: string,
+  answers: Record<string, unknown>,
+): Promise<unknown> {
+  const response = await apiClient.post(`/announcements/forms/${formId}/responses`, { answers });
+  return response.data;
+}
