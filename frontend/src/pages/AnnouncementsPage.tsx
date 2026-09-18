@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import CampaignIcon from '@mui/icons-material/Campaign';
 import DescriptionIcon from '@mui/icons-material/Description';
 import ImageIcon from '@mui/icons-material/Image';
@@ -22,15 +22,105 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import {
   addAnnouncementLink,
   createAnnouncement,
+  fetchAnnouncementAssetBlob,
   fetchAnnouncements,
   respondToAnnouncementForm,
   uploadAnnouncementAsset,
 } from '@/api/announcements.api';
 import type {
+  AnnouncementAsset,
   AnnouncementAssetType,
   AnnouncementForm,
   AnnouncementFormField,
 } from '@/types/announcements';
+
+function useAnnouncementAssetObjectUrl(asset: AnnouncementAsset): string | null {
+  const assetBlobQuery = useQuery({
+    queryKey: ['announcement-asset', asset.id],
+    queryFn: () => fetchAnnouncementAssetBlob(asset.url),
+    enabled: asset.assetType === 'image' || asset.assetType === 'video',
+    staleTime: Infinity,
+  });
+
+  const [objectUrl, setObjectUrl] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!assetBlobQuery.data) return;
+    const url = URL.createObjectURL(assetBlobQuery.data);
+    setObjectUrl(url);
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [assetBlobQuery.data]);
+
+  return objectUrl;
+}
+
+function AnnouncementAssetPreview({ asset }: { asset: AnnouncementAsset }): React.JSX.Element {
+  const objectUrl = useAnnouncementAssetObjectUrl(asset);
+
+  const downloadMutation = useMutation({
+    mutationFn: () => fetchAnnouncementAssetBlob(asset.url),
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = asset.fileName ?? 'documento';
+      anchor.click();
+      URL.revokeObjectURL(url);
+    },
+  });
+
+  if (asset.assetType === 'image') {
+    return objectUrl ? (
+      <Box
+        component="img"
+        src={objectUrl}
+        sx={{ maxWidth: '100%', maxHeight: 320, borderRadius: 1, display: 'block' }}
+      />
+    ) : (
+      <LoadingSpinner size={24} />
+    );
+  }
+
+  if (asset.assetType === 'video') {
+    return objectUrl ? (
+      <Box
+        component="video"
+        controls
+        src={objectUrl}
+        sx={{ width: '100%', maxHeight: 360, borderRadius: 1 }}
+      />
+    ) : (
+      <LoadingSpinner size={24} />
+    );
+  }
+
+  if (asset.assetType === 'document') {
+    return (
+      <Button
+        disabled={downloadMutation.isPending}
+        onClick={() => {
+          downloadMutation.mutate();
+        }}
+        type="button"
+        variant="outline"
+      >
+        {downloadMutation.isPending ? (
+          <LoadingSpinner size={16} />
+        ) : (
+          (asset.fileName ?? 'Documento')
+        )}
+      </Button>
+    );
+  }
+
+  return (
+    <a className="text-brand-800 hover:underline" href={asset.url} rel="noreferrer" target="_blank">
+      {asset.url}
+    </a>
+  );
+}
 
 const defaultField: AnnouncementFormField = {
   name: 'email',
@@ -399,59 +489,10 @@ export function AnnouncementsPage(): React.JSX.Element {
             <CardContent>
               <Typography sx={{ whiteSpace: 'pre-wrap' }}>{item.body}</Typography>
               {item.assets.length > 0 && (
-                <Box sx={{ mt: 2 }}>
-                  {item.assets.map((asset) => {
-                    if (asset.assetType === 'image') {
-                      return (
-                        <Box
-                          component="img"
-                          key={asset.id}
-                          src={asset.url}
-                          sx={{
-                            maxWidth: '100%',
-                            maxHeight: 320,
-                            borderRadius: 1,
-                            display: 'block',
-                          }}
-                        />
-                      );
-                    }
-                    if (asset.assetType === 'video') {
-                      return (
-                        <Box
-                          component="video"
-                          controls
-                          key={asset.id}
-                          src={asset.url}
-                          sx={{ width: '100%', maxHeight: 360, borderRadius: 1 }}
-                        />
-                      );
-                    }
-                    if (asset.assetType === 'document') {
-                      return (
-                        <a
-                          className="text-brand-800 hover:underline"
-                          href={asset.url}
-                          key={asset.id}
-                          rel="noreferrer"
-                          target="_blank"
-                        >
-                          {asset.fileName ?? 'Documento'}
-                        </a>
-                      );
-                    }
-                    return (
-                      <a
-                        className="text-brand-800 hover:underline"
-                        href={asset.url}
-                        key={asset.id}
-                        rel="noreferrer"
-                        target="_blank"
-                      >
-                        {asset.url}
-                      </a>
-                    );
-                  })}
+                <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {item.assets.map((asset) => (
+                    <AnnouncementAssetPreview asset={asset} key={asset.id} />
+                  ))}
                 </Box>
               )}
               {item.forms[0] && <AnnouncementFormCard form={item.forms[0]} />}

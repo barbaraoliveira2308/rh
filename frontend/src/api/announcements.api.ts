@@ -50,6 +50,11 @@ export async function uploadAnnouncementAsset(
   return response.data;
 }
 
+export async function fetchAnnouncementAssetBlob(url: string): Promise<Blob> {
+  const response = await apiClient.get<Blob>(url, { responseType: 'blob' });
+  return response.data;
+}
+
 export async function respondToAnnouncementForm(
   formId: string,
   answers: Record<string, unknown>,
