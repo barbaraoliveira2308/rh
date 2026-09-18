@@ -14,18 +14,18 @@ import {
   Megaphone,
 } from 'lucide-react';
 import {
-  BarChart,
-  Bar,
+  Area,
+  AreaChart,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from 'recharts';
 import { PageHeader } from '@/components/PageHeader';
 import { StatusBadge } from '@/components/StatusBadge';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { AnnouncementAssetPreview } from '@/components/AnnouncementAssetPreview';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ProjectStatus } from '@/types/projects';
@@ -215,23 +215,44 @@ export function DashboardPage(): React.JSX.Element {
           </CardHeader>
           <CardContent>
             {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="colorAlocada" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3D7DB9" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#3D7DB9" stopOpacity={0.05} />
+                    </linearGradient>
+                    <linearGradient id="colorDisponivel" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8FC1E3" stopOpacity={0.6} />
+                      <stop offset="95%" stopColor="#8FC1E3" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="month" fontSize={12} tickLine={false} />
+                  <YAxis fontSize={12} tickLine={false} width={32} />
                   <Tooltip />
-                  <Legend />
-                  <Bar dataKey="Alocada" stackId="a" fill="#3D7DB9" />
-                  <Bar dataKey="Disponivel" stackId="a" fill="#E8F0F8" />
-                </BarChart>
+                  <Area
+                    dataKey="Alocada"
+                    fill="url(#colorAlocada)"
+                    stackId="a"
+                    stroke="#3D7DB9"
+                    type="monotone"
+                  />
+                  <Area
+                    dataKey="Disponivel"
+                    fill="url(#colorDisponivel)"
+                    stackId="a"
+                    stroke="#8FC1E3"
+                    type="monotone"
+                  />
+                </AreaChart>
               </ResponsiveContainer>
             ) : (
               <Box
                 sx={{
                   alignItems: 'center',
                   display: 'flex',
-                  height: 300,
+                  height: 220,
                   justifyContent: 'center',
                 }}
               >
@@ -294,6 +315,7 @@ export function DashboardPage(): React.JSX.Element {
 
       <Box
         sx={{
+          alignItems: 'start',
           display: 'grid',
           gap: 3,
           mb: 3,
@@ -315,7 +337,7 @@ export function DashboardPage(): React.JSX.Element {
             </Button>
           </Box>
           <CardContent>
-            <Stack spacing={1.5} sx={{ maxHeight: 320, overflowY: 'auto', pr: 1 }}>
+            <Stack spacing={1.5} sx={{ maxHeight: 460, overflowY: 'auto', pr: 1 }}>
               {announcementItems.map((announcement) => (
                 <Box
                   key={announcement.id}
@@ -325,6 +347,13 @@ export function DashboardPage(): React.JSX.Element {
                   <Typography color="text.secondary" sx={{ mt: 0.5 }} variant="body2">
                     {announcement.body}
                   </Typography>
+                  {announcement.assets.length > 0 && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+                      {announcement.assets.map((asset) => (
+                        <AnnouncementAssetPreview asset={asset} key={asset.id} maxHeight={200} />
+                      ))}
+                    </Box>
+                  )}
                 </Box>
               ))}
               <Box ref={announcementsEndRef} aria-hidden="true" sx={{ minHeight: 8 }} />
@@ -338,84 +367,71 @@ export function DashboardPage(): React.JSX.Element {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Horas em falta</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Typography variant="h4">{missingHours.toFixed(1)}h</Typography>
-            <Typography color="text.secondary" sx={{ mt: 0.5 }} variant="body2">
-              Por registar no período atual
-            </Typography>
-          </CardContent>
-        </Card>
-      </Box>
+        <Stack spacing={3}>
+          <Card>
+            <CardHeader style={{ paddingBottom: 4 }}>
+              <CardTitle className="text-base">Horas em falta</CardTitle>
+            </CardHeader>
+            <CardContent sx={{ pt: 0.5 }}>
+              <Typography variant="h5">{missingHours.toFixed(1)}h</Typography>
+              <Typography color="text.secondary" sx={{ mt: 0.5 }} variant="caption">
+                Por registar no período atual
+              </Typography>
+            </CardContent>
+          </Card>
 
-      <Box
-        sx={{
-          display: 'grid',
-          gap: 3,
-          mb: 3,
-          gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, 1fr)' },
-        }}
-      >
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Próximos eventos do calendário</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Box
-              sx={{
-                display: 'grid',
-                gap: 1.5,
-                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
-              }}
-            >
-              {(calendarEvents ?? []).slice(0, 8).map((event) => (
-                <Box
-                  key={event.id}
-                  sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}
-                >
-                  <Typography variant="body2">{event.title}</Typography>
-                  <Typography color="text.secondary" variant="caption">
-                    {new Date(event.date).toLocaleDateString('pt-PT')}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Próximos eventos do calendário</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                {(calendarEvents ?? []).slice(0, 4).map((event) => (
+                  <Box
+                    key={event.id}
+                    sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}
+                  >
+                    <Typography variant="body2">{event.title}</Typography>
+                    <Typography color="text.secondary" variant="caption">
+                      {new Date(event.date).toLocaleDateString('pt-PT')}
+                    </Typography>
+                  </Box>
+                ))}
+                {(calendarEvents ?? []).length === 0 && (
+                  <Typography color="text.secondary" variant="body2">
+                    Sem eventos neste mês.
                   </Typography>
-                </Box>
-              ))}
-              {(calendarEvents ?? []).length === 0 && (
-                <Typography color="text.secondary" variant="body2">
-                  Sem eventos neste mês.
-                </Typography>
-              )}
-            </Box>
-          </CardContent>
-        </Card>
+                )}
+              </Box>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Oportunidades em aberto</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Stack spacing={1.5}>
-              {(opportunities ?? []).slice(0, 5).map((opportunity) => (
-                <Box
-                  key={opportunity.id}
-                  sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}
-                >
-                  <Typography variant="body2">{opportunity.title}</Typography>
-                  <Typography color="text.secondary" variant="caption">
-                    {opportunity.location ?? 'Localização não definida'}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Oportunidades em aberto</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Stack spacing={1.5}>
+                {(opportunities ?? []).slice(0, 5).map((opportunity) => (
+                  <Box
+                    key={opportunity.id}
+                    sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}
+                  >
+                    <Typography variant="body2">{opportunity.title}</Typography>
+                    <Typography color="text.secondary" variant="caption">
+                      {opportunity.location ?? 'Localização não definida'}
+                    </Typography>
+                  </Box>
+                ))}
+                {(opportunities ?? []).length === 0 && (
+                  <Typography color="text.secondary" variant="body2">
+                    Sem oportunidades abertas.
                   </Typography>
-                </Box>
-              ))}
-              {(opportunities ?? []).length === 0 && (
-                <Typography color="text.secondary" variant="body2">
-                  Sem oportunidades abertas.
-                </Typography>
-              )}
-            </Stack>
-          </CardContent>
-        </Card>
+                )}
+              </Stack>
+            </CardContent>
+          </Card>
+        </Stack>
       </Box>
 
       {alerts.length > 0 && (
