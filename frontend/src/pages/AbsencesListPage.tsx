@@ -348,10 +348,10 @@ export function AbsencesListPage(): React.JSX.Element {
 
   return (
     <div>
-      <PageHeader title="Ausências" description="Calendário mensal e pedidos de ausência" />
-
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end">
         <div className="space-y-2">
+          <PageHeader title="Ausências" description="Calendário mensal e pedidos de ausência" />
+
           <Label htmlFor="year-filter">Ano</Label>
           <select
             id="year-filter"

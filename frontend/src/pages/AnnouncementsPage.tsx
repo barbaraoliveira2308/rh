@@ -1,13 +1,17 @@
 import * as React from 'react';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import AddLinkIcon from '@mui/icons-material/AddLink';
 import CampaignIcon from '@mui/icons-material/Campaign';
+import DescriptionIcon from '@mui/icons-material/Description';
 import ImageIcon from '@mui/icons-material/Image';
+import LinkIcon from '@mui/icons-material/Link';
 import PollIcon from '@mui/icons-material/Poll';
+import VideoFileIcon from '@mui/icons-material/VideoFile';
+import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
+import Tooltip from '@mui/material/Tooltip';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,6 +41,8 @@ export function AnnouncementsPage(): React.JSX.Element {
   const [linkUrl, setLinkUrl] = React.useState('');
   const [assetType, setAssetType] = React.useState<AnnouncementAssetType>('image');
   const [assetFile, setAssetFile] = React.useState<File | null>(null);
+  const [linkEnabled, setLinkEnabled] = React.useState(false);
+  const assetInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const announcementsQuery = useInfiniteQuery({
     queryKey: ['announcements'],
@@ -62,6 +68,7 @@ export function AnnouncementsPage(): React.JSX.Element {
       setFormEnabled(false);
       setLinkUrl('');
       setAssetFile(null);
+      setLinkEnabled(false);
       await queryClient.invalidateQueries({ queryKey: ['announcements'] });
     },
   });
@@ -125,39 +132,79 @@ export function AnnouncementsPage(): React.JSX.Element {
               }}
               placeholder="Escreva o comunicado..."
             />
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-              <Button
-                type="button"
-                variant={formEnabled ? 'secondary' : 'outline'}
-                onClick={() => {
-                  setFormEnabled((value) => !value);
-                }}
-              >
-                <PollIcon fontSize="small" sx={{ mr: 1 }} />
-                Formulário
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setAssetType(
-                    assetType === 'image' ? 'video' : assetType === 'video' ? 'document' : 'image',
-                  );
-                }}
-              >
-                <ImageIcon fontSize="small" sx={{ mr: 1 }} />
-                {assetType === 'image' ? 'Imagem' : assetType === 'video' ? 'Vídeo' : 'Documento'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => document.getElementById('announcement-asset')?.click()}
-              >
-                <AddLinkIcon fontSize="small" sx={{ mr: 1 }} />
-                Anexo
-              </Button>
+            <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+              <Tooltip title="Adicionar formulário">
+                <IconButton
+                  aria-label="Adicionar formulário"
+                  aria-pressed={formEnabled}
+                  color={formEnabled ? 'secondary' : 'default'}
+                  onClick={() => {
+                    setFormEnabled((value) => !value);
+                  }}
+                  size="small"
+                  type="button"
+                >
+                  <PollIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Adicionar imagem">
+                <IconButton
+                  aria-label="Adicionar imagem"
+                  color={assetFile && assetType === 'image' ? 'secondary' : 'default'}
+                  onClick={() => {
+                    setAssetType('image');
+                    assetInputRef.current?.click();
+                  }}
+                  size="small"
+                  type="button"
+                >
+                  <ImageIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Adicionar vídeo">
+                <IconButton
+                  aria-label="Adicionar vídeo"
+                  color={assetFile && assetType === 'video' ? 'secondary' : 'default'}
+                  onClick={() => {
+                    setAssetType('video');
+                    assetInputRef.current?.click();
+                  }}
+                  size="small"
+                  type="button"
+                >
+                  <VideoFileIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Adicionar documento">
+                <IconButton
+                  aria-label="Adicionar documento"
+                  color={assetFile && assetType === 'document' ? 'secondary' : 'default'}
+                  onClick={() => {
+                    setAssetType('document');
+                    assetInputRef.current?.click();
+                  }}
+                  size="small"
+                  type="button"
+                >
+                  <DescriptionIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Adicionar link">
+                <IconButton
+                  aria-label="Adicionar link"
+                  aria-pressed={linkEnabled}
+                  color={linkEnabled ? 'secondary' : 'default'}
+                  onClick={() => {
+                    setLinkEnabled((value) => !value);
+                  }}
+                  size="small"
+                  type="button"
+                >
+                  <LinkIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
               <input
-                id="announcement-asset"
+                ref={assetInputRef}
                 type="file"
                 accept={
                   assetType === 'image'
@@ -172,15 +219,17 @@ export function AnnouncementsPage(): React.JSX.Element {
                 }}
               />
             </Stack>
-            <TextField
-              label="Link opcional"
-              value={linkUrl}
-              onChange={(event) => {
-                setLinkUrl(event.target.value);
-              }}
-              fullWidth
-              placeholder="https://..."
-            />
+            {linkEnabled && (
+              <TextField
+                label="Link do comunicado"
+                value={linkUrl}
+                onChange={(event) => {
+                  setLinkUrl(event.target.value);
+                }}
+                fullWidth
+                placeholder="https://..."
+              />
+            )}
             {assetFile && (
               <Typography color="text.secondary" variant="body2">
                 Ficheiro: {assetFile.name}
