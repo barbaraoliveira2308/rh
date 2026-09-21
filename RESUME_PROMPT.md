@@ -13,7 +13,8 @@
 ## 2. Estado atual (resumo — confirmar sempre contra o `PROJECT_STATE.md`)
 
 - Stack: NestJS + React 18 + TypeORM + PostgreSQL, monorepo pnpm (`backend/`, `frontend/`, `shared/`).
-- Última fase concluída: **P-091** (**UC-AUTH-003 — Recuperação de Password**: nova página que consome o token de reset, `FRONTEND_URL` distinta de `APP_URL`, endpoints renomeados para bater com a spec, e token expirado distinguido de inválido; decisões P091-01 a P091-07). Fechou também `R-056` — **nenhum** dos compose passava as `SMTP_*` ao backend, pelo que todos os emails eram descartados em silêncio, em dev e em produção. **A próxima fase é P-092 = UC-AUTH-005 — ver secção 3, o âmbito já está decidido; não voltes a apresentar o menu antigo de candidatos.**
+- Última fase concluída: **P-092** (**UC-AUTH-005 — Configurar MFA**: página `/settings/security`, 10 códigos de recuperação em SHA-256, `POST /auth/mfa/recovery-codes`, `mfaSetupRequired` na resposta do login com redirecionamento forçado no frontend, e `/mfa/enable` deixa de desligar o MFA sem código; decisões P092-00 a P092-05). **A próxima fase é P-093 = UC-AUTH-001 — ver secção 3.** Depois dela, **P-094 foi reorientada** (decisão P092-00): o utilizador escolheu autenticação só na aplicação e **remover o Keycloak/SSO**, a acrescentar mais tarde.
+- Fase anterior: **P-091** (**UC-AUTH-003 — Recuperação de Password**: nova página que consome o token de reset, `FRONTEND_URL` distinta de `APP_URL`, endpoints renomeados para bater com a spec, e token expirado distinguido de inválido; decisões P091-01 a P091-07). Fechou também `R-056` — **nenhum** dos compose passava as `SMTP_*` ao backend, pelo que todos os emails eram descartados em silêncio, em dev e em produção.
 - Fase anterior: **P-090** (**UC-AUTH-004 — Logout**: `refresh()` passa a verificar `revokedAt` em `hr.sessions`, pelo que o refresh token deixa de sobreviver 7 dias ao logout). Criou um requisito para P-094 — `ssoLogin()` tem de passar a criar uma linha real em `hr.sessions`.
 - Fase anterior: **P-089** (só documentação — abertura do trabalho **UC-driven no módulo Auth**: nova tabela de estado por caso de uso em `specs/AUTH.md`, riscos `R-061`/`R-062`/`R-063` registados, e este ficheiro reorientado para o backlog de Auth. Nenhum código tocado).
 - Fase anterior: **P-088** (correção do arranque em dev e produção, a partir de um relatório de consultoria externa com 9 gaps entre o Quickstart do `README.md` e a realidade; nenhum módulo funcional tocado — toda a fase é arranque/infra/documentação). Os 3 modos (Modo A tudo em Docker, Modo B app no host, Produção) foram validados de raiz pelo utilizador.
@@ -90,14 +91,14 @@
 
 Uma fase por caso de uso, um commit por fase, todas no branch `feature/auth-uc`. O estado por caso de uso vive na tabela no topo da secção "Casos de Uso" de `specs/AUTH.md` — **é essa a fonte de verdade**, e atualizá-la faz parte das Acções de Fecho de cada uma destas fases. A ordem é por dependência, não por importância.
 
-| Fase      | Âmbito                                              | Porquê nesta posição                                                                                                            |
-| --------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| ~~P-090~~ | ~~**UC-AUTH-004** (Logout)~~                        | ✅ **Concluído em P-090.** `refresh()` verifica `revokedAt`; `logout()` inalterado. Decisões P090-01/P090-02.                   |
-| ~~P-091~~ | ~~**UC-AUTH-003** (Recuperação de Password)~~       | ✅ **Concluído em P-091.** Página de consumo do token, `FRONTEND_URL`, endpoints alinhados, 3a implementado. Fechou `R-056`.    |
-| **P-092** | **UC-AUTH-005** (Configurar MFA)                    | **Próxima.** Tem de vir antes de UC-AUTH-001 — sem UI de self-service ninguém chega ao estado "MFA ativo" pelo produto.         |
-| P-093     | **UC-AUTH-001** (Login)                             | Contrato do desafio MFA (agora testável por uma pessoa real), 403 no bloqueio, e a decisão `username` vs. `email`.              |
-| P-094     | **UC-AUTH-002** (Login via SSO)                     | O mais isolado e o que mais depende do ambiente (exige Keycloak a correr). Ver `R-063` — decidir se entra no âmbito desta fase. |
-| P-095     | **BR-AUTH-005** (timeout de sessão por inatividade) | Não é um caso de uso, mas é da spec. Ligar `sessionTimeoutMinutes`, hoje configurável na UI de Admin e ligado a nada.           |
+| Fase      | Âmbito                                              | Porquê nesta posição                                                                                                                                  |
+| --------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ~~P-090~~ | ~~**UC-AUTH-004** (Logout)~~                        | ✅ **Concluído em P-090.** `refresh()` verifica `revokedAt`; `logout()` inalterado. Decisões P090-01/P090-02.                                         |
+| ~~P-091~~ | ~~**UC-AUTH-003** (Recuperação de Password)~~       | ✅ **Concluído em P-091.** Página de consumo do token, `FRONTEND_URL`, endpoints alinhados, 3a implementado. Fechou `R-056`.                          |
+| ~~P-092~~ | ~~**UC-AUTH-005** (Configurar MFA)~~                | ✅ **Concluído em P-092.** Página de self-service, códigos de recuperação (passo 6), saída do estado "MFA obrigatório". Decisões P092-00 a P092-05.   |
+| **P-093** | **UC-AUTH-001** (Login)                             | **Próxima.** Contrato do desafio MFA (agora testável por uma pessoa real), 403 no bloqueio, e a decisão `username` vs. `email`.                       |
+| P-094     | **Remover Keycloak/SSO** (reorientada em P092-00)   | O utilizador escolheu autenticação só na aplicação; o SSO volta mais tarde, como fase nova. UC-AUTH-002 passa a Adiado e `R-063` deixa de se aplicar. |
+| P-095     | **BR-AUTH-005** (timeout de sessão por inatividade) | Não é um caso de uso, mas é da spec. Ligar `sessionTimeoutMinutes`, hoje configurável na UI de Admin e ligado a nada.                                 |
 
 Notas para quem pegar nisto:
 
@@ -144,13 +145,12 @@ A próxima sessão **não precisa de escolher área de foco** — é P-090 (UC-A
 
 ## 4. Antes de avançar
 
-**A área de foco já foi decidida em P-089 — não a voltes a perguntar.** A próxima fase é **P-092 = UC-AUTH-005 (Configurar MFA)**, conforme a tabela "Backlog Auth" da secção 3. Abre `specs/AUTH.md`, lê o caso de uso completo (fluxo principal numerado + a linha correspondente na tabela de estado) e começa por aí. Os endpoints de MFA existem desde as fases iniciais; falta a página de self-service (a decisão P059-04 deixou-a conscientemente de fora) e os códigos de recuperação do passo 6.
+**A área de foco já foi decidida em P-089 — não a voltes a perguntar.** A próxima fase é **P-093 = UC-AUTH-001 (Login)**, conforme a tabela "Backlog Auth" da secção 3. Abre `specs/AUTH.md`, lê o caso de uso completo (fluxo principal numerado + a linha correspondente na tabela de estado) e começa por aí. Os endpoints de MFA existem desde as fases iniciais; falta a página de self-service (a decisão P059-04 deixou-a conscientemente de fora) e os códigos de recuperação do passo 6.
 
 O que as regras 2 e 3 do `AGENTS.md` continuam a exigir é o resto: **qualquer decisão de implementação que o texto do caso de uso não cubra para o trabalho e gera uma pergunta**, no formato da regra 7. Exemplos concretos que vão aparecer nestas fases:
 
-- P-092: os códigos de recuperação são guardados com que hash, e quantos? O caso de uso diz "apresenta códigos de recuperação" e mais nada.
 - P-093: `username` passa a ser credencial de login (passo 1 do UC) ou regista-se o desvio? A spec e o código divergem desde sempre.
-- P-094: `R-063` (`state`/PKCE) entra no âmbito desta fase ou fica em aberto?
+- P-094: remover o Keycloak por completo (decidido em P092-00) — confirmar o que acontece às variáveis `KEYCLOAK_*` e ao `init.sql` que cria a base de dados `keycloak`.
 
 A fronteira de âmbito de cada fase é **o texto numerado do caso de uso**. Nada fora dele entra sem decisão explícita do utilizador — e isso inclui `R-061`/`R-062`/`R-063`, por muito tentador que seja corrigi-los enquanto se está no ficheiro certo.
 

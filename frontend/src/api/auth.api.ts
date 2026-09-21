@@ -1,4 +1,5 @@
 import axios from 'axios';
+import apiClient from './client';
 import type {
   LoginCredentials,
   MfaCredentials,
@@ -6,6 +7,9 @@ import type {
   LoginResponse,
   ResetPasswordRequest,
   ConfirmResetPasswordRequest,
+  AuthProfile,
+  MfaSetupResponse,
+  RecoveryCodesResponse,
 } from '@/types/auth';
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api';
@@ -64,4 +68,31 @@ export async function confirmPasswordReset(
 export function getSsoRedirectUrl(): string {
   const baseUrl = API_URL;
   return `${baseUrl}/auth/sso/redirect`;
+}
+
+export async function fetchAuthProfile(): Promise<AuthProfile> {
+  const response = await apiClient.get<AuthProfile>('/auth/me');
+  return response.data;
+}
+
+export async function startMfaSetup(): Promise<MfaSetupResponse> {
+  const response = await apiClient.post<MfaSetupResponse>('/auth/mfa/enable');
+  return response.data;
+}
+
+export async function confirmMfaSetup(code: string): Promise<RecoveryCodesResponse> {
+  const response = await apiClient.post<RecoveryCodesResponse>('/auth/mfa/verify', { code });
+  return response.data;
+}
+
+export async function regenerateRecoveryCodes(code: string): Promise<RecoveryCodesResponse> {
+  const response = await apiClient.post<RecoveryCodesResponse>('/auth/mfa/recovery-codes', {
+    code,
+  });
+  return response.data;
+}
+
+export async function disableMfa(code: string): Promise<{ message: string }> {
+  const response = await apiClient.post<{ message: string }>('/auth/mfa/disable', { code });
+  return response.data;
 }

@@ -6,7 +6,9 @@ import { DataSource } from 'typeorm';
 import { dataSourceOptions } from '../src/database/data-source';
 import { rbacSeed } from '../src/database/seeds';
 import { hash } from 'argon2';
+import { TOTP, Secret } from 'otpauth';
 import { NotificationsService } from '../src/notifications/services/notifications.service';
+import { RateLimitGuard } from '../src/auth/guards/rate-limit.guard';
 
 process.env.MFA_ENCRYPTION_KEY = 'change_me_mfa_key_32_bytes';
 
@@ -42,6 +44,12 @@ describe('Auth (e2e)', () => {
       }),
     );
     await app.init();
+  });
+
+  // O RateLimitGuard conta 10 pedidos/minuto por IP e todos os pedidos da suite vêm do mesmo IP;
+  // sem isto, cada teste que acrescenta um login desloca a falha para o fim da suite.
+  beforeEach(() => {
+    (app.get(RateLimitGuard) as unknown as { store: Map<string, unknown> }).store.clear();
   });
 
   afterAll(async () => {
@@ -191,6 +199,99 @@ describe('Auth (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .send({ oldPassword: 'Admin123!', newPassword: 'NewPass123!' })
         .expect(403);
+    });
+  });
+
+  describe('Configurar MFA (UC-AUTH-005)', () => {
+    // Código TOTP de um passo de tempo inteiro à frente/atrás, para não colidir com o anterior
+    // quando dois códigos são pedidos no mesmo intervalo de 30 s.
+    const totpFor = (secret: string, offsetSteps = 0): string =>
+      new TOTP({
+        secret: Secret.fromBase32(secret),
+        algorithm: 'SHA1',
+        digits: 6,
+        period: 30,
+      }).generate({ timestamp: Date.now() + offsetSteps * 30_000 });
+
+    it('deve completar o fluxo de ponta a ponta: segredo, confirmação, códigos de recuperação e desativação', async () => {
+      const loginRes = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ email: 'admin@hr-suite.local', password: 'Admin123!' })
+        .expect(200);
+      expect(loginRes.body.mfaSetupRequired).toBe(true);
+      const restrictedToken = loginRes.body.accessToken as string;
+
+      // Passo 2: segredo + QR code, acessível com o token de âmbito limitado.
+      const enableRes = await request(app.getHttpServer())
+        .post('/api/auth/mfa/enable')
+        .set('Authorization', `Bearer ${restrictedToken}`)
+        .expect(200);
+      const secret = enableRes.body.secret as string;
+      expect(enableRes.body.qrCodeUrl).toContain('admin%40hr-suite.local');
+      expect(enableRes.body.qrCodeDataUrl).toMatch(/^data:image\/png;base64,/);
+
+      // Passos 4 a 6: confirmação ativa o MFA e devolve 10 códigos de recuperação.
+      const verifyRes = await request(app.getHttpServer())
+        .post('/api/auth/mfa/verify')
+        .set('Authorization', `Bearer ${restrictedToken}`)
+        .send({ code: totpFor(secret) })
+        .expect(200);
+      const recoveryCodes = verifyRes.body.recoveryCodes as string[];
+      expect(recoveryCodes).toHaveLength(10);
+
+      const stored = await dataSource.query<Array<{ code_hash: string }>>(
+        'SELECT code_hash FROM hr.mfa_recovery_codes',
+      );
+      expect(stored).toHaveLength(10);
+      expect(stored.map((row) => row.code_hash)).not.toContain(recoveryCodes[0]);
+
+      // Depois do refresh, o token deixa de ter âmbito limitado.
+      const refreshRes = await request(app.getHttpServer())
+        .post('/api/auth/refresh')
+        .send({ refreshToken: loginRes.body.refreshToken })
+        .expect(200);
+      const fullToken = refreshRes.body.accessToken as string;
+      await request(app.getHttpServer())
+        .get('/api/admin/settings')
+        .set('Authorization', `Bearer ${fullToken}`)
+        .expect(200);
+
+      // Decisão P092-03: com MFA ativo, /mfa/enable não pode substituir o segredo.
+      await request(app.getHttpServer())
+        .post('/api/auth/mfa/enable')
+        .set('Authorization', `Bearer ${fullToken}`)
+        .expect(400);
+
+      const regenRes = await request(app.getHttpServer())
+        .post('/api/auth/mfa/recovery-codes')
+        .set('Authorization', `Bearer ${fullToken}`)
+        .send({ code: totpFor(secret, 1) })
+        .expect(200);
+      const newCodes = regenRes.body.recoveryCodes as string[];
+      expect(newCodes).toHaveLength(10);
+
+      // Os códigos antigos deixam de valer depois de regenerados.
+      await request(app.getHttpServer())
+        .post('/api/auth/mfa/disable')
+        .set('Authorization', `Bearer ${fullToken}`)
+        .send({ code: recoveryCodes[0] })
+        .expect(400);
+
+      // Decisão P092-04: desativar com um código de recuperação (telemóvel perdido).
+      await request(app.getHttpServer())
+        .post('/api/auth/mfa/disable')
+        .set('Authorization', `Bearer ${fullToken}`)
+        .send({ code: newCodes[0] })
+        .expect(200);
+
+      const profileRes = await request(app.getHttpServer())
+        .get('/api/auth/me')
+        .set('Authorization', `Bearer ${fullToken}`)
+        .expect(200);
+      expect(profileRes.body.mfaEnabled).toBe(false);
+
+      const remaining = await dataSource.query<unknown[]>('SELECT id FROM hr.mfa_recovery_codes');
+      expect(remaining).toHaveLength(0);
     });
   });
 

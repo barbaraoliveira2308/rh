@@ -14,6 +14,7 @@ import { Session } from '../entities/session.entity';
 import { UserRole } from '../entities/user-role.entity';
 import { PasswordResetToken } from '../entities/password-reset-token.entity';
 import { PasswordHistory } from '../entities/password-history.entity';
+import { MfaRecoveryCode } from '../entities/mfa-recovery-code.entity';
 import { JwtService } from './jwt.service';
 import { MfaService } from './mfa.service';
 import { CacheService } from '../../cache/cache.service';
@@ -37,6 +38,8 @@ export class AuthService {
     private readonly passwordResetTokenRepository: Repository<PasswordResetToken>,
     @InjectRepository(PasswordHistory)
     private readonly passwordHistoryRepository: Repository<PasswordHistory>,
+    @InjectRepository(MfaRecoveryCode)
+    private readonly mfaRecoveryCodeRepository: Repository<MfaRecoveryCode>,
     private readonly jwtService: JwtService,
     private readonly mfaService: MfaService,
     private readonly cacheService: CacheService,
@@ -56,6 +59,7 @@ export class AuthService {
     accessToken: string;
     refreshToken: string;
     user: { id: string; email: string; username: string; roles: string[] };
+    mfaSetupRequired: boolean;
   }> {
     const user = await this.userRepository.findOne({
       where: { email },
@@ -148,6 +152,7 @@ export class AuthService {
         username: user.username,
         roles,
       },
+      mfaSetupRequired,
     };
   }
 
@@ -211,18 +216,36 @@ export class AuthService {
     };
   }
 
-  async enableMfa(userId: string): Promise<{ secret: string; qrCodeUrl: string }> {
-    const { secret, encryptedSecret, qrCodeUrl } = this.mfaService.generateSecret(userId);
+  async enableMfa(
+    userId: string,
+  ): Promise<{ secret: string; qrCodeUrl: string; qrCodeDataUrl: string }> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'email', 'mfaEnabled'],
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Utilizador não encontrado');
+    }
+
+    // Sem esta verificação, qualquer portador de um access token (roubado, por exemplo) podia
+    // substituir o segredo e desligar o MFA sem nunca apresentar um código (decisão P092-03).
+    if (user.mfaEnabled) {
+      throw new BadRequestException('MFA já está ativo');
+    }
+
+    const { secret, encryptedSecret, qrCodeUrl } = this.mfaService.generateSecret(user.email);
+    const qrCodeDataUrl = await this.mfaService.generateQrCodeDataUrl(qrCodeUrl);
 
     await this.userRepository.update(userId, {
       mfaSecret: encryptedSecret,
       mfaEnabled: false,
     });
 
-    return { secret, qrCodeUrl };
+    return { secret, qrCodeUrl, qrCodeDataUrl };
   }
 
-  async verifyMfa(userId: string, code: string): Promise<void> {
+  async verifyMfa(userId: string, code: string): Promise<{ recoveryCodes: string[] }> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       select: ['id', 'mfaSecret', 'mfaEnabled'],
@@ -243,6 +266,32 @@ export class AuthService {
     }
 
     await this.userRepository.update(userId, { mfaEnabled: true });
+
+    // UC-AUTH-005 passo 6: os códigos só existem em claro nesta resposta.
+    const recoveryCodes = await this.replaceRecoveryCodes(userId);
+    return { recoveryCodes };
+  }
+
+  async regenerateRecoveryCodes(
+    userId: string,
+    code: string,
+  ): Promise<{ recoveryCodes: string[] }> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'mfaSecret', 'mfaEnabled'],
+    });
+
+    if (!user?.mfaEnabled || !user.mfaSecret) {
+      throw new BadRequestException('MFA não está ativo');
+    }
+
+    // Só TOTP: um código de recuperação não pode servir para emitir códigos novos.
+    if (!this.mfaService.validateToken(user.mfaSecret, code)) {
+      throw new BadRequestException('Código MFA inválido');
+    }
+
+    const recoveryCodes = await this.replaceRecoveryCodes(userId);
+    return { recoveryCodes };
   }
 
   async disableMfa(userId: string, code: string): Promise<void> {
@@ -255,7 +304,9 @@ export class AuthService {
       throw new BadRequestException('MFA não está configurado');
     }
 
-    const isValid = this.mfaService.validateToken(user.mfaSecret, code);
+    // Aceita também um código de recuperação: é o caminho de quem perdeu o telemóvel para
+    // voltar a configurar o MFA (decisão P092-04).
+    const isValid = await this.verifySecondFactor(userId, user.mfaSecret, code);
 
     if (!isValid) {
       throw new BadRequestException('Código MFA inválido');
@@ -265,6 +316,47 @@ export class AuthService {
       mfaSecret: null,
       mfaEnabled: false,
     });
+    await this.mfaRecoveryCodeRepository.delete({ userId });
+  }
+
+  private async verifySecondFactor(
+    userId: string,
+    encryptedSecret: string,
+    code: string,
+  ): Promise<boolean> {
+    if (this.mfaService.isTotpCode(code)) {
+      return this.mfaService.validateToken(encryptedSecret, code.trim());
+    }
+
+    const recoveryCode = await this.mfaRecoveryCodeRepository.findOne({
+      where: { userId, codeHash: this.mfaService.hashRecoveryCode(code), usedAt: IsNull() },
+    });
+    if (!recoveryCode) {
+      return false;
+    }
+
+    // Uso único: o UPDATE condicional impede que dois pedidos simultâneos gastem o mesmo código.
+    const result = await this.mfaRecoveryCodeRepository.update(
+      { id: recoveryCode.id, usedAt: IsNull() },
+      { usedAt: new Date() },
+    );
+    return (result.affected ?? 0) > 0;
+  }
+
+  private async replaceRecoveryCodes(userId: string): Promise<string[]> {
+    const codes = this.mfaService.generateRecoveryCodes();
+
+    await this.mfaRecoveryCodeRepository.delete({ userId });
+    await this.mfaRecoveryCodeRepository.save(
+      codes.map((code) =>
+        this.mfaRecoveryCodeRepository.create({
+          userId,
+          codeHash: this.mfaService.hashRecoveryCode(code),
+        }),
+      ),
+    );
+
+    return codes;
   }
 
   async changePassword(userId: string, oldPassword: string, newPassword: string): Promise<void> {

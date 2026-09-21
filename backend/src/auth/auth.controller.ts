@@ -74,6 +74,7 @@ export class AuthController {
     accessToken: string;
     refreshToken: string;
     user: { id: string; email: string; username: string; roles: string[] };
+    mfaSetupRequired: boolean;
   }> {
     return this.authService.login(
       dto.email,
@@ -116,7 +117,9 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Iniciar configuração MFA' })
   @HttpCode(HttpStatus.OK)
-  async enableMfa(@Req() req: Request): Promise<{ secret: string; qrCodeUrl: string }> {
+  async enableMfa(
+    @Req() req: Request,
+  ): Promise<{ secret: string; qrCodeUrl: string; qrCodeDataUrl: string }> {
     const user = req.user as JwtPayload;
     return this.authService.enableMfa(user.sub);
   }
@@ -127,10 +130,26 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Verificar código MFA e ativar' })
   @HttpCode(HttpStatus.OK)
-  async verifyMfa(@Req() req: Request, @Body() dto: MfaVerifyDto): Promise<{ message: string }> {
+  async verifyMfa(
+    @Req() req: Request,
+    @Body() dto: MfaVerifyDto,
+  ): Promise<{ message: string; recoveryCodes: string[] }> {
     const user = req.user as JwtPayload;
-    await this.authService.verifyMfa(user.sub, dto.code);
-    return { message: 'MFA ativado com sucesso' };
+    const { recoveryCodes } = await this.authService.verifyMfa(user.sub, dto.code);
+    return { message: 'MFA ativado com sucesso', recoveryCodes };
+  }
+
+  @Post('mfa/recovery-codes')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Gerar novos códigos de recuperação MFA' })
+  @HttpCode(HttpStatus.OK)
+  async regenerateRecoveryCodes(
+    @Req() req: Request,
+    @Body() dto: MfaVerifyDto,
+  ): Promise<{ recoveryCodes: string[] }> {
+    const user = req.user as JwtPayload;
+    return this.authService.regenerateRecoveryCodes(user.sub, dto.code);
   }
 
   @Post('mfa/disable')

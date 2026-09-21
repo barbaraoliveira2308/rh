@@ -12,6 +12,8 @@ interface PersistedAuth {
   user: User | null;
   isAuthenticated: boolean;
   permissions: string[];
+  // Admin sem MFA com mfaRequiredForAdmin ativo: o token só serve para configurar o MFA.
+  mfaSetupRequired: boolean;
 }
 
 interface AuthState extends PersistedAuth {
@@ -22,6 +24,7 @@ interface AuthState extends PersistedAuth {
 
   login: (credentials: LoginCredentials) => Promise<void>;
   verifyMfa: (code: string) => Promise<void>;
+  completeMfaSetup: () => Promise<boolean>;
   refreshToken: () => Promise<boolean>;
   logout: () => Promise<void>;
   setTokens: (tokens: AuthTokens) => void;
@@ -35,13 +38,14 @@ function loadPersistedState(): PersistedAuth {
     user: null,
     isAuthenticated: false,
     permissions: [],
+    mfaSetupRequired: false,
   };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as PersistedAuth;
-      setAccessToken(parsed.accessToken);
-      return parsed;
+      const parsed = JSON.parse(raw) as Partial<PersistedAuth>;
+      setAccessToken(parsed.accessToken ?? null);
+      return { ...fallback, ...parsed };
     }
   } catch {
     // ignore
@@ -73,6 +77,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: persisted.user,
   isAuthenticated: persisted.isAuthenticated,
   permissions: persisted.permissions,
+  mfaSetupRequired: persisted.mfaSetupRequired,
   isLoading: false,
   error: null,
   pendingMfaEmail: null,
@@ -98,6 +103,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         refreshTokenValue: response.refreshToken,
         isAuthenticated: true,
         permissions: response.user.roles,
+        mfaSetupRequired: response.mfaSetupRequired,
       };
       setAccessToken(newState.accessToken);
       savePersistedState(newState);
@@ -139,6 +145,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         refreshTokenValue: response.refreshToken,
         isAuthenticated: true,
         permissions: response.user.roles,
+        mfaSetupRequired: response.mfaSetupRequired,
       };
       setAccessToken(newState.accessToken);
       savePersistedState(newState);
@@ -158,6 +165,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
       throw err;
     }
+  },
+
+  // O token de âmbito limitado só é trocado por um normal num refresh, que recalcula o âmbito
+  // a partir da BD — por isso concluir a configuração do MFA é um refresh.
+  completeMfaSetup: async (): Promise<boolean> => {
+    const refreshed = await get().refreshToken();
+    if (!refreshed) return false;
+    const newState: PersistedAuth = { ...get(), mfaSetupRequired: false };
+    savePersistedState(newState);
+    set({ mfaSetupRequired: false });
+    return true;
   },
 
   /* eslint-disable @typescript-eslint/no-unnecessary-condition */
@@ -202,6 +220,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       refreshTokenValue: null,
       isAuthenticated: false,
       permissions: [],
+      mfaSetupRequired: false,
       isLoading: false,
       error: null,
       pendingMfaEmail: null,

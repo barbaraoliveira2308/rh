@@ -66,11 +66,41 @@ describe('MfaService', () => {
 
   describe('generateQrCodeDataUrl', () => {
     it('deve devolver um data URL de imagem PNG', async () => {
-      const { encryptedSecret } = service.generateSecret('user-1');
+      const { qrCodeUrl } = service.generateSecret('user-1');
 
-      const result = await service.generateQrCodeDataUrl(encryptedSecret);
+      const result = await service.generateQrCodeDataUrl(qrCodeUrl);
 
       expect(result).toMatch(/^data:image\/png;base64,/);
+    });
+  });
+
+  describe('generateRecoveryCodes', () => {
+    it('deve gerar 10 códigos distintos no formato XXXXX-XXXXX (UC-AUTH-005 passo 6)', () => {
+      const codes = service.generateRecoveryCodes();
+
+      expect(codes).toHaveLength(10);
+      expect(new Set(codes).size).toBe(10);
+      for (const code of codes) {
+        expect(code).toMatch(/^[A-Z2-7]{5}-[A-Z2-7]{5}$/);
+      }
+    });
+  });
+
+  describe('hashRecoveryCode', () => {
+    it('deve produzir o mesmo hash independentemente de maiúsculas, espaços e hífen', () => {
+      const [code] = service.generateRecoveryCodes();
+
+      expect(service.hashRecoveryCode(code.toLowerCase().replace('-', ' '))).toBe(
+        service.hashRecoveryCode(code),
+      );
+      expect(service.hashRecoveryCode(code)).not.toContain(code);
+    });
+  });
+
+  describe('isTotpCode', () => {
+    it('deve distinguir um código TOTP de um código de recuperação', () => {
+      expect(service.isTotpCode('123456')).toBe(true);
+      expect(service.isTotpCode('ABCDE-FGHIJ')).toBe(false);
     });
   });
 });

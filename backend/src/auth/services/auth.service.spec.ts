@@ -15,6 +15,7 @@ import { Session } from '../entities/session.entity';
 import { UserRole } from '../entities/user-role.entity';
 import { PasswordResetToken } from '../entities/password-reset-token.entity';
 import { PasswordHistory } from '../entities/password-history.entity';
+import { MfaRecoveryCode } from '../entities/mfa-recovery-code.entity';
 
 jest.mock('argon2');
 
@@ -25,6 +26,7 @@ describe('AuthService', () => {
   let mockUserRoleRepo: Record<string, jest.Mock>;
   let mockPasswordResetTokenRepo: Record<string, jest.Mock>;
   let mockPasswordHistoryRepo: Record<string, jest.Mock>;
+  let mockMfaRecoveryCodeRepo: Record<string, jest.Mock>;
   let mockJwtService: Record<string, jest.Mock>;
   let mockMfaService: Record<string, jest.Mock>;
   let mockCacheService: Record<string, jest.Mock>;
@@ -74,6 +76,13 @@ describe('AuthService', () => {
       find: jest.fn().mockResolvedValue([]),
       delete: jest.fn(),
     };
+    mockMfaRecoveryCodeRepo = {
+      create: jest.fn((data: Partial<MfaRecoveryCode>) => data),
+      save: jest.fn((data: Partial<MfaRecoveryCode>[]) => Promise.resolve(data)),
+      findOne: jest.fn().mockResolvedValue(null),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
+      delete: jest.fn(),
+    };
     mockJwtService = {
       generateTokenPair: jest.fn().mockReturnValue({
         accessToken: 'access-token',
@@ -87,6 +96,10 @@ describe('AuthService', () => {
     mockMfaService = {
       validateToken: jest.fn(),
       generateSecret: jest.fn(),
+      generateQrCodeDataUrl: jest.fn().mockResolvedValue('data:image/png;base64,qr'),
+      generateRecoveryCodes: jest.fn().mockReturnValue(['AAAAA-BBBBB', 'CCCCC-DDDDD']),
+      isTotpCode: jest.fn((code: string) => /^\d{6}$/.test(code)),
+      hashRecoveryCode: jest.fn((code: string) => `rc-hash(${code})`),
     };
     mockCacheService = {
       get: jest.fn(),
@@ -122,6 +135,7 @@ describe('AuthService', () => {
         { provide: getRepositoryToken(UserRole), useValue: mockUserRoleRepo },
         { provide: getRepositoryToken(PasswordResetToken), useValue: mockPasswordResetTokenRepo },
         { provide: getRepositoryToken(PasswordHistory), useValue: mockPasswordHistoryRepo },
+        { provide: getRepositoryToken(MfaRecoveryCode), useValue: mockMfaRecoveryCodeRepo },
         { provide: JwtService, useValue: mockJwtService },
         { provide: MfaService, useValue: mockMfaService },
         { provide: CacheService, useValue: mockCacheService },
@@ -577,6 +591,37 @@ describe('AuthService', () => {
     });
   });
 
+  describe('enableMfa', () => {
+    it('deve gerar o segredo com o email como etiqueta e devolver a imagem do QR code', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ ...baseUser, mfaEnabled: false });
+      mockMfaService.generateSecret.mockReturnValue({
+        secret: 'SECRET',
+        encryptedSecret: 'encrypted',
+        qrCodeUrl: 'otpauth://totp/x',
+      });
+
+      const result = await service.enableMfa('user-1');
+
+      expect(mockMfaService.generateSecret).toHaveBeenCalledWith(testEmail);
+      expect(result).toEqual({
+        secret: 'SECRET',
+        qrCodeUrl: 'otpauth://totp/x',
+        qrCodeDataUrl: 'data:image/png;base64,qr',
+      });
+      expect(mockUserRepo.update).toHaveBeenCalledWith('user-1', {
+        mfaSecret: 'encrypted',
+        mfaEnabled: false,
+      });
+    });
+
+    it('deve recusar reiniciar a configuração quando o MFA já está ativo (decisão P092-03)', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ ...baseUser, mfaEnabled: true });
+
+      await expect(service.enableMfa('user-1')).rejects.toThrow(BadRequestException);
+      expect(mockUserRepo.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe('verifyMfa', () => {
     it('deve lançar BadRequestException se MFA não tiver sido iniciado', async () => {
       mockUserRepo.findOne.mockResolvedValue({ ...baseUser, mfaSecret: null });
@@ -584,7 +629,7 @@ describe('AuthService', () => {
       await expect(service.verifyMfa('user-1', '123456')).rejects.toThrow(BadRequestException);
     });
 
-    it('deve ativar o MFA quando o código for válido', async () => {
+    it('deve ativar o MFA e devolver códigos de recuperação guardados só em hash (UC-AUTH-005 passos 5 e 6)', async () => {
       mockUserRepo.findOne.mockResolvedValue({
         ...baseUser,
         mfaSecret: 'secret',
@@ -592,9 +637,70 @@ describe('AuthService', () => {
       });
       mockMfaService.validateToken.mockReturnValue(true);
 
-      await service.verifyMfa('user-1', '123456');
+      const result = await service.verifyMfa('user-1', '123456');
 
       expect(mockUserRepo.update).toHaveBeenCalledWith('user-1', { mfaEnabled: true });
+      expect(result.recoveryCodes).toEqual(['AAAAA-BBBBB', 'CCCCC-DDDDD']);
+      expect(mockMfaRecoveryCodeRepo.delete).toHaveBeenCalledWith({ userId: 'user-1' });
+      expect(mockMfaRecoveryCodeRepo.save).toHaveBeenCalledWith([
+        { userId: 'user-1', codeHash: 'rc-hash(AAAAA-BBBBB)' },
+        { userId: 'user-1', codeHash: 'rc-hash(CCCCC-DDDDD)' },
+      ]);
+    });
+
+    it('não deve ativar o MFA nem gerar códigos se o código for inválido', async () => {
+      mockUserRepo.findOne.mockResolvedValue({
+        ...baseUser,
+        mfaSecret: 'secret',
+        mfaEnabled: false,
+      });
+      mockMfaService.validateToken.mockReturnValue(false);
+
+      await expect(service.verifyMfa('user-1', '000000')).rejects.toThrow(BadRequestException);
+      expect(mockUserRepo.update).not.toHaveBeenCalled();
+      expect(mockMfaRecoveryCodeRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('regenerateRecoveryCodes', () => {
+    it('deve substituir os códigos quando o código TOTP for válido', async () => {
+      mockUserRepo.findOne.mockResolvedValue({
+        ...baseUser,
+        mfaSecret: 'secret',
+        mfaEnabled: true,
+      });
+      mockMfaService.validateToken.mockReturnValue(true);
+
+      const result = await service.regenerateRecoveryCodes('user-1', '123456');
+
+      expect(result.recoveryCodes).toHaveLength(2);
+      expect(mockMfaRecoveryCodeRepo.delete).toHaveBeenCalledWith({ userId: 'user-1' });
+    });
+
+    it('deve recusar quando o MFA não está ativo', async () => {
+      mockUserRepo.findOne.mockResolvedValue({
+        ...baseUser,
+        mfaSecret: 'secret',
+        mfaEnabled: false,
+      });
+
+      await expect(service.regenerateRecoveryCodes('user-1', '123456')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('deve recusar quando o código TOTP for inválido', async () => {
+      mockUserRepo.findOne.mockResolvedValue({
+        ...baseUser,
+        mfaSecret: 'secret',
+        mfaEnabled: true,
+      });
+      mockMfaService.validateToken.mockReturnValue(false);
+
+      await expect(service.regenerateRecoveryCodes('user-1', '000000')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockMfaRecoveryCodeRepo.delete).not.toHaveBeenCalled();
     });
   });
 
@@ -606,7 +712,7 @@ describe('AuthService', () => {
       await expect(service.disableMfa('user-1', '000000')).rejects.toThrow(BadRequestException);
     });
 
-    it('deve desativar o MFA e limpar o segredo quando o código for válido', async () => {
+    it('deve desativar o MFA, limpar o segredo e apagar os códigos de recuperação', async () => {
       mockUserRepo.findOne.mockResolvedValue({ ...baseUser, mfaSecret: 'secret' });
       mockMfaService.validateToken.mockReturnValue(true);
 
@@ -616,6 +722,34 @@ describe('AuthService', () => {
         mfaSecret: null,
         mfaEnabled: false,
       });
+      expect(mockMfaRecoveryCodeRepo.delete).toHaveBeenCalledWith({ userId: 'user-1' });
+    });
+
+    it('deve aceitar um código de recuperação por usar e marcá-lo como usado (decisão P092-04)', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ ...baseUser, mfaSecret: 'secret' });
+      mockMfaRecoveryCodeRepo.findOne.mockResolvedValue({ id: 'rc-1', usedAt: null });
+
+      await service.disableMfa('user-1', 'AAAAA-BBBBB');
+
+      expect(mockMfaService.validateToken).not.toHaveBeenCalled();
+      expect(mockMfaRecoveryCodeRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'rc-1' }),
+        { usedAt: expect.any(Date) as Date },
+      );
+      expect(mockUserRepo.update).toHaveBeenCalledWith('user-1', {
+        mfaSecret: null,
+        mfaEnabled: false,
+      });
+    });
+
+    it('deve rejeitar um código de recuperação inexistente ou já usado', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ ...baseUser, mfaSecret: 'secret' });
+      mockMfaRecoveryCodeRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.disableMfa('user-1', 'AAAAA-BBBBB')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockUserRepo.update).not.toHaveBeenCalled();
     });
   });
 

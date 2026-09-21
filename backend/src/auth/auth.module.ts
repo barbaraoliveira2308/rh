@@ -33,6 +33,7 @@ import {
   PasswordResetToken,
   PasswordHistory,
   ApiKey,
+  MfaRecoveryCode,
 } from './entities';
 
 const AUTH_ACTION_BY_HANDLER: Record<string, string> = {
@@ -40,6 +41,8 @@ const AUTH_ACTION_BY_HANDLER: Record<string, string> = {
   logout: 'LOGOUT',
   changePassword: 'PASSWORD_CHANGED',
   verifyMfa: 'MFA_ENABLED',
+  disableMfa: 'MFA_DISABLED',
+  regenerateRecoveryCodes: 'MFA_RECOVERY_CODES_REGENERATED',
 };
 
 @Global()
@@ -55,6 +58,7 @@ const AUTH_ACTION_BY_HANDLER: Record<string, string> = {
       PasswordResetToken,
       PasswordHistory,
       ApiKey,
+      MfaRecoveryCode,
       Employee,
     ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),

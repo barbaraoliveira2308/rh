@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuthStore } from '@/stores/auth.store';
@@ -107,6 +107,9 @@ const NotificationsPage = React.lazy(() =>
 const TicketDetailPage = React.lazy(() =>
   import('@/pages/TicketDetailPage').then((m) => ({ default: m.TicketDetailPage })),
 );
+const SecuritySettingsPage = React.lazy(() =>
+  import('@/pages/SecuritySettingsPage').then((m) => ({ default: m.SecuritySettingsPage })),
+);
 const NotFoundPage = React.lazy(() =>
   import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 );
@@ -117,9 +120,22 @@ const AuthLayout = React.lazy(() =>
   import('@/layouts/AuthLayout').then((m) => ({ default: m.AuthLayout })),
 );
 
+const SECURITY_SETTINGS_PATH = '/settings/security';
+
 function ProtectedRoute({ children }: { children: React.ReactNode }): React.JSX.Element {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+  const mfaSetupRequired = useAuthStore((state) => state.mfaSetupRequired);
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  // O backend recusa (403) tudo exceto a configuração do MFA; sem este redirecionamento o
+  // admin ficaria preso numa aplicação em que todas as páginas falham.
+  if (mfaSetupRequired && location.pathname !== SECURITY_SETTINGS_PATH) {
+    return <Navigate to={SECURITY_SETTINGS_PATH} replace />;
+  }
+  return <>{children}</>;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }): React.JSX.Element {
@@ -191,6 +207,7 @@ export function App(): React.JSX.Element {
                 <Route path="/reports" element={<ReportsPage />} />
                 <Route path="/gdpr" element={<GdprPage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
+                <Route path={SECURITY_SETTINGS_PATH} element={<SecuritySettingsPage />} />
               </Route>
 
               <Route path="*" element={<NotFoundPage />} />
