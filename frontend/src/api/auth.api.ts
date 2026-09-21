@@ -71,11 +71,6 @@ export async function confirmPasswordReset(
   return response.data;
 }
 
-export function getSsoRedirectUrl(): string {
-  const baseUrl = API_URL;
-  return `${baseUrl}/auth/sso/redirect`;
-}
-
 export async function fetchAuthProfile(): Promise<AuthProfile> {
   const response = await apiClient.get<AuthProfile>('/auth/me');
   return response.data;

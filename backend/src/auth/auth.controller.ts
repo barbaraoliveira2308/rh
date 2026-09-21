@@ -5,18 +5,14 @@ import {
   UseGuards,
   Get,
   Req,
-  Query,
   UseInterceptors,
   HttpCode,
   HttpStatus,
-  Redirect,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
 import { AuthService, LoginSuccess, MfaChallenge } from './services/auth.service';
 import { JwtService } from './services/jwt.service';
-import { KeycloakService } from './keycloak/keycloak.service';
 import {
   LoginDto,
   LoginMfaDto,
@@ -40,29 +36,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly jwtService: JwtService,
-    private readonly keycloakService: KeycloakService,
-    private readonly configService: ConfigService,
   ) {}
-
-  @Get('sso/redirect')
-  @ApiOperation({ summary: 'Redirecionar para Keycloak SSO' })
-  @Redirect()
-  ssoRedirect(): { url: string; statusCode: number } {
-    const redirectUri = `${this.configService.get<string>('APP_URL', 'http://localhost:3000')}/auth/sso/callback`;
-    const url = this.keycloakService.getAuthorizationUrl(redirectUri);
-    return { url, statusCode: 302 };
-  }
-
-  @Get('sso/callback')
-  @ApiOperation({ summary: 'Callback do Keycloak SSO' })
-  @ApiQuery({ name: 'code', required: true })
-  @ApiQuery({ name: 'state', required: false })
-  @HttpCode(HttpStatus.OK)
-  async ssoCallback(
-    @Query('code') code: string,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
-    return this.authService.ssoLogin(code, this.keycloakService);
-  }
 
   @Post('login')
   @UseGuards(RateLimitGuard)

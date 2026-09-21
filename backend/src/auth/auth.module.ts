@@ -1,7 +1,6 @@
 import { Global, Module, Logger } from '@nestjs/common';
 import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { PassportModule } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { AuthController } from './auth.controller';
 import { AuthService } from './services/auth.service';
@@ -18,7 +17,6 @@ import {
   AuditEventHandler,
 } from './interceptors/auth-audit.interceptor';
 import { CacheService } from '../cache/cache.service';
-import { KeycloakModule } from './keycloak/keycloak.module';
 import { Employee } from '../users/entities/employee.entity';
 import { AuditModule } from '../audit/audit.module';
 import { AuditService } from '../audit/services/audit.service';
@@ -62,8 +60,6 @@ const AUTH_ACTION_BY_HANDLER: Record<string, string> = {
       MfaRecoveryCode,
       Employee,
     ]),
-    PassportModule.register({ defaultStrategy: 'jwt' }),
-    KeycloakModule,
     AuditModule,
     NotificationsModule,
   ],

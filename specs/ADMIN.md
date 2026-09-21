@@ -57,7 +57,7 @@ O sistema suporta múltiplas entidades legais (Bridge351, NIVVOS) com:
 | Cache                   | Redis                                   |
 | Mensageria              | RabbitMQ ou Apache Kafka                |
 | Armazenamento ficheiros | MinIO (compatível S3)                   |
-| Identity Provider       | Keycloak                                |
+| Identity Provider       | Nenhum — ~~Keycloak~~ removido em P-094 |
 | Monitorização           | Prometheus + Grafana                    |
 | Logging                 | ELK Stack / OpenSearch                  |
 
@@ -219,7 +219,7 @@ Escolhido pelo utilizador entre este último parâmetro do Grupo C e avaliar `R-
 - **Seed de desenvolvimento** (decisão P059-03): admin semeado (`admin@hr-suite.local`) continua sem MFA configurado, tal como antes — o mecanismo de token restrito aplica-se-lhe tal como a qualquer admin real, sem exigir alteração ao seed.
 - **Âmbito frontend** (decisão P059-04, descoberta a meio da implementação): não existe nenhuma página frontend para completar o setup de MFA (scan QR + verificar código) — só os endpoints backend. Escolhido **só backend**, consistente com o tamanho das fases anteriores de wiring (P054-057); verificação em ambiente real feita via chamadas diretas à API (`curl` + geração de código TOTP via `otpauth` dentro do container). Um Admin real sem MFA fica, portanto, de facto bloqueado na UI da app até uma fase futura construir essa página — gap conhecido, não um bug.
 
-Login/SSO via Keycloak (`AuthService.ssoLogin()`) não foi tocado — a imposição aplica-se só ao login local por password, mesmo limite que o próprio mecanismo de MFA self-service já tinha antes desta sessão (não é uma nova classe de gap).
+Login/SSO via Keycloak (`AuthService.ssoLogin()`) não foi tocado — a imposição aplica-se só ao login local por password, mesmo limite que o próprio mecanismo de MFA self-service já tinha antes desta sessão (não é uma nova classe de gap). _(Nota de P-094: o SSO e o Keycloak foram removidos, pelo que este limite deixou de existir — o login local é o único caminho.)_
 
 **Gap pré-existente descoberto durante a verificação** (não relacionado com `mfaRequiredForAdmin`): nenhum dos 7 ficheiros `test/*.e2e-spec.ts` semeava uma linha `SystemSetting` — qualquer chamada a `AdminService.getSettings()` (todos os wirings desde P-052) lançava `NotFoundException` em e2e. Corrigido adicionando o seed da linha ao `beforeAll` dos 7 ficheiros. Isto revelou 2 outros gaps pré-existentes, não corrigidos por estarem fora do âmbito desta sessão — ver `R-045` em `specs/GLOBAL-TASKS-RISKS.md`.
 

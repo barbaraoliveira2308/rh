@@ -6,7 +6,7 @@ Sistema de Gestão de Recursos Humanos desenvolvido com **NestJS + React + TypeO
 
 O HR Suite é uma plataforma completa de RH que cobre:
 
-- **Autenticação**: JWT com refresh token, MFA TOTP, SSO via Keycloak
+- **Autenticação**: JWT com refresh token, MFA TOTP com códigos de recuperação (sem SSO — o Keycloak foi removido em P-094)
 - **Organização**: Colaboradores, departamentos, cargos, equipas e organograma
 - **Operações**: Projetos, alocações, timesheets, ausências, despesas
 - **Processos**: Workflow de aprovações, notificações in-app e email
@@ -72,8 +72,7 @@ definido é mantido. Para regenerar de propósito, usa `--rotate`:
 ```
 
 `POSTGRES_PASSWORD` é o caso especial: o Postgres só a lê quando **inicializa** o volume, por
-isso mudá-la no `.env` depois disso não muda a que está guardada — só parte o backend e o
-Keycloak. Se o volume já existir, o script recusa-se a rodá-la e diz-te o que fazer (ver
+isso mudá-la no `.env` depois disso não muda a que está guardada — só parte o backend. Se o volume já existir, o script recusa-se a rodá-la e diz-te o que fazer (ver
 [Troubleshooting](#password-authentication-failed-for-user-srh_user)).
 
 ### Modo A — tudo em Docker
@@ -94,7 +93,7 @@ Não corras `pnpm dev` neste modo — o passo 3 já arrancou o backend e o front
 ```bash
 # 3. Subir SÓ a infraestrutura, nomeando os serviços explicitamente
 docker compose -f infra/docker-compose.dev.yml --env-file .env \
-  up -d postgres redis keycloak minio createbuckets rabbitmq mailpit
+  up -d postgres redis minio createbuckets rabbitmq mailpit
 
 # 4. O backend lê um .env relativo ao seu cwd (backend/), não o da raiz
 cp .env backend/.env
@@ -121,7 +120,6 @@ pnpm dev
 - **Frontend**: http://localhost:5173
 - **Backend**: http://localhost:3000/api
 - **Swagger** (dev/staging): http://localhost:3000/api/docs
-- **Keycloak**: http://localhost:8080 (realm `hr-suite`)
 - **Mailpit** (emails de dev): http://localhost:8025
 - **MinIO** (consola): http://localhost:9001
 
@@ -149,9 +147,6 @@ cp .env.example .env
 #    Trocar <ip-ou-domínio-do-servidor> pelo endereço real — num teste local, `localhost`.
 cat <<'EOF' >> .env
 
-KEYCLOAK_ADMIN=admin
-KEYCLOAK_ADMIN_PASSWORD=troca_esta_password
-KEYCLOAK_HOSTNAME=<ip-ou-domínio-do-servidor>
 RABBITMQ_USER=srh_app
 RABBITMQ_PASSWORD=troca_esta_password
 BACKEND_CORS_ORIGIN=http://<ip-ou-domínio-do-servidor>
@@ -161,14 +156,12 @@ EOF
 docker compose -f infra/docker-compose.prod.yml --env-file .env up -d --build
 ```
 
-> **O passo 3 não é opcional.** Cinco daquelas variáveis não existem no `.env.example` — o compose de
+> **O passo 3 não é opcional.** Duas daquelas variáveis (`RABBITMQ_*`) não existem no `.env.example` — o compose de
 > desenvolvimento tem valores por omissão para elas, o de produção não. E o Docker Compose
 > **não falha** quando uma variável sem valor por omissão não está definida: substitui-a por
 > string vazia e emite apenas um aviso (`variable is not set. Defaulting to a blank string.`).
-> O resultado seria um Keycloak sem credenciais de administrador e um RabbitMQ sem utilizador,
-> a falhar em runtime em vez de dar um erro claro de configuração.
->
-> Num teste local, `KEYCLOAK_HOSTNAME=localhost` serve.
+> O resultado seria um RabbitMQ sem utilizador, a falhar em runtime em vez de dar um erro
+> claro de configuração.
 
 > **Três variáveis do `.env.example` não têm efeito nenhum em produção:**
 >
@@ -223,13 +216,7 @@ Para gerar valores aleatórios seguros para os segredos abaixo (`JWT_ACCESS_PRIV
 | `JWT_EXPIRES_IN`          | Expiração do access token                       | `15m`                           |
 | `JWT_REFRESH_EXPIRES_IN`  | Expiração do refresh token                      | `7d`                            |
 | `MFA_ENCRYPTION_KEY`      | Chave AES-256-GCM para MFA secrets              | `change_me_mfa_key_32_bytes`    |
-| `KEYCLOAK_URL`            | URL do Keycloak                                 | `http://localhost:8080`         |
-| `KEYCLOAK_REALM`          | Realm do Keycloak — ver nota abaixo             | `hr-suite`                      |
-| `KEYCLOAK_CLIENT_ID`      | Client ID do backend no Keycloak                | `srh-backend`                   |
 | `VITE_API_URL`            | URL da API (frontend) — ver nota abaixo         | `http://localhost:3000/api`     |
-| `VITE_KEYCLOAK_URL`       | URL do Keycloak (frontend)                      | `http://localhost:8080`         |
-| `VITE_KEYCLOAK_REALM`     | Realm do Keycloak (frontend)                    | `hr-suite`                      |
-| `VITE_KEYCLOAK_CLIENT_ID` | Client ID do frontend no Keycloak               | `srh-frontend`                  |
 | `STORAGE_ENDPOINT`        | Endpoint do MinIO/S3 (com esquema `http://`)    | `http://localhost:9000`         |
 | `STORAGE_ACCESS_KEY`      | Access key do MinIO/S3                          | `change_me`                     |
 | `STORAGE_SECRET_KEY`      | Secret key do MinIO/S3                          | `change_me`                     |
@@ -246,7 +233,7 @@ Para gerar valores aleatórios seguros para os segredos abaixo (`JWT_ACCESS_PRIV
 | `SMTP_PASS`               | Password SMTP                                   | —                               |
 | `SMTP_FROM`               | Remetente de emails                             | `noreply@srh.bridge351.com`     |
 
-> **Duas notas sobre estas variáveis:**
+> **Nota sobre estas variáveis:**
 >
 > - As `VITE_*` são substituídas pelo Vite em tempo de _build_, não lidas em tempo de
 >   execução. Em produção são passadas como `args` de build no `docker-compose.prod.yml` e o
@@ -254,10 +241,6 @@ Para gerar valores aleatórios seguros para os segredos abaixo (`JWT_ACCESS_PRIV
 >   frontend. Em produção, `VITE_API_URL` é `/api`, servido pelo proxy do nginx
 >   (`frontend/nginx.conf`) — **nunca vazio**, porque `''` não aciona o valor por omissão do
 >   código e os pedidos perderiam o prefixo `/api`.
-> - `KEYCLOAK_REALM` tem de ser `hr-suite`, que é o realm importado pelo
->   `infra/keycloak/realm-export.json`. As variáveis `VITE_KEYCLOAK_*` estão documentadas por
->   completude mas nenhuma é lida por código em `frontend/src` — o login por email/password
->   não depende delas.
 
 ## Dados de Demo
 
@@ -341,10 +324,21 @@ As migrações não foram executadas:
 pnpm --filter @bridge351/srh-backend run migration:run
 ```
 
+### Contentor `srh-keycloak-dev` ainda a correr
+
+O Keycloak foi removido em P-094, mas um ambiente criado antes disso continua com o contentor
+e com a base de dados `keycloak` no volume do Postgres. Nenhum dos dois é usado. Para limpar:
+
+```bash
+docker compose -f infra/docker-compose.dev.yml --env-file .env up -d --remove-orphans
+docker exec srh-postgres-dev psql -U srh_user -d postgres -c 'DROP DATABASE IF EXISTS keycloak;'
+```
+
+Em produção, o mesmo com `infra/docker-compose.prod.yml` e o contentor `srh-postgres-prod`.
+
 ### `password authentication failed for user "srh_user"`
 
-O backend e o Keycloak não ligam à base de dados (o backend fica de pé mas não responde na
-porta 3000; o Keycloak entra em crash-loop com `Failed to obtain JDBC connection`).
+O backend não liga à base de dados (fica de pé mas não responde na porta 3000).
 
 Quase sempre significa que a `POSTGRES_PASSWORD` do `.env` deixou de bater certo com a que
 está guardada no volume: o Postgres só a lê quando **inicializa** o volume, e a partir daí
@@ -367,13 +361,13 @@ docker exec srh-postgres-dev psql -U srh_user -d postgres \
   -c "ALTER USER srh_user WITH PASSWORD '$(grep '^POSTGRES_PASSWORD=' .env | cut -d= -f2-)';"
 
 docker compose -f infra/docker-compose.dev.yml --env-file .env \
-  up -d --force-recreate backend keycloak
+  up -d --force-recreate backend
 ```
 
 Se o `.env` tinha duplicados, corre o `./scripts/generate-secrets.sh` depois: colapsa cada
 chave repetida numa linha só, mantendo o valor que estava a ser usado.
 
-Em alternativa, para começar de raiz (**apaga a base de dados**, incluindo a do Keycloak):
+Em alternativa, para começar de raiz (**apaga a base de dados**):
 
 ```bash
 docker compose -f infra/docker-compose.dev.yml --env-file .env down

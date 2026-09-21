@@ -6,7 +6,7 @@
 
 ## O que é o HR Suite
 
-Plataforma de Gestão de Recursos Humanos — **NestJS + React 18 + TypeORM + PostgreSQL**, monorepo pnpm (`backend/`, `frontend/`, `shared/`). Cobre autenticação/SSO, organograma, projetos/alocações, timesheets, ausências, despesas, workflow de aprovações, financeiro, helpdesk, políticas internas, GDPR, formação e auditoria — ver [README.md](README.md) para a visão geral completa e o quickstart de instalação.
+Plataforma de Gestão de Recursos Humanos — **NestJS + React 18 + TypeORM + PostgreSQL**, monorepo pnpm (`backend/`, `frontend/`, `shared/`). Cobre autenticação (com MFA), organograma, projetos/alocações, timesheets, ausências, despesas, workflow de aprovações, financeiro, helpdesk, políticas internas, GDPR, formação e auditoria — ver [README.md](README.md) para a visão geral completa e o quickstart de instalação.
 
 ## Começar aqui
 

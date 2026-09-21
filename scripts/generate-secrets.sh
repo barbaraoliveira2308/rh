@@ -106,7 +106,7 @@ is_placeholder() {
 # ─── Guarda do volume do Postgres ───────────────────────────────────────────
 # O Postgres só lê POSTGRES_PASSWORD quando INICIALIZA o volume. Se o volume já
 # existe, escrever uma password nova no .env não muda a que está guardada — só
-# parte o backend e o Keycloak com `password authentication failed`.
+# parte o backend com `password authentication failed`.
 postgres_volume() {
   command -v docker >/dev/null 2>&1 || return 1
   docker volume ls -q 2>/dev/null | grep -E '^srh-(dev|prod)_postgres-data$' | head -1
@@ -208,7 +208,7 @@ if [ ${#BLOCKED[@]} -gt 0 ]; then
   echo "BLOQUEADO: o volume '$PG_VOLUME' já foi inicializado." >&2
   echo >&2
   echo "O Postgres só lê POSTGRES_PASSWORD quando inicializa o volume. Escrever uma" >&2
-  echo "password nova no .env não muda a que está guardada — parte o backend e o Keycloak." >&2
+  echo "password nova no .env não muda a que está guardada — parte o backend." >&2
   echo >&2
   echo "Para rodar mesmo assim (mantém os dados): escreve primeiro no .env e só" >&2
   echo "depois sincroniza o Postgres com esse mesmo valor." >&2
@@ -218,7 +218,7 @@ if [ ${#BLOCKED[@]} -gt 0 ]; then
   echo "  docker exec srh-postgres-dev psql -U srh_user -d postgres \\" >&2
   echo "    -c \"ALTER USER srh_user WITH PASSWORD '\$NOVA';\"" >&2
   echo "  docker compose -f infra/docker-compose.dev.yml --env-file $ENV_FILE \\" >&2
-  echo "    up -d --force-recreate backend keycloak" >&2
+  echo "    up -d --force-recreate backend" >&2
   echo >&2
   echo "Para começar de raiz (APAGA a base de dados): ver README > Troubleshooting." >&2
   echo >&2
@@ -347,7 +347,6 @@ fi
 echo "Cópia de segurança: $(basename "$BACKUP")"
 echo
 echo "Não incluídos (não são gerados localmente):"
-echo "  KEYCLOAK_CLIENT_ID / client secret  -> consola de administração do Keycloak"
 echo "  SMTP_USER / SMTP_PASS               -> fornecedor de email"
 echo "  SENTRY_DSN                          -> definições do projeto no Sentry"
 

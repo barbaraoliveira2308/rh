@@ -41,7 +41,6 @@ graph TB
             RBAC[RBAC]
             CACHE[Cache / Redis]
             STORAGE[Storage / MinIO]
-            KEYCLOAK[Keycloak SSO]
         end
     end
 
@@ -50,7 +49,6 @@ graph TB
         REDIS[(Redis)]
         RABBIT[RabbitMQ]
         MINIO[MinIO / S3]
-        KC[Keycloak IDP]
     end
 
     REACT --> AXIOS
@@ -59,10 +57,8 @@ graph TB
     NESTJS --> REDIS
     NESTJS --> RABBIT
     NESTJS --> MINIO
-    NESTJS --> KC
     CACHE --> REDIS
     STORAGE --> MINIO
-    KEYCLOAK --> KC
 ```
 
 ## Auth Sequence
@@ -79,11 +75,12 @@ sequenceDiagram
     Frontend->>Backend: POST /api/auth/login
     Backend->>Database: Verify credentials (argon2)
     alt MFA enabled
-        Backend-->>Frontend: { requiresMfa: true, sessionToken }
+        Backend->>Redis: Store challenge hash (5 min, single use)
+        Backend-->>Frontend: { mfaRequired: true, challengeToken }
         Frontend->>User: Prompt MFA code
-        User->>Frontend: Enter TOTP code
-        Frontend->>Backend: POST /api/auth/mfa/verify
-        Backend->>Backend: Validate TOTP code
+        User->>Frontend: Enter TOTP or recovery code
+        Frontend->>Backend: POST /api/auth/login/mfa { challengeToken, code }
+        Backend->>Backend: Validate TOTP / consume recovery code
     end
     Backend->>Database: Create session
     Backend->>Redis: Cache session
@@ -130,23 +127,23 @@ erDiagram
 
 ## ADRs (Architecture Decision Records)
 
-| ID      | Decisão                                            | Contexto                                                    | Consequências                                           |
-| ------- | -------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------- |
-| ADR-001 | Monorepo com pnpm workspaces                       | Partilha de tipos entre backend e frontend                  | Dependências centralizadas, `@bridge351/srh-shared`     |
-| ADR-002 | NestJS + TypeORM + PostgreSQL                      | Framework maduro, decorators, integração nativa com TypeORM | Módulos bem estruturados, migrations automáticas        |
-| ADR-003 | React 18 + Vite + Tailwind                         | Performance, DX, ecossistema moderno                        | Build rápido (~8s), bundle otimizado                    |
-| ADR-004 | JWT + Redis para sessões                           | Stateless por padrão, revogação via Redis                   | `accessToken` 15min, `refreshToken` 7d com rotação      |
-| ADR-005 | Keycloak para SSO corporativo                      | Suporte a OIDC, SAML, federacao de identidade               | Opcional — login direto funciona sem Keycloak           |
-| ADR-006 | RBAC com 4 roles (admin/manager/approver/employee) | Hierarquia simples, 30 permissoes base                      | Fácil de auditar, extensível via tabela `permissions`   |
-| ADR-007 | MinIO para armazenamento de documentos             | Compatível com S3, auto-hospedado                           | Presigned URLs para upload/download seguro              |
-| ADR-008 | RabbitMQ para relatorios assincronos               | Processamento em background de relatorios grandes           | Retorno 202 Accepted, polling de status                 |
-| ADR-009 | Redis para cache (TTL 5min)                        | Analytics e dashboards com dados agregados                  | Cache decorator `@CacheResult`, invalidação manual      |
-| ADR-010 | Notificacoes por polling (60s)                     | Simplicidade vs WebSocket/SSE                               | Endpoint `GET /notifications`, badge na sidebar         |
-| ADR-011 | Swagger apenas em dev/staging                      | Seguranca — nao expor docs em producao                      | Condicional `NODE_ENV === 'development' \|\| 'staging'` |
-| ADR-012 | Layout fixo para dashboard v1                      | Sem widgets arrastaveis                                     | Menos complexidade, sem persistencia de layout          |
-| ADR-013 | Playwright headless sempre                         | Consistencia entre ambientes                                | `headless: true` na config, CI e local                  |
-| ADR-014 | Portugues PT como lingua unica v1                  | Sem biblioteca i18n nesta fase                              | Todo o UI em PT, sem suporte multi-idioma               |
-| ADR-015 | Testes e2e com `--runInBand` e `dropSchema`        | Base de dados limpa por execucao                            | Testes isolados, sequenciais, sem interferencia         |
+| ID      | Decisão                                                 | Contexto                                                                                              | Consequências                                                 |
+| ------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| ADR-001 | Monorepo com pnpm workspaces                            | Partilha de tipos entre backend e frontend                                                            | Dependências centralizadas, `@bridge351/srh-shared`           |
+| ADR-002 | NestJS + TypeORM + PostgreSQL                           | Framework maduro, decorators, integração nativa com TypeORM                                           | Módulos bem estruturados, migrations automáticas              |
+| ADR-003 | React 18 + Vite + Tailwind                              | Performance, DX, ecossistema moderno                                                                  | Build rápido (~8s), bundle otimizado                          |
+| ADR-004 | JWT + Redis para sessões                                | Stateless por padrão, revogação via Redis                                                             | `accessToken` 15min, `refreshToken` 7d com rotação            |
+| ADR-005 | ~~Keycloak para SSO corporativo~~ **Revogado em P-094** | Autenticação só na aplicação (email + password + MFA TOTP); o SSO nunca chegou a funcionar em browser | Keycloak e SSO removidos; SSO a reintroduzir numa fase futura |
+| ADR-006 | RBAC com 4 roles (admin/manager/approver/employee)      | Hierarquia simples, 30 permissoes base                                                                | Fácil de auditar, extensível via tabela `permissions`         |
+| ADR-007 | MinIO para armazenamento de documentos                  | Compatível com S3, auto-hospedado                                                                     | Presigned URLs para upload/download seguro                    |
+| ADR-008 | RabbitMQ para relatorios assincronos                    | Processamento em background de relatorios grandes                                                     | Retorno 202 Accepted, polling de status                       |
+| ADR-009 | Redis para cache (TTL 5min)                             | Analytics e dashboards com dados agregados                                                            | Cache decorator `@CacheResult`, invalidação manual            |
+| ADR-010 | Notificacoes por polling (60s)                          | Simplicidade vs WebSocket/SSE                                                                         | Endpoint `GET /notifications`, badge na sidebar               |
+| ADR-011 | Swagger apenas em dev/staging                           | Seguranca — nao expor docs em producao                                                                | Condicional `NODE_ENV === 'development' \|\| 'staging'`       |
+| ADR-012 | Layout fixo para dashboard v1                           | Sem widgets arrastaveis                                                                               | Menos complexidade, sem persistencia de layout                |
+| ADR-013 | Playwright headless sempre                              | Consistencia entre ambientes                                                                          | `headless: true` na config, CI e local                        |
+| ADR-014 | Portugues PT como lingua unica v1                       | Sem biblioteca i18n nesta fase                                                                        | Todo o UI em PT, sem suporte multi-idioma                     |
+| ADR-015 | Testes e2e com `--runInBand` e `dropSchema`             | Base de dados limpa por execucao                                                                      | Testes isolados, sequenciais, sem interferencia               |
 
 ---
 

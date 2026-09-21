@@ -518,8 +518,7 @@ export class AuthService {
       }),
     );
 
-    // FRONTEND_URL (não APP_URL): este link é para o utilizador, tem de apontar para a SPA.
-    // APP_URL é a origem do backend e é usada pelo redirect_uri do SSO.
+    // FRONTEND_URL: este link é para o utilizador, tem de apontar para a SPA e não para a API.
     const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
     await this.notificationsService.sendEmail(user.email, 'password-reset', {
       resetUrl: `${frontendUrl}/auth/reset-password/confirm?token=${rawToken}`,
@@ -611,52 +610,6 @@ export class AuthService {
       mfaEnabled: user.mfaEnabled,
       lastLoginAt: user.lastLoginAt,
       roles,
-    };
-  }
-
-  async ssoLogin(
-    code: string,
-    keycloakService: {
-      exchangeCodeForTokens(
-        code: string,
-        redirectUri: string,
-      ): Promise<{ accessToken: string; refreshToken: string }>;
-      getUserInfo(
-        accessToken: string,
-      ): Promise<{ sub: string; email: string; preferred_username?: string }>;
-      syncUser(userInfo: {
-        sub: string;
-        email: string;
-        preferred_username?: string;
-      }): Promise<User>;
-    },
-  ): Promise<{ accessToken: string; refreshToken: string }> {
-    const redirectUri = `${this.configService.get<string>('APP_URL', 'http://localhost:3000')}/auth/sso/callback`;
-    const kcTokens = await keycloakService.exchangeCodeForTokens(code, redirectUri);
-    const userInfo = await keycloakService.getUserInfo(kcTokens.accessToken);
-    const user = await keycloakService.syncUser(userInfo);
-
-    const userRoles = await this.userRoleRepository.find({
-      where: { userId: user.id },
-      relations: { role: true },
-    });
-    const roles = userRoles.map((ur) => ur.role.name);
-
-    const internalTokens = this.jwtService.generateTokenPair(user, roles);
-
-    const accessHash = this.jwtService.computeTokenHash(internalTokens.accessToken);
-    const refreshHash = this.jwtService.computeTokenHash(internalTokens.refreshToken);
-
-    await this.cacheService.set(`session:${accessHash}`, user.id, 15 * 60 * 1000);
-    await this.cacheService.set(
-      `refresh:${refreshHash}`,
-      JSON.stringify({ userId: user.id, sessionId: user.id }),
-      7 * 24 * 60 * 60 * 1000,
-    );
-
-    return {
-      accessToken: internalTokens.accessToken,
-      refreshToken: internalTokens.refreshToken,
     };
   }
 

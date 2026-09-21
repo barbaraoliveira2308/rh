@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FormField } from '@/components/FormField';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { getSsoRedirectUrl } from '@/api/auth.api';
 import { useAuthStore } from '@/stores/auth.store';
 
 const loginSchema = z.object({
@@ -100,16 +99,6 @@ export function LoginPage(): React.JSX.Element {
               {error && <p className="text-sm text-red-600">{error}</p>}
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? <LoadingSpinner size={16} /> : 'Iniciar sessão'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  window.location.href = getSsoRedirectUrl();
-                }}
-              >
-                Entrar com SSO
               </Button>
             </form>
           </FormProvider>

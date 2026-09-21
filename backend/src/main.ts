@@ -45,7 +45,7 @@ async function bootstrap(): Promise<void> {
       .setVersion('1.0')
       .addBearerAuth()
       .addTag('Health', 'Health check do servidor')
-      .addTag('Auth', 'Autenticação, SSO, MFA e gestão de sessão')
+      .addTag('Auth', 'Autenticação, MFA e gestão de sessão')
       .addTag('Users', 'Colaboradores, departamentos e cargos')
       .addTag('Teams', 'Equipas, membros e capacidade')
       .addTag('Clients', 'Clientes')

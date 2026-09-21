@@ -30,8 +30,8 @@ O processo tem 8 fases (0–7), pensadas para correr sequencialmente — cada fa
 - [ ] Fixar o commit/branch auditado (`git rev-parse HEAD`) e o(s) ambiente(s) — dev, staging, produção
 - [ ] Confirmar a versão de `docs/openapi.json` corresponde ao commit auditado
 - [ ] Inventariar os 25 módulos de `backend/src/` e assinalar quais entram no âmbito desta ronda
-- [ ] Inventariar os serviços de infraestrutura envolvidos (`infra/docker-compose.{dev,prod}.yml`): PostgreSQL, Redis, Keycloak, MinIO, RabbitMQ, SMTP
-- [ ] Identificar quem tem acesso de produção (base de dados, MinIO, Keycloak admin, `.env`) neste momento
+- [ ] Inventariar os serviços de infraestrutura envolvidos (`infra/docker-compose.{dev,prod}.yml`): PostgreSQL, Redis, MinIO, RabbitMQ, SMTP
+- [ ] Identificar quem tem acesso de produção (base de dados, MinIO, `.env`) neste momento
 - [ ] Abrir o registo de findings desta ronda (cópia do modelo no fim deste documento)
 
 **Entregável:** ficha de âmbito com commit, ambientes e responsáveis por fase.
@@ -47,7 +47,7 @@ O processo tem 8 fases (0–7), pensadas para correr sequencialmente — cada fa
 - [ ] `rate-limit.guard.ts` ativo no endpoint de login e testado contra força bruta
 - [ ] MFA TOTP: secrets gerados por `mfa.service.ts` são cifrados via `encryption.service.ts` (AES-256-GCM) antes de persistir — nunca em texto plano
 - [ ] `MFA_ENCRYPTION_KEY` tem 32 bytes reais em produção (não o valor de exemplo `change_me_mfa_key_32_bytes`)
-- [ ] Fluxo de SSO Keycloak (`auth/keycloak/`): client secret fora do repositório, mapeamento de roles Keycloak → RBAC interno revisto
+- [ ] Códigos de recuperação MFA (`mfa_recovery_codes`) guardados só em hash e de uso único; desafio MFA do login (`POST /auth/login/mfa`) de uso único e com expiração curta
 - [ ] `password-reset-token.entity.ts`: tokens de uso único, com expiração curta e invalidados após uso
 - [ ] `api-key.entity.ts`: chaves de API têm escopo, expiração e podem ser revogadas sem rotação de segredo global
 - [ ] Matriz RBAC (`rbac/enums/role.enum.ts`, `rbac/constants.ts`) revista — nenhum papel tem permissões além do necessário (princípio do menor privilégio)
@@ -124,7 +124,6 @@ O processo tem 8 fases (0–7), pensadas para correr sequencialmente — cada fa
 - [ ] RabbitMQ: fila de `report_jobs` com dead-letter queue ou reprocessamento definido para jobs falhados
 - [x] `pnpm audit` (ou equivalente) corrido sobre backend e frontend — **corrido em P-042**: 21 vulnerabilidades (4 moderate, 17 high), 2 altas de runtime corrigidas (`multer` 2.1.1→2.2.0 via `pnpm.overrides` em `package.json`, `react-router-dom` 7.18.1→7.18.2), as restantes ~15 classificadas nessa altura como "só ferramentas de build/dev, nunca correm em produção", deixadas para o Dependabot. **Revisto em P-050 (`R-041`, ver `specs/GLOBAL-TASKS-RISKS.md`)**: essa classificação estava incorreta — `typeorm` (dependência de produção direta), `uuid` (via `exceljs`, produção) e `brace-expansion` (via `typeorm`/`exceljs`, produção) são de facto alcançáveis por código de produção, ainda que a exploração prática avaliada seja baixa nos 3 casos. **Corrigido em P-051**: `typeorm` atualizado para `0.3.31` (`pnpm update` dentro do range já declarado `^0.3.20`); `pnpm.overrides` adicionados para `uuid` (`^11.1.1`), `brace-expansion` (`@1`→`^1.1.18`, `@2`→`^2.1.4`, `@5`→`^5.0.9`), `js-yaml` (`@3`→`^3.15.1`, `@4`→`^4.3.1`) e `fast-uri` (`^3.1.5`) — mesmo padrão já usado para `multer`. `pnpm audit` pós-fix: só restam `nanoid`/`postcss`, confirmados build-time-only do frontend, nunca incluídos no bundle enviado ao browser
 - [x] Scanning automático de dependências (Dependabot) — **configurado em P-042**: `.github/dependabot.yml`, ecossistemas `npm` (workspace pnpm) e `github-actions`, atualizações semanais agrupadas por minor/patch (decisão P042-01/02); imagens Docker (`Dockerfile`/`docker-compose.*.yml`) deixadas fora do âmbito nesta ronda
-- [ ] Keycloak: realm de produção não usa as credenciais admin por omissão
 
 **Entregável:** lista de segredos/configuração que ainda dependem de valores de exemplo ou processo manual.
 

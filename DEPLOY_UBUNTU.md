@@ -1,6 +1,6 @@
 # Deploy num servidor Ubuntu 24.04 limpo
 
-Guia passo a passo para subir o HR Suite (backend + frontend + Postgres + Redis + Keycloak + MinIO +
+Guia passo a passo para subir o HR Suite (backend + frontend + Postgres + Redis + MinIO +
 RabbitMQ) via Docker Compose de produção (`infra/docker-compose.prod.yml`) num servidor Ubuntu 24.04
 recém-instalado, sem nada pré-configurado.
 
@@ -89,9 +89,6 @@ de desenvolvimento tem valores por omissão para estas, o de produção não). A
 cat <<'EOF' >> .env
 
 # ─── Produção: obrigatórias, sem valor por omissão ──────
-KEYCLOAK_ADMIN=admin
-KEYCLOAK_ADMIN_PASSWORD=troca_esta_password
-KEYCLOAK_HOSTNAME=<ip-ou-domínio-do-servidor>
 RABBITMQ_USER=srh_app
 RABBITMQ_PASSWORD=troca_esta_password
 EOF
@@ -101,8 +98,6 @@ Depois, edita o `.env` e ajusta ao teu servidor:
 
 - `BACKEND_CORS_ORIGIN` → `http://<ip-ou-domínio-do-servidor>` (na prática tem pouco efeito aqui, já
   que o nginx do frontend faz proxy de `/api` no mesmo porto/origem — mas mantém correto por higiene)
-- `VITE_KEYCLOAK_URL` → deixa como está por agora (ver limitação sobre SSO abaixo); não afeta o login
-  normal por email/password
 
 ## 6. Subir a stack (Docker Compose de produção)
 
@@ -111,7 +106,7 @@ docker compose -f infra/docker-compose.prod.yml --env-file .env up -d --build
 ```
 
 Isto builda as imagens do backend e frontend (via `backend/Dockerfile`/`frontend/Dockerfile`) e sobe
-Postgres, Redis, Keycloak, MinIO, RabbitMQ, backend e frontend. O primeiro build demora alguns minutos.
+Postgres, Redis, MinIO, RabbitMQ, backend e frontend. O primeiro build demora alguns minutos.
 
 Confirma que tudo arrancou:
 
@@ -119,28 +114,20 @@ Confirma que tudo arrancou:
 docker compose -f infra/docker-compose.prod.yml ps
 ```
 
-## 7. Base de dados do Keycloak (automático num volume novo)
+## 7. Só em upgrades: remover o Keycloak antigo
 
-O Keycloak precisa de uma base de dados `keycloak` própria. É criada pelo
-`infra/postgres/init-prod.sql`, que o serviço `postgres` monta em
-`/docker-entrypoint-initdb.d/`. **Num servidor novo não há nada a fazer** — confirma apenas que o
-container não está em crash-loop:
-
-```bash
-docker compose -f infra/docker-compose.prod.yml ps keycloak
-```
-
-O Docker só corre os scripts de inicialização na **primeira** criação do volume. Se o volume
-`postgres-data` já existia antes desta versão, o script é ignorado e o `srh-keycloak-prod` fica em
-crash-loop com `database "keycloak" does not exist`. Nesse caso, criar à mão, uma só vez:
+**Num servidor novo não há nada a fazer — salta este passo.** O Keycloak (e o SSO) foi removido em
+P-094. Um servidor instalado antes disso continua com o contentor `srh-keycloak-prod` e com a base
+de dados `keycloak` no volume do Postgres; nenhum dos dois é usado. Para limpar:
 
 ```bash
-docker exec -it srh-postgres-prod psql -U srh_user -d srh -c "CREATE DATABASE keycloak;"
-docker exec -it srh-postgres-prod psql -U srh_user -d keycloak -c "CREATE SCHEMA keycloak AUTHORIZATION srh_user;"
-docker compose -f infra/docker-compose.prod.yml restart keycloak
+docker compose -f infra/docker-compose.prod.yml --env-file .env up -d --remove-orphans
+docker exec -it srh-postgres-prod psql -U srh_user -d postgres -c "DROP DATABASE IF EXISTS keycloak;"
 ```
 
-(Substitui `srh_user` pelo valor real de `POSTGRES_USER` no teu `.env`, se o tiveres alterado.)
+(Substitui `srh_user` pelo valor real de `POSTGRES_USER` no teu `.env`, se o tiveres alterado.) As
+variáveis `KEYCLOAK_*` e `VITE_KEYCLOAK_*` que ainda estejam no `.env` deixam de ser lidas e podem
+ser apagadas.
 
 ## 8. Bucket de documentos no MinIO (automático)
 
@@ -189,7 +176,7 @@ sudo ufw allow 80/tcp
 sudo ufw enable
 ```
 
-Não abras as portas 3000 (backend), 5432 (Postgres), 6379 (Redis), 8080 (Keycloak), 9000 (MinIO) ou
+Não abras as portas 3000 (backend), 5432 (Postgres), 6379 (Redis), 9000 (MinIO) ou
 5672 (RabbitMQ) ao exterior — todas já estão corretamente restritas a `127.0.0.1` no
 `docker-compose.prod.yml`, exceto a 80.
 
@@ -211,12 +198,8 @@ Credenciais (ver `README.md`/mensagens anteriores para a lista completa):
 
 ## Limitações conhecidas
 
-- **Login SSO (Keycloak) não funciona a partir de outra máquina "out of the box".** O frontend é
-  construído com `VITE_KEYCLOAK_URL=http://keycloak:8080` — um nome só resolúvel _dentro_ da rede
-  Docker do servidor, não a partir do browser de quem acede remotamente. O login normal por
-  email/password **não é afetado** (não passa pelo Keycloak). Para ativar SSO a partir de fora, é
-  preciso expor o Keycloak com um hostname público real e reconstruir o frontend com
-  `VITE_KEYCLOAK_URL` apontado para esse hostname — fora do âmbito deste guia.
+- **Sem login SSO.** O Keycloak foi removido em P-094 (autenticação só na aplicação, com MFA
+  TOTP); o SSO será reintroduzido numa fase futura.
 - **Sem TLS/HTTPS.** Este guia expõe a aplicação em HTTP simples na porta 80. Para produção real,
   coloca um reverse proxy com TLS (Caddy, nginx+certbot, Traefik) à frente do serviço `frontend`.
 - **Segredos guardados em `.env` local**, não num cofre de segredos — aceitável para uma demo isolada,
@@ -228,11 +211,10 @@ Credenciais (ver `README.md`/mensagens anteriores para a lista completa):
 
 ## Troubleshooting
 
-| Sintoma                                     | Causa provável                                                                                                                        | Correção                                                                                                                                                                                       |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Login falha com erro 500 genérico           | Passo 5 (`generate-secrets.sh`) não foi feito, chaves JWT inválidas                                                                   | Repetir o passo 5 e `docker compose -f infra/docker-compose.prod.yml --env-file .env up -d --force-recreate backend` — `restart` não chega, um contentor mantém o ambiente com que foi criado  |
-| `srh-keycloak-prod` reinicia em loop        | Base de dados `keycloak` não existe — volume `postgres-data` criado antes de existir o `init-prod.sql`, que só corre em volumes novos | Aplicar o passo 7 à mão                                                                                                                                                                        |
-| Upload de documento falha                   | Bucket `srh-documents` não existe — o serviço `createbuckets` falhou                                                                  | Ver `docker compose -f infra/docker-compose.prod.yml logs createbuckets`; em alternativa criar à mão (passo 8)                                                                                 |
-| `docker compose up` falha por porta ocupada | Outro serviço já usa a porta 80 no servidor                                                                                           | Parar esse serviço ou mudar `ports: '80:80'` do serviço `frontend` no compose                                                                                                                  |
-| `seed:demo` não consegue ligar à BD         | A correr a partir de outra máquina, não do próprio servidor                                                                           | Este comando só funciona localmente no servidor (Postgres só ouve em `127.0.0.1`)                                                                                                              |
-| Backend reinicia sem nunca ficar pronto     | `seed:prod` falhou no arranque (ex.: schema ainda não pronto)                                                                         | `docker compose -f infra/docker-compose.prod.yml logs backend`; normalmente resolve-se com `docker compose -f infra/docker-compose.prod.yml restart backend` depois do Postgres estar saudável |
+| Sintoma                                     | Causa provável                                                       | Correção                                                                                                                                                                                       |
+| ------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Login falha com erro 500 genérico           | Passo 5 (`generate-secrets.sh`) não foi feito, chaves JWT inválidas  | Repetir o passo 5 e `docker compose -f infra/docker-compose.prod.yml --env-file .env up -d --force-recreate backend` — `restart` não chega, um contentor mantém o ambiente com que foi criado  |
+| Upload de documento falha                   | Bucket `srh-documents` não existe — o serviço `createbuckets` falhou | Ver `docker compose -f infra/docker-compose.prod.yml logs createbuckets`; em alternativa criar à mão (passo 8)                                                                                 |
+| `docker compose up` falha por porta ocupada | Outro serviço já usa a porta 80 no servidor                          | Parar esse serviço ou mudar `ports: '80:80'` do serviço `frontend` no compose                                                                                                                  |
+| `seed:demo` não consegue ligar à BD         | A correr a partir de outra máquina, não do próprio servidor          | Este comando só funciona localmente no servidor (Postgres só ouve em `127.0.0.1`)                                                                                                              |
+| Backend reinicia sem nunca ficar pronto     | `seed:prod` falhou no arranque (ex.: schema ainda não pronto)        | `docker compose -f infra/docker-compose.prod.yml logs backend`; normalmente resolve-se com `docker compose -f infra/docker-compose.prod.yml restart backend` depois do Postgres estar saudável |
