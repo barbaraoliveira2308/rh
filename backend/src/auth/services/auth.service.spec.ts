@@ -54,13 +54,14 @@ describe('AuthService', () => {
     mockUserRepo = {
       findOne: jest.fn(),
       findOneBy: jest.fn(),
-      update: jest.fn(),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
     };
     mockSessionRepo = {
       create: jest.fn((data: Partial<Session>) => data),
       save: jest.fn((data: Partial<Session>) => Promise.resolve({ id: 'session-1', ...data })),
       update: jest.fn(),
       findOneBy: jest.fn(() => Promise.resolve({ id: 'session-1', revokedAt: null })),
+      find: jest.fn().mockResolvedValue([]),
     };
     mockUserRoleRepo = {
       find: jest.fn().mockResolvedValue([]),
@@ -94,7 +95,7 @@ describe('AuthService', () => {
       verifyRefreshToken: jest.fn().mockReturnValue({ sub: 'user-1', jti: 'jti-1' }),
     };
     mockMfaService = {
-      validateToken: jest.fn(),
+      matchTotpStep: jest.fn(),
       generateSecret: jest.fn(),
       generateQrCodeDataUrl: jest.fn().mockResolvedValue('data:image/png;base64,qr'),
       generateRecoveryCodes: jest.fn().mockReturnValue(['AAAAA-BBBBB', 'CCCCC-DDDDD']),
@@ -262,7 +263,7 @@ describe('AuthService', () => {
         mfaSecret: 'secret',
       });
       mockUserRoleRepo.find.mockResolvedValue([{ role: { name: 'admin' } }]);
-      mockMfaService.validateToken.mockReturnValue(true);
+      mockMfaService.matchTotpStep.mockReturnValue(1000);
       mockCacheService.get.mockResolvedValue('user-1');
 
       await service.loginMfa('a'.repeat(64), '123456');
@@ -325,7 +326,7 @@ describe('AuthService', () => {
     });
 
     it('deve emitir a sessão e consumir o desafio com um código TOTP válido', async () => {
-      mockMfaService.validateToken.mockReturnValue(true);
+      mockMfaService.matchTotpStep.mockReturnValue(1000);
 
       const result = await service.loginMfa(challengeToken, '123456', '127.0.0.1');
 
@@ -344,12 +345,12 @@ describe('AuthService', () => {
       const result = await service.loginMfa(challengeToken, 'AAAAA-BBBBB');
 
       expect(result.accessToken).toBe('access-token');
-      expect(mockMfaService.validateToken).not.toHaveBeenCalled();
+      expect(mockMfaService.matchTotpStep).not.toHaveBeenCalled();
       expect(mockMfaRecoveryCodeRepo.update).toHaveBeenCalled();
     });
 
     it('deve rejeitar um código inválido, contar a falha e registar a tentativa (UC-AUTH-001 fluxo 4a)', async () => {
-      mockMfaService.validateToken.mockReturnValue(false);
+      mockMfaService.matchTotpStep.mockReturnValue(null);
 
       await expect(service.loginMfa(challengeToken, '000000', '127.0.0.1')).rejects.toThrow(
         UnauthorizedException,
@@ -366,7 +367,7 @@ describe('AuthService', () => {
 
     it('deve bloquear a conta e invalidar o desafio ao atingir o limite de falhas', async () => {
       mockUserRepo.findOne.mockResolvedValue({ ...mfaUser, failedLoginCount: 4 });
-      mockMfaService.validateToken.mockReturnValue(false);
+      mockMfaService.matchTotpStep.mockReturnValue(null);
 
       await expect(service.loginMfa(challengeToken, '000000')).rejects.toThrow(ForbiddenException);
 
@@ -384,7 +385,7 @@ describe('AuthService', () => {
       });
 
       await expect(service.loginMfa(challengeToken, '123456')).rejects.toThrow(ForbiddenException);
-      expect(mockMfaService.validateToken).not.toHaveBeenCalled();
+      expect(mockMfaService.matchTotpStep).not.toHaveBeenCalled();
       expect(mockCacheService.del).toHaveBeenCalled();
     });
   });
@@ -694,6 +695,7 @@ describe('AuthService', () => {
       expect(mockUserRepo.update).toHaveBeenCalledWith('user-1', {
         mfaSecret: 'encrypted',
         mfaEnabled: false,
+        mfaLastUsedStep: null,
       });
     });
 
@@ -718,7 +720,7 @@ describe('AuthService', () => {
         mfaSecret: 'secret',
         mfaEnabled: false,
       });
-      mockMfaService.validateToken.mockReturnValue(true);
+      mockMfaService.matchTotpStep.mockReturnValue(1000);
 
       const result = await service.verifyMfa('user-1', '123456');
 
@@ -737,11 +739,80 @@ describe('AuthService', () => {
         mfaSecret: 'secret',
         mfaEnabled: false,
       });
-      mockMfaService.validateToken.mockReturnValue(false);
+      mockMfaService.matchTotpStep.mockReturnValue(null);
 
       await expect(service.verifyMfa('user-1', '000000')).rejects.toThrow(BadRequestException);
       expect(mockUserRepo.update).not.toHaveBeenCalled();
       expect(mockMfaRecoveryCodeRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('R-065 — reutilização de códigos e sessões', () => {
+    const openSessions = [
+      { id: 's-current', tokenHash: 'current-hash' },
+      { id: 's-other', tokenHash: 'other-hash' },
+    ];
+
+    it('deve recusar um código TOTP cujo passo já foi aceite', async () => {
+      mockUserRepo.findOne.mockResolvedValue({
+        ...baseUser,
+        mfaSecret: 'secret',
+        mfaEnabled: true,
+      });
+      mockMfaService.matchTotpStep.mockReturnValue(1000);
+      mockUserRepo.update.mockResolvedValue({ affected: 0 });
+
+      await expect(service.regenerateRecoveryCodes('user-1', '123456')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockUserRepo.update).toHaveBeenCalledWith(expect.objectContaining({ id: 'user-1' }), {
+        mfaLastUsedStep: 1000,
+      });
+      expect(mockMfaRecoveryCodeRepo.delete).not.toHaveBeenCalled();
+    });
+
+    it('ao ativar o MFA, deve terminar as outras sessões e manter a corrente', async () => {
+      mockUserRepo.findOne.mockResolvedValue({
+        ...baseUser,
+        mfaSecret: 'secret',
+        mfaEnabled: false,
+      });
+      mockMfaService.matchTotpStep.mockReturnValue(1000);
+      mockSessionRepo.find.mockResolvedValue(openSessions);
+
+      await service.verifyMfa('user-1', '123456', 'current-hash');
+
+      expect(mockSessionRepo.update).toHaveBeenCalledWith(expect.anything(), {
+        revokedAt: expect.any(Date) as Date,
+      });
+      expect(mockCacheService.del).toHaveBeenCalledWith('session:other-hash');
+      expect(mockCacheService.del).not.toHaveBeenCalledWith('session:current-hash');
+    });
+
+    it('ao desativar o MFA sem ser obrigatório, deve manter a sessão corrente', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ ...baseUser, mfaSecret: 'secret' });
+      mockMfaService.matchTotpStep.mockReturnValue(1000);
+      mockUserRoleRepo.find.mockResolvedValue([{ role: { name: 'employee' } }]);
+      mockSessionRepo.find.mockResolvedValue(openSessions);
+
+      const result = await service.disableMfa('user-1', '123456', 'current-hash');
+
+      expect(result).toEqual({ sessionEnded: false });
+      expect(mockCacheService.del).toHaveBeenCalledWith('session:other-hash');
+      expect(mockCacheService.del).not.toHaveBeenCalledWith('session:current-hash');
+    });
+
+    it('ao desativar o MFA obrigatório de um admin, deve terminar todas as sessões (decisão P095-02)', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ ...baseUser, mfaSecret: 'secret' });
+      mockMfaService.matchTotpStep.mockReturnValue(1000);
+      mockUserRoleRepo.find.mockResolvedValue([{ role: { name: 'admin' } }]);
+      mockSessionRepo.find.mockResolvedValue(openSessions);
+
+      const result = await service.disableMfa('user-1', '123456', 'current-hash');
+
+      expect(result).toEqual({ sessionEnded: true });
+      expect(mockCacheService.del).toHaveBeenCalledWith('session:current-hash');
+      expect(mockCacheService.del).toHaveBeenCalledWith('session:other-hash');
     });
   });
 
@@ -752,7 +823,7 @@ describe('AuthService', () => {
         mfaSecret: 'secret',
         mfaEnabled: true,
       });
-      mockMfaService.validateToken.mockReturnValue(true);
+      mockMfaService.matchTotpStep.mockReturnValue(1000);
 
       const result = await service.regenerateRecoveryCodes('user-1', '123456');
 
@@ -778,7 +849,7 @@ describe('AuthService', () => {
         mfaSecret: 'secret',
         mfaEnabled: true,
       });
-      mockMfaService.validateToken.mockReturnValue(false);
+      mockMfaService.matchTotpStep.mockReturnValue(null);
 
       await expect(service.regenerateRecoveryCodes('user-1', '000000')).rejects.toThrow(
         BadRequestException,
@@ -790,20 +861,21 @@ describe('AuthService', () => {
   describe('disableMfa', () => {
     it('deve lançar BadRequestException se o código for inválido', async () => {
       mockUserRepo.findOne.mockResolvedValue({ ...baseUser, mfaSecret: 'secret' });
-      mockMfaService.validateToken.mockReturnValue(false);
+      mockMfaService.matchTotpStep.mockReturnValue(null);
 
       await expect(service.disableMfa('user-1', '000000')).rejects.toThrow(BadRequestException);
     });
 
     it('deve desativar o MFA, limpar o segredo e apagar os códigos de recuperação', async () => {
       mockUserRepo.findOne.mockResolvedValue({ ...baseUser, mfaSecret: 'secret' });
-      mockMfaService.validateToken.mockReturnValue(true);
+      mockMfaService.matchTotpStep.mockReturnValue(1000);
 
       await service.disableMfa('user-1', '123456');
 
       expect(mockUserRepo.update).toHaveBeenCalledWith('user-1', {
         mfaSecret: null,
         mfaEnabled: false,
+        mfaLastUsedStep: null,
       });
       expect(mockMfaRecoveryCodeRepo.delete).toHaveBeenCalledWith({ userId: 'user-1' });
     });
@@ -814,7 +886,7 @@ describe('AuthService', () => {
 
       await service.disableMfa('user-1', 'AAAAA-BBBBB');
 
-      expect(mockMfaService.validateToken).not.toHaveBeenCalled();
+      expect(mockMfaService.matchTotpStep).not.toHaveBeenCalled();
       expect(mockMfaRecoveryCodeRepo.update).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'rc-1' }),
         { usedAt: expect.any(Date) as Date },
@@ -822,6 +894,7 @@ describe('AuthService', () => {
       expect(mockUserRepo.update).toHaveBeenCalledWith('user-1', {
         mfaSecret: null,
         mfaEnabled: false,
+        mfaLastUsedStep: null,
       });
     });
 

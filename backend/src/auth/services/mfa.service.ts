@@ -40,7 +40,9 @@ export class MfaService {
     return { secret: secretBase32, encryptedSecret: encrypted, qrCodeUrl };
   }
 
-  validateToken(encryptedSecret: string, token: string): boolean {
+  // Devolve o passo TOTP (contador da janela de 30 s) a que o código corresponde, ou null se o
+  // código não for válido. O passo é o que permite recusar a reutilização de um código (R-065).
+  matchTotpStep(encryptedSecret: string, token: string): number | null {
     const secretBase32 = this.encryptionService.decrypt(encryptedSecret);
 
     const totp = new TOTP({
@@ -50,8 +52,9 @@ export class MfaService {
       period: 30,
     });
 
-    const delta = totp.validate({ token, window: 1 });
-    return delta !== null;
+    const timestamp = Date.now();
+    const delta = totp.validate({ token, window: 1, timestamp });
+    return delta === null ? null : totp.counter({ timestamp }) + delta;
   }
 
   generateQrCodeDataUrl(otpauthUrl: string): Promise<string> {

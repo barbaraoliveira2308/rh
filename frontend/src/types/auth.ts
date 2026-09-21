@@ -36,6 +36,8 @@ export interface AuthProfile {
   username: string;
   isActive: boolean;
   mfaEnabled: boolean;
+  // MFA obrigatório para este utilizador (admin com mfaRequiredForAdmin ativo).
+  mfaRequired: boolean;
   lastLoginAt: string | null;
   roles: string[];
 }

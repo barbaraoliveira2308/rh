@@ -93,7 +93,12 @@ export async function regenerateRecoveryCodes(code: string): Promise<RecoveryCod
   return response.data;
 }
 
-export async function disableMfa(code: string): Promise<{ message: string }> {
-  const response = await apiClient.post<{ message: string }>('/auth/mfa/disable', { code });
+export async function disableMfa(
+  code: string,
+): Promise<{ message: string; sessionEnded: boolean }> {
+  const response = await apiClient.post<{ message: string; sessionEnded: boolean }>(
+    '/auth/mfa/disable',
+    { code },
+  );
   return response.data;
 }

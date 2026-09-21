@@ -39,8 +39,8 @@ describe('MfaService', () => {
     });
   });
 
-  describe('validateToken', () => {
-    it('deve validar um token TOTP correto gerado a partir do mesmo segredo', () => {
+  describe('matchTotpStep', () => {
+    it('deve devolver o passo TOTP atual para um código correto', () => {
       const { secret, encryptedSecret } = service.generateSecret('user-1');
       const totp = new TOTP({
         secret: Secret.fromBase32(secret),
@@ -48,19 +48,39 @@ describe('MfaService', () => {
         digits: 6,
         period: 30,
       });
-      const validToken = totp.generate();
+      const step = totp.counter();
 
-      const result = service.validateToken(encryptedSecret, validToken);
+      const result = service.matchTotpStep(encryptedSecret, totp.generate());
 
-      expect(result).toBe(true);
+      // O passo pode avançar entre ler o contador e gerar o código, se cruzar a fronteira dos 30 s.
+      expect([step, step + 1]).toContain(result);
     });
 
-    it('deve rejeitar um token inválido', () => {
-      const { encryptedSecret } = service.generateSecret('user-1');
+    it('deve devolver o passo anterior para o código da janela anterior', () => {
+      const { secret, encryptedSecret } = service.generateSecret('user-1');
+      const totp = new TOTP({
+        secret: Secret.fromBase32(secret),
+        algorithm: 'SHA1',
+        digits: 6,
+        period: 30,
+      });
+      const timestamp = Date.now() - 30_000;
 
-      const result = service.validateToken(encryptedSecret, '000000');
+      const result = service.matchTotpStep(encryptedSecret, totp.generate({ timestamp }));
 
-      expect(result).toBe(false);
+      expect(result).toBe(totp.counter({ timestamp }));
+    });
+
+    it('deve devolver null para um código inválido', () => {
+      const { secret, encryptedSecret } = service.generateSecret('user-1');
+      const current = new TOTP({ secret: Secret.fromBase32(secret) }).generate();
+
+      const result = service.matchTotpStep(
+        encryptedSecret,
+        current === '000000' ? '111111' : '000000',
+      );
+
+      expect(result).toBeNull();
     });
   });
 

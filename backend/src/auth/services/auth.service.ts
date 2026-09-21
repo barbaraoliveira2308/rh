@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { In, IsNull, LessThan, Or, Repository } from 'typeorm';
 import * as argon2 from 'argon2';
 import * as crypto from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
@@ -319,12 +319,17 @@ export class AuthService {
     await this.userRepository.update(userId, {
       mfaSecret: encryptedSecret,
       mfaEnabled: false,
+      mfaLastUsedStep: null,
     });
 
     return { secret, qrCodeUrl, qrCodeDataUrl };
   }
 
-  async verifyMfa(userId: string, code: string): Promise<{ recoveryCodes: string[] }> {
+  async verifyMfa(
+    userId: string,
+    code: string,
+    currentTokenHash?: string,
+  ): Promise<{ recoveryCodes: string[] }> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       select: ['id', 'mfaSecret', 'mfaEnabled'],
@@ -338,13 +343,15 @@ export class AuthService {
       throw new BadRequestException('MFA já está ativo');
     }
 
-    const isValid = this.mfaService.validateToken(user.mfaSecret, code);
+    const isValid = await this.consumeTotp(userId, user.mfaSecret, code);
 
     if (!isValid) {
       throw new BadRequestException('Código MFA inválido');
     }
 
     await this.userRepository.update(userId, { mfaEnabled: true });
+    // R-065: sessões abertas antes do MFA noutros dispositivos não passaram pelo segundo fator.
+    await this.endSessions(userId, currentTokenHash);
 
     // UC-AUTH-005 passo 6: os códigos só existem em claro nesta resposta.
     const recoveryCodes = await this.replaceRecoveryCodes(userId);
@@ -365,7 +372,7 @@ export class AuthService {
     }
 
     // Só TOTP: um código de recuperação não pode servir para emitir códigos novos.
-    if (!this.mfaService.validateToken(user.mfaSecret, code)) {
+    if (!(await this.consumeTotp(userId, user.mfaSecret, code))) {
       throw new BadRequestException('Código MFA inválido');
     }
 
@@ -373,7 +380,11 @@ export class AuthService {
     return { recoveryCodes };
   }
 
-  async disableMfa(userId: string, code: string): Promise<void> {
+  async disableMfa(
+    userId: string,
+    code: string,
+    currentTokenHash?: string,
+  ): Promise<{ sessionEnded: boolean }> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       select: ['id', 'mfaSecret'],
@@ -394,8 +405,54 @@ export class AuthService {
     await this.userRepository.update(userId, {
       mfaSecret: null,
       mfaEnabled: false,
+      mfaLastUsedStep: null,
     });
     await this.mfaRecoveryCodeRepository.delete({ userId });
+
+    // R-065: para um admin com MFA obrigatório, desativar termina também a sessão corrente — no
+    // login seguinte tem de voltar a configurar o MFA, sem janela em que opera sem ele. Continua a
+    // ser permitido, porque é o caminho de quem perdeu o telemóvel (decisão P095-02).
+    const roles = await this.findRoleNames(userId);
+    const mandatory = await this.isMfaMandatory(roles);
+    await this.endSessions(userId, mandatory ? undefined : currentTokenHash);
+    return { sessionEnded: mandatory };
+  }
+
+  // Revoga as sessões ativas do utilizador, exceto a indicada, e apaga-as da cache para que os
+  // access tokens deixem de funcionar logo (e não só o refresh).
+  private async endSessions(userId: string, keepTokenHash?: string): Promise<void> {
+    const sessions = await this.sessionRepository.find({ where: { userId, revokedAt: IsNull() } });
+    const ended = sessions.filter((session) => session.tokenHash !== keepTokenHash);
+    if (ended.length === 0) {
+      return;
+    }
+
+    await this.sessionRepository.update(
+      { id: In(ended.map((session) => session.id)) },
+      { revokedAt: new Date() },
+    );
+    await Promise.all(
+      ended.map((session) => this.cacheService.del(`session:${session.tokenHash}`)),
+    );
+  }
+
+  // R-065: um código TOTP só é aceite uma vez. O UPDATE condicional grava o passo usado e falha se
+  // esse passo (ou um posterior) já tiver sido aceite, incluindo em dois pedidos simultâneos.
+  private async consumeTotp(
+    userId: string,
+    encryptedSecret: string,
+    code: string,
+  ): Promise<boolean> {
+    const step = this.mfaService.matchTotpStep(encryptedSecret, code.trim());
+    if (step === null) {
+      return false;
+    }
+
+    const result = await this.userRepository.update(
+      { id: userId, mfaLastUsedStep: Or(IsNull(), LessThan(step)) },
+      { mfaLastUsedStep: step },
+    );
+    return (result.affected ?? 0) > 0;
   }
 
   private async verifySecondFactor(
@@ -404,7 +461,7 @@ export class AuthService {
     code: string,
   ): Promise<boolean> {
     if (this.mfaService.isTotpCode(code)) {
-      return this.mfaService.validateToken(encryptedSecret, code.trim());
+      return this.consumeTotp(userId, encryptedSecret, code);
     }
 
     const recoveryCode = await this.mfaRecoveryCodeRepository.findOne({
@@ -588,6 +645,7 @@ export class AuthService {
     username: string;
     isActive: boolean;
     mfaEnabled: boolean;
+    mfaRequired: boolean;
     lastLoginAt: Date | null;
     roles: string[];
   }> {
@@ -596,11 +654,7 @@ export class AuthService {
       throw new UnauthorizedException('Utilizador não encontrado');
     }
 
-    const userRoles = await this.userRoleRepository.find({
-      where: { userId },
-      relations: { role: true },
-    });
-    const roles = userRoles.map((ur) => ur.role.name);
+    const roles = await this.findRoleNames(userId);
 
     return {
       id: user.id,
@@ -608,20 +662,33 @@ export class AuthService {
       username: user.username,
       isActive: user.isActive,
       mfaEnabled: user.mfaEnabled,
+      mfaRequired: await this.isMfaMandatory(roles),
       lastLoginAt: user.lastLoginAt,
       roles,
     };
+  }
+
+  private async findRoleNames(userId: string): Promise<string[]> {
+    const userRoles = await this.userRoleRepository.find({
+      where: { userId },
+      relations: { role: true },
+    });
+    return userRoles.map((ur) => ur.role.name);
+  }
+
+  private async isMfaMandatory(roles: string[]): Promise<boolean> {
+    if (!roles.includes('admin')) {
+      return false;
+    }
+    const settings = await this.adminService.getSettings();
+    return settings.mfaRequiredForAdmin;
   }
 
   private async isMfaSetupRequired(
     user: Pick<User, 'mfaEnabled'>,
     roles: string[],
   ): Promise<boolean> {
-    if (user.mfaEnabled || !roles.includes('admin')) {
-      return false;
-    }
-    const settings = await this.adminService.getSettings();
-    return settings.mfaRequiredForAdmin;
+    return !user.mfaEnabled && (await this.isMfaMandatory(roles));
   }
 
   // Incrementa o contador e bloqueia ao atingir o limite. A tentativa que provoca o bloqueio já

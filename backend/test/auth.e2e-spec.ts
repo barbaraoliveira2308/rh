@@ -277,18 +277,25 @@ describe('Auth (e2e)', () => {
         .send({ code: recoveryCodes[0] })
         .expect(400);
 
-      // Decisão P092-04: desativar com um código de recuperação (telemóvel perdido).
-      await request(app.getHttpServer())
+      // Decisão P092-04: desativar com um código de recuperação (telemóvel perdido). O MFA é
+      // obrigatório para este admin, pelo que a sessão corrente também termina (decisão P095-02)
+      // e o login seguinte volta a exigir a configuração.
+      const disableRes = await request(app.getHttpServer())
         .post('/api/auth/mfa/disable')
         .set('Authorization', `Bearer ${fullToken}`)
         .send({ code: newCodes[0] })
         .expect(200);
+      expect(disableRes.body.sessionEnded).toBe(true);
 
-      const profileRes = await request(app.getHttpServer())
+      await request(app.getHttpServer())
         .get('/api/auth/me')
         .set('Authorization', `Bearer ${fullToken}`)
+        .expect(401);
+      const reloginRes = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ email: 'admin@hr-suite.local', password: 'Admin123!' })
         .expect(200);
-      expect(profileRes.body.mfaEnabled).toBe(false);
+      expect(reloginRes.body.mfaSetupRequired).toBe(true);
 
       const remaining = await dataSource.query<unknown[]>('SELECT id FROM hr.mfa_recovery_codes');
       expect(remaining).toHaveLength(0);
@@ -422,6 +429,74 @@ describe('Auth (e2e)', () => {
       }
       await login(email, 'Errada123!').expect(403);
       await login(email).expect(403);
+    });
+  });
+
+  describe('R-065 — reutilização de códigos TOTP e sessões ao mudar o MFA', () => {
+    const totpFor = (secret: string, offsetSteps = 0): string =>
+      new TOTP({
+        secret: Secret.fromBase32(secret),
+        algorithm: 'SHA1',
+        digits: 6,
+        period: 30,
+      }).generate({ timestamp: Date.now() + offsetSteps * 30_000 });
+
+    const login = (email: string): request.Test =>
+      request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ email, password: 'UserPass123!' });
+
+    it('deve terminar as outras sessões ao ativar o MFA e recusar um código já usado', async () => {
+      const email = 'r065@hr-suite.local';
+      await dataSource.getRepository('User').save({
+        email,
+        username: 'r065',
+        passwordHash: await hash('UserPass123!'),
+      });
+
+      // Duas sessões abertas antes do MFA: "este browser" e "outro dispositivo".
+      const current = (await login(email).expect(200)).body.accessToken as string;
+      const other = (await login(email).expect(200)).body.accessToken as string;
+
+      const secret = (
+        await request(app.getHttpServer())
+          .post('/api/auth/mfa/enable')
+          .set('Authorization', `Bearer ${current}`)
+          .expect(200)
+      ).body.secret as string;
+      await request(app.getHttpServer())
+        .post('/api/auth/mfa/verify')
+        .set('Authorization', `Bearer ${current}`)
+        .send({ code: totpFor(secret, -1) })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .get('/api/auth/me')
+        .set('Authorization', `Bearer ${other}`)
+        .expect(401);
+      await request(app.getHttpServer())
+        .get('/api/auth/me')
+        .set('Authorization', `Bearer ${current}`)
+        .expect(200);
+
+      // O código da janela atual entra uma vez; o mesmo código num segundo login é recusado.
+      const code = totpFor(secret);
+      const first = (await login(email).expect(200)).body.challengeToken as string;
+      await request(app.getHttpServer())
+        .post('/api/auth/login/mfa')
+        .send({ challengeToken: first, code })
+        .expect(200);
+      const second = (await login(email).expect(200)).body.challengeToken as string;
+      await request(app.getHttpServer())
+        .post('/api/auth/login/mfa')
+        .send({ challengeToken: second, code })
+        .expect(401);
+
+      // O código da janela anterior também já não serve: o passo aceite só avança.
+      await request(app.getHttpServer())
+        .post('/api/auth/login/mfa')
+        .send({ challengeToken: second, code: totpFor(secret, -1) })
+        .expect(401);
     });
   });
 

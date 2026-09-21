@@ -109,7 +109,11 @@ export class AuthController {
     @Body() dto: MfaVerifyDto,
   ): Promise<{ message: string; recoveryCodes: string[] }> {
     const user = req.user as JwtPayload;
-    const { recoveryCodes } = await this.authService.verifyMfa(user.sub, dto.code);
+    const { recoveryCodes } = await this.authService.verifyMfa(
+      user.sub,
+      dto.code,
+      this.currentTokenHash(req),
+    );
     return { message: 'MFA ativado com sucesso', recoveryCodes };
   }
 
@@ -131,10 +135,17 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Desativar MFA' })
   @HttpCode(HttpStatus.OK)
-  async disableMfa(@Req() req: Request, @Body() dto: MfaDisableDto): Promise<{ message: string }> {
+  async disableMfa(
+    @Req() req: Request,
+    @Body() dto: MfaDisableDto,
+  ): Promise<{ message: string; sessionEnded: boolean }> {
     const user = req.user as JwtPayload;
-    await this.authService.disableMfa(user.sub, dto.code);
-    return { message: 'MFA desativado' };
+    const { sessionEnded } = await this.authService.disableMfa(
+      user.sub,
+      dto.code,
+      this.currentTokenHash(req),
+    );
+    return { message: 'MFA desativado', sessionEnded };
   }
 
   @Post('password/change')
@@ -184,5 +195,11 @@ export class AuthController {
   }> {
     const user = req.user as JwtPayload;
     return this.authService.getProfile(user.sub);
+  }
+
+  // Só chamado em rotas com JwtAuthGuard, que já garantiu um header `Bearer <token>`.
+  private currentTokenHash(req: Request): string | undefined {
+    const token = req.headers.authorization?.split(' ')[1];
+    return token ? this.jwtService.computeTokenHash(token) : undefined;
   }
 }

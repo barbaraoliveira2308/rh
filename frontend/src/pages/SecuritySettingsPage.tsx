@@ -175,6 +175,7 @@ export function SecuritySettingsPage(): React.JSX.Element {
   const queryClient = useQueryClient();
   const mfaSetupRequired = useAuthStore((state) => state.mfaSetupRequired);
   const completeMfaSetup = useAuthStore((state) => state.completeMfaSetup);
+  const logout = useAuthStore((state) => state.logout);
 
   const [setup, setSetup] = React.useState<MfaSetupResponse | null>(null);
   const [recoveryCodes, setRecoveryCodes] = React.useState<string[] | null>(null);
@@ -211,7 +212,13 @@ export function SecuritySettingsPage(): React.JSX.Element {
 
   const disableMutation = useMutation({
     mutationFn: disableMfa,
-    onSuccess: () => {
+    onSuccess: async (data) => {
+      // MFA obrigatório: o backend terminou também esta sessão (decisão P095-02).
+      if (data.sessionEnded) {
+        await logout();
+        void navigate('/login');
+        return;
+      }
       void queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY });
     },
   });
@@ -368,6 +375,16 @@ export function SecuritySettingsPage(): React.JSX.Element {
                     Perdeu o telemóvel? Use um código de recuperação para desativar e depois volte a
                     configurar o MFA.
                   </p>
+                  {profile.mfaRequired && (
+                    <div className="flex gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                      <AlertTriangle className="h-5 w-5 shrink-0" />
+                      <p>
+                        O MFA é obrigatório para administradores. Ao desativá-lo, a sessão termina e
+                        no próximo login terá de o configurar de novo — por exemplo, num telemóvel
+                        novo.
+                      </p>
+                    </div>
+                  )}
                   <CodeForm
                     schema={disableSchema}
                     label="Código"
