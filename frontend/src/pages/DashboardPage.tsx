@@ -350,7 +350,7 @@ export function DashboardPage(): React.JSX.Element {
                   {announcement.assets.length > 0 && (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
                       {announcement.assets.map((asset) => (
-                        <AnnouncementAssetPreview asset={asset} key={asset.id} maxHeight={200} />
+                        <AnnouncementAssetPreview asset={asset} key={asset.id} maxHeight={360} />
                       ))}
                     </Box>
                   )}

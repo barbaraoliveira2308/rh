@@ -1,6 +1,11 @@
 import * as React from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import Box from '@mui/material/Box';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import IconButton from '@mui/material/IconButton';
+import CloseIcon from '@mui/icons-material/Close';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { fetchAnnouncementAssetBlob } from '@/api/announcements.api';
@@ -30,12 +35,13 @@ function useAnnouncementAssetObjectUrl(asset: AnnouncementAsset): string | null 
 
 export function AnnouncementAssetPreview({
   asset,
-  maxHeight = 320,
+  maxHeight = 560,
 }: {
   asset: AnnouncementAsset;
   maxHeight?: number;
 }): React.JSX.Element {
   const objectUrl = useAnnouncementAssetObjectUrl(asset);
+  const [expanded, setExpanded] = React.useState(false);
 
   const downloadMutation = useMutation({
     mutationFn: () => fetchAnnouncementAssetBlob(asset.url),
@@ -51,11 +57,71 @@ export function AnnouncementAssetPreview({
 
   if (asset.assetType === 'image') {
     return objectUrl ? (
-      <Box
-        component="img"
-        src={objectUrl}
-        sx={{ maxWidth: '100%', maxHeight, borderRadius: 1, display: 'block' }}
-      />
+      <>
+        <Box
+          sx={{
+            position: 'relative',
+            width: '100%',
+            height: { xs: 320, sm: 460, md: maxHeight },
+            borderRadius: 1,
+            bgcolor: 'action.hover',
+            overflow: 'hidden',
+          }}
+        >
+          <Box
+            component="img"
+            src={objectUrl}
+            sx={{ width: '100%', height: '100%', objectFit: 'contain' }}
+          />
+          <IconButton
+            aria-label="Expandir imagem"
+            onClick={() => {
+              setExpanded(true);
+            }}
+            size="small"
+            sx={{
+              position: 'absolute',
+              right: 8,
+              top: 8,
+              bgcolor: 'background.paper',
+              '&:hover': { bgcolor: 'background.paper' },
+            }}
+          >
+            <FullscreenIcon fontSize="small" />
+          </IconButton>
+        </Box>
+        <Dialog
+          fullWidth
+          maxWidth="xl"
+          open={expanded}
+          onClose={() => {
+            setExpanded(false);
+          }}
+        >
+          <DialogContent sx={{ bgcolor: 'common.black', p: 1, position: 'relative' }}>
+            <IconButton
+              aria-label="Fechar imagem"
+              onClick={() => {
+                setExpanded(false);
+              }}
+              sx={{ position: 'absolute', right: 8, top: 8, color: 'common.white', zIndex: 1 }}
+            >
+              <CloseIcon />
+            </IconButton>
+            <Box
+              component="img"
+              src={objectUrl}
+              sx={{
+                display: 'block',
+                width: '100%',
+                maxHeight: '85vh',
+                objectFit: 'contain',
+                mx: 'auto',
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      </>
     ) : (
       <LoadingSpinner size={24} />
     );
@@ -63,12 +129,75 @@ export function AnnouncementAssetPreview({
 
   if (asset.assetType === 'video') {
     return objectUrl ? (
-      <Box
-        component="video"
-        controls
-        src={objectUrl}
-        sx={{ width: '100%', maxHeight, borderRadius: 1 }}
-      />
+      <>
+        <Box
+          sx={{
+            position: 'relative',
+            width: '100%',
+            height: { xs: 320, sm: 460, md: maxHeight },
+            borderRadius: 1,
+            bgcolor: 'common.black',
+            overflow: 'hidden',
+          }}
+        >
+          <Box
+            component="video"
+            controls
+            src={objectUrl}
+            sx={{ display: 'block', width: '100%', height: '100%', objectFit: 'contain' }}
+          />
+          <IconButton
+            aria-label="Expandir vídeo"
+            onClick={() => {
+              setExpanded(true);
+            }}
+            size="small"
+            sx={{
+              position: 'absolute',
+              right: 8,
+              top: 8,
+              color: 'common.white',
+              bgcolor: 'rgba(0, 0, 0, 0.55)',
+              '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.7)' },
+            }}
+          >
+            <FullscreenIcon fontSize="small" />
+          </IconButton>
+        </Box>
+        <Dialog
+          fullWidth
+          maxWidth="xl"
+          open={expanded}
+          onClose={() => {
+            setExpanded(false);
+          }}
+        >
+          <DialogContent sx={{ bgcolor: 'common.black', p: 1, position: 'relative' }}>
+            <IconButton
+              aria-label="Fechar vídeo"
+              onClick={() => {
+                setExpanded(false);
+              }}
+              sx={{ position: 'absolute', right: 8, top: 8, color: 'common.white', zIndex: 1 }}
+            >
+              <CloseIcon />
+            </IconButton>
+            <Box
+              component="video"
+              autoPlay
+              controls
+              src={objectUrl}
+              sx={{
+                display: 'block',
+                width: '100%',
+                maxHeight: '85vh',
+                objectFit: 'contain',
+                mx: 'auto',
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      </>
     ) : (
       <LoadingSpinner size={24} />
     );
