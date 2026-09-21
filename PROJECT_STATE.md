@@ -1,7 +1,9 @@
 # Project State
 
-**Current Phase:** P-090 Comunicados — vídeo inválido rejeitado e opção de formulário removida (100% complete)
-**Last Updated:** 2026-09-18
+**Current Phase:** P-092 Fluxo inicial de autenticação e políticas (100% complete)
+**Last Updated:** 2026-09-21
+
+| P-092 | 00 | 2026-09-21 | Removido o fluxo frontend MFA/admin desta branch e guardado no stash `wip: configuracao MFA obrigatoria do admin`, fora do escopo atual. O frontend deixa de confiar na sessão `srh-auth` persistida em `localStorage`: sessões passam a usar `sessionStorage`, fazendo uma nova abertura da aplicação iniciar no login. Mantido o aceite obrigatório de políticas e melhoradas as mensagens reais de erro da API. Typecheck/build/lint frontend green, com 3 avisos preexistentes. |
 
 ## Phase History
 

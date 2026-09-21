@@ -13,11 +13,13 @@ import {
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { fetchPolicyAcceptanceLogs } from '@/api/policies.api';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 export function PolicyAcceptanceLogTable(): React.JSX.Element {
   const {
     data: logs = [],
     isLoading,
+    error,
     isError,
   } = useQuery({
     queryKey: ['policies', 'acceptance', 'logs'],
@@ -30,7 +32,11 @@ export function PolicyAcceptanceLogTable(): React.JSX.Element {
         Registo de leitura e aceite
       </Typography>
       {isLoading && <CircularProgress size={24} />}
-      {isError && <Alert severity="error">Não foi possível carregar os logs de aceite.</Alert>}
+      {isError && (
+        <Alert severity="error">
+          {getApiErrorMessage(error, 'Não foi possível carregar os logs de aceite.')}
+        </Alert>
+      )}
       {!isLoading && !isError && (
         <TableContainer component={Paper}>
           <Table size="small">

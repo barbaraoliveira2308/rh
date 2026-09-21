@@ -37,7 +37,8 @@ function loadPersistedState(): PersistedAuth {
     permissions: [],
   };
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY);
+    const raw = sessionStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as PersistedAuth;
       setAccessToken(parsed.accessToken);
@@ -51,7 +52,7 @@ function loadPersistedState(): PersistedAuth {
 
 function savePersistedState(state: PersistedAuth): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
     // ignore
   }
@@ -59,7 +60,7 @@ function savePersistedState(state: PersistedAuth): void {
 
 function clearPersistedState(): void {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
   } catch {
     // ignore
   }

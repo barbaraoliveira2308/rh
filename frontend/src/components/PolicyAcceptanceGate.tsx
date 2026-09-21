@@ -21,6 +21,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { acceptPolicy, fetchPendingPolicyAcceptances } from '@/api/policies.api';
 import { PolicyDocument } from '@/components/PolicyDocument';
 import { useAuthStore } from '@/stores/auth.store';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 export function PolicyAcceptanceGate({
   children,
@@ -33,6 +34,7 @@ export function PolicyAcceptanceGate({
   const {
     data: pendingPolicies = [],
     isLoading,
+    error,
     isError,
     refetch,
   } = useQuery({
@@ -90,7 +92,9 @@ export function PolicyAcceptanceGate({
           )}
           {isError && (
             <Stack spacing={2}>
-              <Alert severity="error">Não foi possível carregar as políticas pendentes.</Alert>
+              <Alert severity="error">
+                {getApiErrorMessage(error, 'Não foi possível carregar as políticas pendentes.')}
+              </Alert>
               <Button variant="outlined" onClick={() => void refetch()}>
                 Tentar novamente
               </Button>
