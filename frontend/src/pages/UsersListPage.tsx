@@ -74,7 +74,7 @@ export function UsersListPage(): React.JSX.Element {
   };
 
   const handleExport = async (): Promise<void> => {
-    const result = await fetchEmployees({ ...filters, limit: 1000 });
+    const result = await fetchEmployees({ ...filters, limit: 100 });
     const blob = new Blob([JSON.stringify(result.data, null, 2)], {
       type: 'application/json',
     });

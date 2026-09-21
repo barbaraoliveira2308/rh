@@ -1,11 +1,9 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 import { Button } from '@/components/ui/button';
 
 interface ConfirmDialogProps {
@@ -30,21 +28,19 @@ export function ConfirmDialog({
   isLoading = false,
 }: ConfirmDialogProps): React.JSX.Element {
   return (
-    <Dialog open={open} onOpenChange={onCancel}>
+    <Dialog open={open} onClose={isLoading ? undefined : onCancel} fullWidth maxWidth="sm">
+      <DialogTitle>{title}</DialogTitle>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={onCancel} disabled={isLoading}>
-            {cancelLabel}
-          </Button>
-          <Button variant="destructive" onClick={onConfirm} disabled={isLoading}>
-            {confirmLabel}
-          </Button>
-        </DialogFooter>
+        <DialogContentText>{description}</DialogContentText>
       </DialogContent>
+      <DialogActions>
+        <Button variant="outline" onClick={onCancel} disabled={isLoading}>
+          {cancelLabel}
+        </Button>
+        <Button variant="destructive" onClick={onConfirm} disabled={isLoading}>
+          {isLoading ? <CircularProgress color="inherit" size={16} /> : confirmLabel}
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 }
