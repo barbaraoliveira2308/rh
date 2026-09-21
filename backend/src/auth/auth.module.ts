@@ -38,6 +38,7 @@ import {
 
 const AUTH_ACTION_BY_HANDLER: Record<string, string> = {
   login: 'LOGIN',
+  loginMfa: 'LOGIN',
   logout: 'LOGOUT',
   changePassword: 'PASSWORD_CHANGED',
   verifyMfa: 'MFA_ENABLED',

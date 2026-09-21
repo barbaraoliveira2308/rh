@@ -24,6 +24,32 @@ import { AuditService } from '../../audit/services/audit.service';
 
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 const PASSWORD_HISTORY_ENTRIES_KEPT = 4;
+const MFA_CHALLENGE_TTL_MS = 5 * 60 * 1000;
+
+const LOGIN_USER_FIELDS: (keyof User)[] = [
+  'id',
+  'email',
+  'username',
+  'passwordHash',
+  'isActive',
+  'mfaEnabled',
+  'mfaSecret',
+  'failedLoginCount',
+  'lockedUntil',
+  'passwordChangedAt',
+];
+
+export interface LoginSuccess {
+  accessToken: string;
+  refreshToken: string;
+  user: { id: string; email: string; username: string; roles: string[] };
+  mfaSetupRequired: boolean;
+}
+
+export interface MfaChallenge {
+  mfaRequired: true;
+  challengeToken: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -52,35 +78,101 @@ export class AuthService {
   async login(
     email: string,
     password: string,
-    mfaCode?: string,
     ip?: string,
     userAgent?: string,
-  ): Promise<{
-    accessToken: string;
-    refreshToken: string;
-    user: { id: string; email: string; username: string; roles: string[] };
-    mfaSetupRequired: boolean;
-  }> {
+  ): Promise<LoginSuccess | MfaChallenge> {
     const user = await this.userRepository.findOne({
       where: { email },
-      select: [
-        'id',
-        'email',
-        'username',
-        'passwordHash',
-        'isActive',
-        'mfaEnabled',
-        'mfaSecret',
-        'failedLoginCount',
-        'lockedUntil',
-        'passwordChangedAt',
-      ],
+      select: LOGIN_USER_FIELDS,
     });
 
     if (!user) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
+    this.assertCanAuthenticate(user);
+
+    const passwordValid = await argon2.verify(user.passwordHash, password);
+    if (!passwordValid) {
+      await this.registerFailedAttempt(user);
+      throw new UnauthorizedException('Credenciais inválidas');
+    }
+
+    // UC-AUTH-001 passo 4: com MFA ativo a password não chega para abrir sessão. O desafio fica
+    // no servidor; o browser guarda só o token, nunca a password (decisão P093-01). O contador
+    // de falhas também não é reposto aqui — só quando a sessão é emitida —, senão alternar
+    // password certa e código errado dava tentativas ilimitadas ao código.
+    if (user.mfaEnabled) {
+      if (!user.mfaSecret) {
+        throw new BadRequestException('MFA não configurado');
+      }
+      const challengeToken = crypto.randomBytes(32).toString('hex');
+      await this.cacheService.set(
+        this.mfaChallengeKey(challengeToken),
+        user.id,
+        MFA_CHALLENGE_TTL_MS,
+      );
+      return { mfaRequired: true, challengeToken };
+    }
+
+    return this.issueSession(user, ip, userAgent);
+  }
+
+  async loginMfa(
+    challengeToken: string,
+    code: string,
+    ip?: string,
+    userAgent?: string,
+  ): Promise<LoginSuccess> {
+    const challengeKey = this.mfaChallengeKey(challengeToken);
+    const userId = await this.cacheService.get(challengeKey);
+    if (!userId) {
+      throw new UnauthorizedException('Pedido de verificação expirado. Inicie sessão novamente.');
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: LOGIN_USER_FIELDS,
+    });
+    if (!user?.mfaEnabled || !user.mfaSecret) {
+      await this.cacheService.del(challengeKey);
+      throw new UnauthorizedException('Pedido de verificação inválido. Inicie sessão novamente.');
+    }
+
+    try {
+      this.assertCanAuthenticate(user);
+    } catch (err) {
+      await this.cacheService.del(challengeKey);
+      throw err;
+    }
+
+    const isValid = await this.verifySecondFactor(user.id, user.mfaSecret, code);
+    if (!isValid) {
+      // UC-AUTH-001 fluxo alternativo 4a: rejeitar e registar a tentativa falhada. Conta para o
+      // mesmo bloqueio que as passwords erradas (BR-AUTH-002).
+      this.auditService.log({
+        userId: user.id,
+        action: 'LOGIN_MFA_FAILED',
+        entityType: 'User',
+        entityId: user.id,
+        ipAddress: ip,
+        userAgent,
+        module: 'auth',
+      });
+      try {
+        await this.registerFailedAttempt(user);
+      } catch (err) {
+        await this.cacheService.del(challengeKey);
+        throw err;
+      }
+      throw new UnauthorizedException('Código MFA inválido');
+    }
+
+    await this.cacheService.del(challengeKey);
+    return this.issueSession(user, ip, userAgent);
+  }
+
+  private assertCanAuthenticate(user: User): void {
     if (!user.isActive) {
       throw new ForbiddenException('Conta desativada');
     }
@@ -88,26 +180,13 @@ export class AuthService {
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       throw new ForbiddenException('Conta bloqueada temporariamente');
     }
+  }
 
-    const passwordValid = await argon2.verify(user.passwordHash, password);
-    if (!passwordValid) {
-      await this.handleFailedLogin(user);
-      throw new UnauthorizedException('Credenciais inválidas');
-    }
+  private mfaChallengeKey(challengeToken: string): string {
+    return `mfa-challenge:${this.jwtService.computeTokenHash(challengeToken)}`;
+  }
 
-    if (user.mfaEnabled) {
-      if (!mfaCode) {
-        throw new BadRequestException('Código MFA obrigatório');
-      }
-      if (!user.mfaSecret) {
-        throw new BadRequestException('MFA não configurado');
-      }
-      const isValid = this.mfaService.validateToken(user.mfaSecret, mfaCode);
-      if (!isValid) {
-        throw new UnauthorizedException('Código MFA inválido');
-      }
-    }
-
+  private async issueSession(user: User, ip?: string, userAgent?: string): Promise<LoginSuccess> {
     await this.userRepository.update(user.id, {
       failedLoginCount: 0,
       lockedUntil: null,
@@ -592,7 +671,10 @@ export class AuthService {
     return settings.mfaRequiredForAdmin;
   }
 
-  private async handleFailedLogin(user: User): Promise<void> {
+  // Incrementa o contador e bloqueia ao atingir o limite. A tentativa que provoca o bloqueio já
+  // devolve 403, como o fluxo alternativo 2a e a secção Erros pedem (antes devolvia 401 e só a
+  // seguinte recebia 403).
+  private async registerFailedAttempt(user: User): Promise<void> {
     const settings = await this.adminService.getSettings();
     const newCount = user.failedLoginCount + 1;
 
@@ -602,10 +684,11 @@ export class AuthService {
         failedLoginCount: newCount,
         lockedUntil,
       });
-    } else {
-      await this.userRepository.update(user.id, {
-        failedLoginCount: newCount,
-      });
+      throw new ForbiddenException('Conta bloqueada temporariamente');
     }
+
+    await this.userRepository.update(user.id, {
+      failedLoginCount: newCount,
+    });
   }
 }

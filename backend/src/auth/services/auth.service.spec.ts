@@ -3,7 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import * as argon2 from 'argon2';
-import { AuthService } from './auth.service';
+import { AuthService, LoginSuccess } from './auth.service';
 import { JwtService } from './jwt.service';
 import { MfaService } from './mfa.service';
 import { CacheService } from '../../cache/cache.service';
@@ -186,11 +186,11 @@ describe('AuthService', () => {
       expect(mockUserRepo.update).toHaveBeenCalledWith('user-1', { failedLoginCount: 3 });
     });
 
-    it('deve bloquear a conta ao atingir o número máximo de tentativas falhadas', async () => {
+    it('deve bloquear a conta e devolver 403 logo na tentativa que atinge o limite (UC-AUTH-001 fluxo 2a)', async () => {
       mockUserRepo.findOne.mockResolvedValue({ ...baseUser, failedLoginCount: 4 });
       (argon2.verify as jest.Mock).mockResolvedValue(false);
 
-      await expect(service.login(testEmail, 'wrong')).rejects.toThrow(UnauthorizedException);
+      await expect(service.login(testEmail, 'wrong')).rejects.toThrow(ForbiddenException);
 
       expect(mockUserRepo.update).toHaveBeenCalledWith(
         'user-1',
@@ -198,34 +198,33 @@ describe('AuthService', () => {
       );
     });
 
-    it('deve exigir código MFA quando MFA está ativo e não for fornecido', async () => {
+    it('deve devolver um desafio MFA sem emitir sessão quando o MFA está ativo (UC-AUTH-001 passo 4)', async () => {
       mockUserRepo.findOne.mockResolvedValue({
         ...baseUser,
+        failedLoginCount: 2,
         mfaEnabled: true,
         mfaSecret: 'secret',
       });
 
-      await expect(service.login(testEmail, 'secret')).rejects.toThrow(BadRequestException);
-    });
+      const result = await service.login(testEmail, 'secret');
 
-    it('deve lançar UnauthorizedException se o código MFA for inválido', async () => {
-      mockUserRepo.findOne.mockResolvedValue({
-        ...baseUser,
-        mfaEnabled: true,
-        mfaSecret: 'secret',
-      });
-      mockMfaService.validateToken.mockReturnValue(false);
-
-      await expect(service.login(testEmail, 'secret', '000000')).rejects.toThrow(
-        UnauthorizedException,
+      expect(result).toEqual({ mfaRequired: true, challengeToken: expect.any(String) as string });
+      expect(mockCacheService.set).toHaveBeenCalledWith(
+        expect.stringMatching(/^mfa-challenge:hash\(/),
+        'user-1',
+        5 * 60 * 1000,
       );
+      expect(mockJwtService.generateTokenPair).not.toHaveBeenCalled();
+      expect(mockSessionRepo.save).not.toHaveBeenCalled();
+      // O contador só é reposto quando a sessão é emitida.
+      expect(mockUserRepo.update).not.toHaveBeenCalled();
     });
 
     it('deve autenticar com sucesso, criar sessão e devolver tokens', async () => {
       mockUserRepo.findOne.mockResolvedValue({ ...baseUser });
       mockUserRoleRepo.find.mockResolvedValue([{ role: { name: 'employee' } }]);
 
-      const result = await service.login(testEmail, 'secret', undefined, '127.0.0.1');
+      const result = (await service.login(testEmail, 'secret', '127.0.0.1')) as LoginSuccess;
 
       expect(result.accessToken).toBe('access-token');
       expect(result.refreshToken).toBe('refresh-token');
@@ -264,8 +263,9 @@ describe('AuthService', () => {
       });
       mockUserRoleRepo.find.mockResolvedValue([{ role: { name: 'admin' } }]);
       mockMfaService.validateToken.mockReturnValue(true);
+      mockCacheService.get.mockResolvedValue('user-1');
 
-      await service.login(testEmail, 'secret', '123456');
+      await service.loginMfa('a'.repeat(64), '123456');
 
       expect(mockJwtService.generateTokenPair).toHaveBeenCalledWith(
         expect.anything(),
@@ -303,6 +303,89 @@ describe('AuthService', () => {
         ['admin'],
         false,
       );
+    });
+  });
+
+  describe('loginMfa', () => {
+    const challengeToken = 'c'.repeat(64);
+    const mfaUser = { ...baseUser, mfaEnabled: true, mfaSecret: 'secret', failedLoginCount: 1 };
+
+    beforeEach(() => {
+      mockCacheService.get.mockResolvedValue('user-1');
+      mockUserRepo.findOne.mockResolvedValue({ ...mfaUser });
+    });
+
+    it('deve rejeitar um desafio inexistente ou expirado', async () => {
+      mockCacheService.get.mockResolvedValue(null);
+
+      await expect(service.loginMfa(challengeToken, '123456')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(mockUserRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('deve emitir a sessão e consumir o desafio com um código TOTP válido', async () => {
+      mockMfaService.validateToken.mockReturnValue(true);
+
+      const result = await service.loginMfa(challengeToken, '123456', '127.0.0.1');
+
+      expect(result.accessToken).toBe('access-token');
+      expect(mockCacheService.del).toHaveBeenCalledWith(`mfa-challenge:hash(${challengeToken})`);
+      expect(mockUserRepo.update).toHaveBeenCalledWith(
+        'user-1',
+        expect.objectContaining({ failedLoginCount: 0, lockedUntil: null }),
+      );
+      expect(mockSessionRepo.save).toHaveBeenCalled();
+    });
+
+    it('deve aceitar um código de recuperação por usar', async () => {
+      mockMfaRecoveryCodeRepo.findOne.mockResolvedValue({ id: 'rc-1', usedAt: null });
+
+      const result = await service.loginMfa(challengeToken, 'AAAAA-BBBBB');
+
+      expect(result.accessToken).toBe('access-token');
+      expect(mockMfaService.validateToken).not.toHaveBeenCalled();
+      expect(mockMfaRecoveryCodeRepo.update).toHaveBeenCalled();
+    });
+
+    it('deve rejeitar um código inválido, contar a falha e registar a tentativa (UC-AUTH-001 fluxo 4a)', async () => {
+      mockMfaService.validateToken.mockReturnValue(false);
+
+      await expect(service.loginMfa(challengeToken, '000000', '127.0.0.1')).rejects.toThrow(
+        UnauthorizedException,
+      );
+
+      expect(mockUserRepo.update).toHaveBeenCalledWith('user-1', { failedLoginCount: 2 });
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'LOGIN_MFA_FAILED', userId: 'user-1' }),
+      );
+      // O desafio sobrevive a um código errado, para o utilizador poder corrigir.
+      expect(mockCacheService.del).not.toHaveBeenCalled();
+      expect(mockSessionRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('deve bloquear a conta e invalidar o desafio ao atingir o limite de falhas', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ ...mfaUser, failedLoginCount: 4 });
+      mockMfaService.validateToken.mockReturnValue(false);
+
+      await expect(service.loginMfa(challengeToken, '000000')).rejects.toThrow(ForbiddenException);
+
+      expect(mockUserRepo.update).toHaveBeenCalledWith(
+        'user-1',
+        expect.objectContaining({ failedLoginCount: 5, lockedUntil: expect.any(Date) as Date }),
+      );
+      expect(mockCacheService.del).toHaveBeenCalledWith(`mfa-challenge:hash(${challengeToken})`);
+    });
+
+    it('deve recusar e invalidar o desafio se a conta estiver bloqueada', async () => {
+      mockUserRepo.findOne.mockResolvedValue({
+        ...mfaUser,
+        lockedUntil: new Date(Date.now() + 60_000),
+      });
+
+      await expect(service.loginMfa(challengeToken, '123456')).rejects.toThrow(ForbiddenException);
+      expect(mockMfaService.validateToken).not.toHaveBeenCalled();
+      expect(mockCacheService.del).toHaveBeenCalled();
     });
   });
 

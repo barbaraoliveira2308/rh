@@ -1,8 +1,10 @@
 import { create } from 'zustand';
-import type { User, LoginCredentials, AuthTokens, LoginResponse } from '@/types/auth';
-import { login, refreshAccessToken, logout as apiLogout } from '@/api/auth.api';
+import { isAxiosError } from 'axios';
+import type { User, LoginCredentials, AuthTokens, LoginSuccessResponse } from '@/types/auth';
+import { login, loginMfa, refreshAccessToken, logout as apiLogout } from '@/api/auth.api';
 import { setAccessToken, setRefreshTokenFn } from '@/api/client';
 import { queryClient } from '@/lib/queryClient';
+import { getErrorMessage } from '@/lib/utils';
 
 const STORAGE_KEY = 'srh-auth';
 
@@ -19,11 +21,12 @@ interface PersistedAuth {
 interface AuthState extends PersistedAuth {
   isLoading: boolean;
   error: string | null;
-  pendingMfaEmail: string | null;
-  pendingMfaPassword: string | null;
+  // Token do desafio MFA devolvido pelo login. O browser nunca guarda a password (P093-01).
+  pendingMfaChallenge: string | null;
 
   login: (credentials: LoginCredentials) => Promise<void>;
   verifyMfa: (code: string) => Promise<void>;
+  cancelMfa: () => void;
   completeMfaSetup: () => Promise<boolean>;
   refreshToken: () => Promise<boolean>;
   logout: () => Promise<void>;
@@ -61,6 +64,17 @@ function savePersistedState(state: PersistedAuth): void {
   }
 }
 
+function sessionStateFrom(response: LoginSuccessResponse): PersistedAuth {
+  return {
+    user: response.user,
+    accessToken: response.accessToken,
+    refreshTokenValue: response.refreshToken,
+    isAuthenticated: true,
+    permissions: response.user.roles,
+    mfaSetupRequired: response.mfaSetupRequired,
+  };
+}
+
 function clearPersistedState(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);
@@ -80,91 +94,63 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   mfaSetupRequired: persisted.mfaSetupRequired,
   isLoading: false,
   error: null,
-  pendingMfaEmail: null,
-  pendingMfaPassword: null,
+  pendingMfaChallenge: null,
 
   login: async (credentials: LoginCredentials): Promise<void> => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, pendingMfaChallenge: null });
     try {
-      const response: LoginResponse = await login(credentials);
+      const response = await login(credentials);
 
-      if (response.requiresMfa) {
-        set({
-          pendingMfaEmail: credentials.email,
-          pendingMfaPassword: credentials.password,
-          isLoading: false,
-        });
+      if ('mfaRequired' in response) {
+        set({ pendingMfaChallenge: response.challengeToken, isLoading: false });
         return;
       }
 
-      const newState: PersistedAuth = {
-        user: response.user,
-        accessToken: response.accessToken,
-        refreshTokenValue: response.refreshToken,
-        isAuthenticated: true,
-        permissions: response.user.roles,
-        mfaSetupRequired: response.mfaSetupRequired,
-      };
+      const newState = sessionStateFrom(response);
       setAccessToken(newState.accessToken);
       savePersistedState(newState);
-      set({
-        ...newState,
-        isLoading: false,
-        error: null,
-        pendingMfaEmail: null,
-        pendingMfaPassword: null,
-      });
+      set({ ...newState, isLoading: false, error: null });
     } catch (err) {
       setAccessToken(null);
       clearPersistedState();
       set({
         isLoading: false,
-        error: err instanceof Error ? err.message : 'Erro ao iniciar sessão',
+        error: getErrorMessage(err, 'Erro ao iniciar sessão'),
       });
       throw err;
     }
   },
 
   verifyMfa: async (code: string): Promise<void> => {
-    const { pendingMfaEmail, pendingMfaPassword } = get();
-    if (!pendingMfaEmail || !pendingMfaPassword) {
+    const { pendingMfaChallenge } = get();
+    if (!pendingMfaChallenge) {
       throw new Error('Não existe sessão MFA pendente');
     }
 
     set({ isLoading: true, error: null });
     try {
-      const response: LoginResponse = await login({
-        email: pendingMfaEmail,
-        password: pendingMfaPassword,
-        mfaCode: code,
-      });
-
-      const newState: PersistedAuth = {
-        user: response.user,
-        accessToken: response.accessToken,
-        refreshTokenValue: response.refreshToken,
-        isAuthenticated: true,
-        permissions: response.user.roles,
-        mfaSetupRequired: response.mfaSetupRequired,
-      };
+      const response = await loginMfa(pendingMfaChallenge, code);
+      const newState = sessionStateFrom(response);
       setAccessToken(newState.accessToken);
       savePersistedState(newState);
-      set({
-        ...newState,
-        isLoading: false,
-        error: null,
-        pendingMfaEmail: null,
-        pendingMfaPassword: null,
-      });
+      set({ ...newState, isLoading: false, error: null, pendingMfaChallenge: null });
     } catch (err) {
-      setAccessToken(null);
-      clearPersistedState();
+      // Um código errado mantém o desafio (o utilizador corrige e volta a tentar). Um desafio
+      // expirado (401 sem ser de código) ou a conta bloqueada (403) obrigam a recomeçar.
+      const status = isAxiosError(err) ? err.response?.status : undefined;
+      const message = getErrorMessage(err, 'Erro ao verificar o código');
+      const mustRestart = status === 403 || (status === 401 && message !== 'Código MFA inválido');
       set({
         isLoading: false,
-        error: err instanceof Error ? err.message : 'Erro ao verificar MFA',
+        error: message,
+        ...(mustRestart ? { pendingMfaChallenge: null } : {}),
       });
       throw err;
     }
+  },
+
+  cancelMfa: (): void => {
+    set({ pendingMfaChallenge: null, error: null });
   },
 
   // O token de âmbito limitado só é trocado por um normal num refresh, que recalcula o âmbito
@@ -223,8 +209,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       mfaSetupRequired: false,
       isLoading: false,
       error: null,
-      pendingMfaEmail: null,
-      pendingMfaPassword: null,
+      pendingMfaChallenge: null,
     });
   },
 

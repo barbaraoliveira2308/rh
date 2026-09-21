@@ -14,11 +14,12 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { Request } from 'express';
-import { AuthService } from './services/auth.service';
+import { AuthService, LoginSuccess, MfaChallenge } from './services/auth.service';
 import { JwtService } from './services/jwt.service';
 import { KeycloakService } from './keycloak/keycloak.service';
 import {
   LoginDto,
+  LoginMfaDto,
   RefreshTokenDto,
   MfaVerifyDto,
   ChangePasswordDto,
@@ -67,19 +68,18 @@ export class AuthController {
   @UseGuards(RateLimitGuard)
   @ApiOperation({ summary: 'Autenticar utilizador' })
   @HttpCode(HttpStatus.OK)
-  async login(
-    @Body() dto: LoginDto,
-    @Req() req: Request,
-  ): Promise<{
-    accessToken: string;
-    refreshToken: string;
-    user: { id: string; email: string; username: string; roles: string[] };
-    mfaSetupRequired: boolean;
-  }> {
-    return this.authService.login(
-      dto.email,
-      dto.password,
-      dto.mfaCode,
+  async login(@Body() dto: LoginDto, @Req() req: Request): Promise<LoginSuccess | MfaChallenge> {
+    return this.authService.login(dto.email, dto.password, req.ip, req.headers['user-agent']);
+  }
+
+  @Post('login/mfa')
+  @UseGuards(RateLimitGuard)
+  @ApiOperation({ summary: 'Concluir login com o código MFA' })
+  @HttpCode(HttpStatus.OK)
+  async loginMfa(@Body() dto: LoginMfaDto, @Req() req: Request): Promise<LoginSuccess> {
+    return this.authService.loginMfa(
+      dto.challengeToken,
+      dto.code,
       req.ip,
       req.headers['user-agent'],
     );

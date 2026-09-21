@@ -2,9 +2,9 @@ import axios from 'axios';
 import apiClient from './client';
 import type {
   LoginCredentials,
-  MfaCredentials,
   AuthTokens,
   LoginResponse,
+  LoginSuccessResponse,
   ResetPasswordRequest,
   ConfirmResetPasswordRequest,
   AuthProfile,
@@ -26,8 +26,14 @@ export async function login(credentials: LoginCredentials): Promise<LoginRespons
   return response.data;
 }
 
-export async function verifyMfa(credentials: MfaCredentials): Promise<LoginResponse> {
-  const response = await publicClient.post<LoginResponse>('/auth/mfa/verify', credentials);
+export async function loginMfa(
+  challengeToken: string,
+  code: string,
+): Promise<LoginSuccessResponse> {
+  const response = await publicClient.post<LoginSuccessResponse>('/auth/login/mfa', {
+    challengeToken,
+    code,
+  });
   return response.data;
 }
 

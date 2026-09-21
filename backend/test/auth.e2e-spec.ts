@@ -295,6 +295,136 @@ describe('Auth (e2e)', () => {
     });
   });
 
+  describe('Login com MFA (UC-AUTH-001 passo 4 e fluxos 2a/4a)', () => {
+    const totpFor = (secret: string, offsetSteps = 0): string =>
+      new TOTP({
+        secret: Secret.fromBase32(secret),
+        algorithm: 'SHA1',
+        digits: 6,
+        period: 30,
+      }).generate({ timestamp: Date.now() + offsetSteps * 30_000 });
+
+    const createUser = async (email: string): Promise<void> => {
+      await dataSource.getRepository('User').save({
+        email,
+        username: email.split('@')[0],
+        passwordHash: await hash('UserPass123!'),
+      });
+    };
+
+    const login = (email: string, password = 'UserPass123!'): request.Test =>
+      request(app.getHttpServer()).post('/api/auth/login').send({ email, password });
+
+    // Configura o MFA pela API, como um utilizador faria em /settings/security.
+    const enrolMfa = async (
+      email: string,
+    ): Promise<{ secret: string; recoveryCodes: string[] }> => {
+      const loginRes = await login(email).expect(200);
+      const token = loginRes.body.accessToken as string;
+      const enableRes = await request(app.getHttpServer())
+        .post('/api/auth/mfa/enable')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      const secret = enableRes.body.secret as string;
+      const verifyRes = await request(app.getHttpServer())
+        .post('/api/auth/mfa/verify')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ code: totpFor(secret, -1) })
+        .expect(200);
+      return { secret, recoveryCodes: verifyRes.body.recoveryCodes as string[] };
+    };
+
+    it('deve pedir o código em vez de emitir sessão, e concluir com TOTP ou código de recuperação', async () => {
+      const email = 'mfa-login@hr-suite.local';
+      await createUser(email);
+      const { secret, recoveryCodes } = await enrolMfa(email);
+
+      const challengeRes = await login(email).expect(200);
+      expect(challengeRes.body).toEqual({
+        mfaRequired: true,
+        challengeToken: expect.any(String) as string,
+      });
+      const challengeToken = challengeRes.body.challengeToken as string;
+
+      // 4a: código errado rejeitado, mas o desafio continua válido para uma nova tentativa.
+      await request(app.getHttpServer())
+        .post('/api/auth/login/mfa')
+        .send({ challengeToken, code: '000000' === totpFor(secret) ? '111111' : '000000' })
+        .expect(401);
+      // O AuditService grava numa fila assíncrona (setImmediate); espera-se pela escrita.
+      let failures: unknown[] = [];
+      for (let i = 0; i < 20 && failures.length === 0; i++) {
+        failures = await dataSource.query<unknown[]>(
+          `SELECT id FROM hr.audit_logs WHERE action = 'LOGIN_MFA_FAILED'`,
+        );
+        if (failures.length === 0) await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      expect(failures.length).toBeGreaterThan(0);
+
+      const okRes = await request(app.getHttpServer())
+        .post('/api/auth/login/mfa')
+        .send({ challengeToken, code: totpFor(secret) })
+        .expect(200);
+      expect(okRes.body.accessToken).toBeDefined();
+      expect(okRes.body.user.email).toBe(email);
+      await request(app.getHttpServer())
+        .get('/api/auth/me')
+        .set('Authorization', `Bearer ${okRes.body.accessToken as string}`)
+        .expect(200);
+
+      // O desafio é de uso único.
+      await request(app.getHttpServer())
+        .post('/api/auth/login/mfa')
+        .send({ challengeToken, code: totpFor(secret) })
+        .expect(401);
+
+      // Código de recuperação: funciona uma vez, a segunda é recusada.
+      const second = (await login(email).expect(200)).body.challengeToken as string;
+      await request(app.getHttpServer())
+        .post('/api/auth/login/mfa')
+        .send({ challengeToken: second, code: recoveryCodes[0].toLowerCase() })
+        .expect(200);
+      const third = (await login(email).expect(200)).body.challengeToken as string;
+      await request(app.getHttpServer())
+        .post('/api/auth/login/mfa')
+        .send({ challengeToken: third, code: recoveryCodes[0] })
+        .expect(401);
+    });
+
+    it('deve bloquear a conta com 403 depois de 5 códigos MFA errados (4a + BR-AUTH-002)', async () => {
+      const email = 'mfa-lockout@hr-suite.local';
+      await createUser(email);
+      const { secret } = await enrolMfa(email);
+      const wrong = '000000' === totpFor(secret) ? '111111' : '000000';
+
+      const challengeToken = (await login(email).expect(200)).body.challengeToken as string;
+      for (let attempt = 1; attempt <= 4; attempt++) {
+        await request(app.getHttpServer())
+          .post('/api/auth/login/mfa')
+          .send({ challengeToken, code: wrong })
+          .expect(401);
+      }
+      await request(app.getHttpServer())
+        .post('/api/auth/login/mfa')
+        .send({ challengeToken, code: wrong })
+        .expect(403);
+
+      // Bloqueada: nem a password certa abre um desafio novo.
+      await login(email).expect(403);
+    });
+
+    it('deve devolver 403 logo na tentativa de password que bloqueia a conta (fluxo 2a)', async () => {
+      const email = 'pw-lockout@hr-suite.local';
+      await createUser(email);
+
+      for (let attempt = 1; attempt <= 4; attempt++) {
+        await login(email, 'Errada123!').expect(401);
+      }
+      await login(email, 'Errada123!').expect(403);
+      await login(email).expect(403);
+    });
+  });
+
   describe('POST /api/auth/password/change', () => {
     it('should change password successfully', async () => {
       const settingsRepo = dataSource.getRepository('SystemSetting');

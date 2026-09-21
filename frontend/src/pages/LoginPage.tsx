@@ -17,8 +17,13 @@ const loginSchema = z.object({
   password: z.string().min(1, 'A palavra-passe é obrigatória'),
 });
 
+// 6 dígitos da aplicação autenticadora, ou um código de recuperação (XXXXX-XXXXX).
 const mfaSchema = z.object({
-  mfaCode: z.string().length(6, 'O código MFA deve ter 6 dígitos'),
+  mfaCode: z
+    .string()
+    .trim()
+    .min(6, 'Introduza o código de 6 dígitos ou um código de recuperação')
+    .max(20, 'Código demasiado longo'),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
@@ -26,8 +31,9 @@ type MfaForm = z.infer<typeof mfaSchema>;
 
 export function LoginPage(): React.JSX.Element {
   const navigate = useNavigate();
-  const { login, verifyMfa, isLoading, error, pendingMfaEmail, clearError } = useAuthStore();
-  const [showMfa, setShowMfa] = React.useState(false);
+  const { login, verifyMfa, cancelMfa, isLoading, error, pendingMfaChallenge, clearError } =
+    useAuthStore();
+  const showMfa = pendingMfaChallenge !== null;
 
   const loginForm = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -43,9 +49,7 @@ export function LoginPage(): React.JSX.Element {
     clearError();
     try {
       await login(data);
-      if (useAuthStore.getState().pendingMfaEmail) {
-        setShowMfa(true);
-      } else {
+      if (!useAuthStore.getState().pendingMfaChallenge) {
         void navigate('/');
       }
     } catch {
@@ -71,9 +75,7 @@ export function LoginPage(): React.JSX.Element {
         </div>
         <CardTitle className="text-2xl font-bold">HR Suite</CardTitle>
         <CardDescription>
-          {showMfa
-            ? 'Introduza o código de verificação de 6 dígitos'
-            : 'Inicie sessão na sua conta'}
+          {showMfa ? 'Verificação em dois passos' : 'Inicie sessão na sua conta'}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -115,15 +117,17 @@ export function LoginPage(): React.JSX.Element {
           <FormProvider {...mfaForm}>
             <form onSubmit={(e) => void mfaForm.handleSubmit(onMfaSubmit)(e)} className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Foi enviado um código para {pendingMfaEmail}
+                Introduza o código de 6 dígitos da sua aplicação autenticadora.
               </p>
               <FormField
                 name="mfaCode"
-                label="Código MFA"
+                label="Código de verificação"
                 type="text"
                 placeholder="000000"
-                maxLength={6}
-                inputMode="numeric"
+                maxLength={20}
+                autoComplete="one-time-code"
+                autoFocus
+                helperText="Sem acesso à aplicação? Use um dos seus códigos de recuperação."
               />
               {error && <p className="text-sm text-red-600">{error}</p>}
               <Button type="submit" className="w-full" disabled={isLoading}>
@@ -134,7 +138,8 @@ export function LoginPage(): React.JSX.Element {
                 variant="ghost"
                 className="w-full"
                 onClick={() => {
-                  setShowMfa(false);
+                  mfaForm.reset();
+                  cancelMfa();
                 }}
               >
                 Voltar ao login
