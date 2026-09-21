@@ -93,6 +93,11 @@ export async function regenerateRecoveryCodes(code: string): Promise<RecoveryCod
   return response.data;
 }
 
+// Heartbeat do timeout por inatividade: o utilizador está a usar a página sem gerar pedidos.
+export async function sendActivityHeartbeat(): Promise<void> {
+  await apiClient.post('/auth/activity');
+}
+
 export async function disableMfa(
   code: string,
 ): Promise<{ message: string; sessionEnded: boolean }> {

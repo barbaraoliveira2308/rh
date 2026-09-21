@@ -6,6 +6,7 @@ import * as argon2 from 'argon2';
 import { AuthService, LoginSuccess } from './auth.service';
 import { JwtService } from './jwt.service';
 import { MfaService } from './mfa.service';
+import { SessionActivityService } from './session-activity.service';
 import { CacheService } from '../../cache/cache.service';
 import { AdminService } from '../../admin/admin.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
@@ -30,6 +31,7 @@ describe('AuthService', () => {
   let mockJwtService: Record<string, jest.Mock>;
   let mockMfaService: Record<string, jest.Mock>;
   let mockCacheService: Record<string, jest.Mock>;
+  let mockSessionActivity: Record<string, jest.Mock>;
   let mockConfigService: Record<string, jest.Mock>;
   let mockAdminService: Record<string, jest.Mock>;
   let mockNotificationsService: Record<string, jest.Mock>;
@@ -58,7 +60,10 @@ describe('AuthService', () => {
     };
     mockSessionRepo = {
       create: jest.fn((data: Partial<Session>) => data),
-      save: jest.fn((data: Partial<Session>) => Promise.resolve({ id: 'session-1', ...data })),
+      // Como no TypeORM, o save atribui o id à própria entidade.
+      save: jest.fn((data: Partial<Session>) =>
+        Promise.resolve(Object.assign(data, { id: 'session-1' })),
+      ),
       update: jest.fn(),
       findOneBy: jest.fn(() => Promise.resolve({ id: 'session-1', revokedAt: null })),
       find: jest.fn().mockResolvedValue([]),
@@ -107,6 +112,11 @@ describe('AuthService', () => {
       set: jest.fn(),
       del: jest.fn(),
     };
+    mockSessionActivity = {
+      touch: jest.fn(),
+      isActive: jest.fn().mockResolvedValue(true),
+      timeoutMinutes: jest.fn().mockResolvedValue(30),
+    };
     mockConfigService = {
       // Origens distintas de propósito: FRONTEND_URL é a SPA, APP_URL é o backend. Os testes
       // que dependem de links para o utilizador têm de falhar se alguém trocar uma pela outra.
@@ -140,6 +150,7 @@ describe('AuthService', () => {
         { provide: JwtService, useValue: mockJwtService },
         { provide: MfaService, useValue: mockMfaService },
         { provide: CacheService, useValue: mockCacheService },
+        { provide: SessionActivityService, useValue: mockSessionActivity },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: AdminService, useValue: mockAdminService },
         { provide: NotificationsService, useValue: mockNotificationsService },
@@ -241,6 +252,14 @@ describe('AuthService', () => {
       );
       expect(mockSessionRepo.save).toHaveBeenCalled();
       expect(mockCacheService.set).toHaveBeenCalledTimes(2);
+      // BR-AUTH-005: a chave de sessão guarda o id da sessão e o relógio de inatividade arranca.
+      expect(mockCacheService.set).toHaveBeenCalledWith(
+        'session:hash(access-token)',
+        'session-1',
+        15 * 60 * 1000,
+      );
+      expect(mockSessionActivity.touch).toHaveBeenCalledWith('session-1');
+      expect(result.sessionTimeoutMinutes).toBe(30);
     });
 
     it('deve gerar um token de âmbito limitado para admin sem MFA quando mfaRequiredForAdmin está ativo', async () => {
@@ -427,6 +446,39 @@ describe('AuthService', () => {
 
       await expect(service.refresh('refresh-token')).rejects.toThrow(UnauthorizedException);
       expect(mockJwtService.generateAccessToken).not.toHaveBeenCalled();
+    });
+
+    it('deve recusar e revogar uma sessão inativa há mais do que o timeout (BR-AUTH-005)', async () => {
+      mockCacheService.get.mockResolvedValue(
+        JSON.stringify({ userId: 'user-1', sessionId: 'session-1' }),
+      );
+      mockSessionActivity.isActive.mockResolvedValue(false);
+
+      await expect(service.refresh('refresh-token')).rejects.toThrow(
+        'Sessão terminada por inatividade',
+      );
+
+      expect(mockSessionRepo.update).toHaveBeenCalledWith(
+        { id: 'session-1' },
+        { revokedAt: expect.any(Date) as Date },
+      );
+      expect(mockJwtService.generateAccessToken).not.toHaveBeenCalled();
+    });
+
+    it('não deve contar o refresh como atividade', async () => {
+      mockCacheService.get.mockResolvedValue(
+        JSON.stringify({ userId: 'user-1', sessionId: 'session-1' }),
+      );
+      mockUserRepo.findOneBy.mockResolvedValue({ ...baseUser });
+
+      await service.refresh('refresh-token');
+
+      expect(mockSessionActivity.touch).not.toHaveBeenCalled();
+      expect(mockCacheService.set).toHaveBeenCalledWith(
+        'session:hash(new-access-token)',
+        'session-1',
+        15 * 60 * 1000,
+      );
     });
 
     it('deve lançar UnauthorizedException se o utilizador estiver inativo', async () => {

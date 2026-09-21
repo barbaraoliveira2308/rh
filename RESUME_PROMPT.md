@@ -13,7 +13,8 @@
 ## 2. Estado atual (resumo — confirmar sempre contra o `PROJECT_STATE.md`)
 
 - Stack: NestJS + React 18 + TypeORM + PostgreSQL, monorepo pnpm (`backend/`, `frontend/`, `shared/`).
-- Última fase concluída: **P-095** (**endurecimentos de MFA, fecha `R-065`**: código TOTP de uso único via `users.mfa_last_used_step`, ativar/desativar o MFA termina as outras sessões, admin com MFA obrigatório pode desativar mas perde todas as sessões e tem de reconfigurar; decisões P095-00 a P095-03). **A próxima fase é P-096 = BR-AUTH-005 (timeout por inatividade) — a última do branch `feature/auth-uc`.**
+- Última fase concluída: **P-096** (**BR-AUTH-005 — timeout por inatividade**: `sessionTimeoutMinutes` ligado, deslizante, no servidor (`SessionActivityService`, chave `activity:<sessionId>`) e no browser (`useIdleLogout` + heartbeat `POST /auth/activity`); polling marcado com `X-Background-Request`; decisões P096-00 a P096-03). **O backlog Auth de P-089 está concluído** — o branch `feature/auth-uc` (P-089 a P-096) está pronto para merge em `develop`, que é manual (regra 8). A próxima sessão escolhe com o utilizador a partir do backlog geral — ver secção 4.
+- Fase anterior: **P-095** (**endurecimentos de MFA, fecha `R-065`**: código TOTP de uso único via `users.mfa_last_used_step`, ativar/desativar o MFA termina as outras sessões, admin com MFA obrigatório pode desativar mas perde todas as sessões e tem de reconfigurar; decisões P095-00 a P095-03).
 - Fase anterior: **P-094** (**remoção do Keycloak/SSO**: autenticação só na aplicação, por escolha do utilizador — módulo Keycloak, endpoints `/auth/sso/*`, botão SSO, serviço `keycloak` dos compose, `KEYCLOAK_*` e dependências Passport apagados; UC-AUTH-002 Adiado; `R-063` deixa de se aplicar; decisões P094-01 a P094-03).
 - Fase anterior: **P-093** (**UC-AUTH-001 — Login**: login em dois passos com token de desafio — `POST /auth/login` devolve `{ mfaRequired, challengeToken }` e `POST /auth/login/mfa` conclui com TOTP ou código de recuperação —, fluxo 4a auditado e contado para o bloqueio, 403 na tentativa que bloqueia; `username` continua fora, desvio registado; decisões P093-01 a P093-04).
 - Fase anterior: **P-092** (**UC-AUTH-005 — Configurar MFA**: página `/settings/security`, 10 códigos de recuperação em SHA-256, `POST /auth/mfa/recovery-codes`, `mfaSetupRequired` na resposta do login com redirecionamento forçado no frontend, e `/mfa/enable` deixa de desligar o MFA sem código; decisões P092-00 a P092-05).
@@ -88,21 +89,21 @@
 
 ## 3. O que falta — candidatos à próxima fase
 
-**O foco das próximas fases já está decidido pelo utilizador (P-089): completar o módulo Auth, caso de uso a caso de uso.** A lista "Backlog Auth" abaixo é a sequência acordada — não voltes a perguntar qual a área de foco enquanto ela não estiver esgotada, e não a reordenes por iniciativa própria. O resto desta secção continua a ser o backlog geral, para quando o trabalho de Auth terminar.
+**O backlog Auth decidido em P-089 está concluído (P-090 a P-096).** A tabela abaixo fica como registo. A próxima fase escolhe-se com o utilizador a partir do "Backlog geral" — os itens de Auth ainda abertos (`R-061`, `R-062`, `R-064`, `R-066`, `R-049`, reintrodução do SSO) estão lá.
 
 ### Backlog Auth — UC-driven (decidido em P-089)
 
 Uma fase por caso de uso, um commit por fase, todas no branch `feature/auth-uc`. O estado por caso de uso vive na tabela no topo da secção "Casos de Uso" de `specs/AUTH.md` — **é essa a fonte de verdade**, e atualizá-la faz parte das Acções de Fecho de cada uma destas fases. A ordem é por dependência, não por importância.
 
-| Fase      | Âmbito                                                | Porquê nesta posição                                                                                                                                |
-| --------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ~~P-090~~ | ~~**UC-AUTH-004** (Logout)~~                          | ✅ **Concluído em P-090.** `refresh()` verifica `revokedAt`; `logout()` inalterado. Decisões P090-01/P090-02.                                       |
-| ~~P-091~~ | ~~**UC-AUTH-003** (Recuperação de Password)~~         | ✅ **Concluído em P-091.** Página de consumo do token, `FRONTEND_URL`, endpoints alinhados, 3a implementado. Fechou `R-056`.                        |
-| ~~P-092~~ | ~~**UC-AUTH-005** (Configurar MFA)~~                  | ✅ **Concluído em P-092.** Página de self-service, códigos de recuperação (passo 6), saída do estado "MFA obrigatório". Decisões P092-00 a P092-05. |
-| ~~P-093~~ | ~~**UC-AUTH-001** (Login)~~                           | ✅ **Concluído em P-093.** Desafio MFA em dois passos, 4a, 403 no bloqueio; `username` fica como desvio (P093-02).                                  |
-| ~~P-094~~ | ~~**Remover Keycloak/SSO**~~ (reorientada em P092-00) | ✅ **Concluído em P-094.** Decisões P094-01 a P094-03. O SSO volta como fase nova, desenhada de raiz (incl. `state`/PKCE e sessões reais).          |
-| ~~P-095~~ | ~~**Endurecimentos de MFA (`R-065`)**~~               | ✅ **Concluído em P-095.** Pedido direto do utilizador antes do timeout (P095-00). Decisões P095-01 a P095-03.                                      |
-| **P-096** | **BR-AUTH-005** (timeout de sessão por inatividade)   | Não é um caso de uso, mas é da spec. Ligar `sessionTimeoutMinutes`, hoje configurável na UI de Admin e ligado a nada.                               |
+| Fase      | Âmbito                                                  | Porquê nesta posição                                                                                                                                |
+| --------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ~~P-090~~ | ~~**UC-AUTH-004** (Logout)~~                            | ✅ **Concluído em P-090.** `refresh()` verifica `revokedAt`; `logout()` inalterado. Decisões P090-01/P090-02.                                       |
+| ~~P-091~~ | ~~**UC-AUTH-003** (Recuperação de Password)~~           | ✅ **Concluído em P-091.** Página de consumo do token, `FRONTEND_URL`, endpoints alinhados, 3a implementado. Fechou `R-056`.                        |
+| ~~P-092~~ | ~~**UC-AUTH-005** (Configurar MFA)~~                    | ✅ **Concluído em P-092.** Página de self-service, códigos de recuperação (passo 6), saída do estado "MFA obrigatório". Decisões P092-00 a P092-05. |
+| ~~P-093~~ | ~~**UC-AUTH-001** (Login)~~                             | ✅ **Concluído em P-093.** Desafio MFA em dois passos, 4a, 403 no bloqueio; `username` fica como desvio (P093-02).                                  |
+| ~~P-094~~ | ~~**Remover Keycloak/SSO**~~ (reorientada em P092-00)   | ✅ **Concluído em P-094.** Decisões P094-01 a P094-03. O SSO volta como fase nova, desenhada de raiz (incl. `state`/PKCE e sessões reais).          |
+| ~~P-095~~ | ~~**Endurecimentos de MFA (`R-065`)**~~                 | ✅ **Concluído em P-095.** Pedido direto do utilizador antes do timeout (P095-00). Decisões P095-01 a P095-03.                                      |
+| ~~P-096~~ | ~~**BR-AUTH-005** (timeout de sessão por inatividade)~~ | ✅ **Concluído em P-096.** Deslizante, servidor + browser; `R-061` fica para depois (P096-01). Decisões P096-00 a P096-03.                          |
 
 Notas para quem pegar nisto:
 
@@ -144,19 +145,19 @@ Não escolhas por conta própria; usa esta lista para apresentar opções ao uti
 - **`R-057`/`R-059` (descobertos em P-088) — limpeza de configuração**: `SENTRY_DSN` e `PROMETHEUS_ENABLED` não são lidas por nenhum código (decidir entre ligar ou remover do `.env.example`); `docs/openapi.json` é regenerado a cada arranque em dev mas não está no `.gitignore`.
 - **`R-058`/`R-060` (descobertos em P-088) — fixação do Node e cache de tipos do frontend**: sem `.nvmrc` (host 22 vs Docker/CI 20; o utilizador recusou explicitamente o `.nvmrc` em P-088) e `frontend/tsconfig.tsbuildinfo` fora de qualquer pasta de output. Ambos benignos hoje.
 
-- **`R-061` (descoberto em P-089) — sessões vivem num `Map` em memória do processo (`CacheService`)**: `JwtAuthGuard` valida cada pedido contra esse `Map` e nunca contra `hr.sessions`; `RateLimitGuard` tem o mesmo problema. Reiniciar o backend termina todas as sessões; com mais do que uma instância a autenticação parte-se. O Redis já existe no `docker-compose` e na CI, mas este módulo não o usa. Ver `specs/GLOBAL-TASKS-RISKS.md`.
+- **`R-061` (descoberto em P-089) — sessões vivem num `Map` em memória do processo (`CacheService`)**: `JwtAuthGuard` valida cada pedido contra esse `Map` e nunca contra `hr.sessions`; `RateLimitGuard` tem o mesmo problema. Reiniciar o backend termina todas as sessões; com mais do que uma instância a autenticação parte-se. O Redis já existe no `docker-compose` e na CI, mas este módulo não o usa. Ver `specs/GLOBAL-TASKS-RISKS.md`. Desde P-096 inclui também as chaves de atividade do timeout por inatividade.
 - **`R-062` (descoberto em P-089) — access e refresh token em `localStorage`** (`frontend/src/stores/auth.store.ts`): um XSS expõe um refresh token de 7 dias. Ver `specs/GLOBAL-TASKS-RISKS.md`.
 - ~~`R-063` (descoberto em P-089) — SSO sem `state` nem PKCE~~ **Deixou de se aplicar em P-094** (decisão P094-01): o SSO foi removido. Quando for reintroduzido, `state`/PKCE fazem parte do desenho de raiz.
 
-A próxima sessão **não precisa de escolher área de foco** — é P-096 (BR-AUTH-005), conforme a tabela "Backlog Auth" acima, e fecha o branch `feature/auth-uc`. O backlog geral fica em espera até lá.
+O backlog Auth terminou em P-096. **A próxima sessão tem de escolher a área de foco com o utilizador**, a partir desta lista (ver secção 4).
 
 ## 4. Antes de avançar
 
-**A área de foco já foi decidida em P-089 — não a voltes a perguntar.** A próxima fase é **P-096 = BR-AUTH-005 (timeout de sessão por inatividade)**, conforme a tabela "Backlog Auth" da secção 3. Abre `specs/AUTH.md`, lê o caso de uso completo (fluxo principal numerado + a linha correspondente na tabela de estado) e começa por aí. Os endpoints de MFA existem desde as fases iniciais; falta a página de self-service (a decisão P059-04 deixou-a conscientemente de fora) e os códigos de recuperação do passo 6.
+**O backlog Auth (P-089) está concluído — a área de foco seguinte ainda não foi decidida.** Apresenta ao utilizador as opções do "Backlog geral" da secção 3, no formato da regra 7, e espera pela escolha antes de implementar. Se o branch `feature/auth-uc` ainda não tiver sido integrado em `develop`, lembra-o disso primeiro.
 
 O que as regras 2 e 3 do `AGENTS.md` continuam a exigir é o resto: **qualquer decisão de implementação que o texto do caso de uso não cubra para o trabalho e gera uma pergunta**, no formato da regra 7. Exemplos concretos que vão aparecer nestas fases:
 
-- P-096: o timeout por inatividade é deslizante (renovado a cada pedido) ou absoluto? E decide-se `R-061` (sessões num `Map` em memória) antes ou em conjunto?
+- Qualquer item do backlog geral: a fronteira de âmbito é o texto da spec ou do risco correspondente; o que ele não cobrir gera uma pergunta.
 
 A fronteira de âmbito de cada fase é **o texto numerado do caso de uso**. Nada fora dele entra sem decisão explícita do utilizador — e isso inclui `R-061`/`R-062`/`R-063`, por muito tentador que seja corrigi-los enquanto se está no ficheiro certo.
 

@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUiStore } from '@/stores/ui.store';
+import { useIdleLogout } from '@/lib/useIdleLogout';
 import { fetchWorkflowInboxCount } from '@/api/workflow.api';
 import { fetchUnreadCount } from '@/api/notifications.api';
 
@@ -63,8 +64,12 @@ const managerOrAdminRoutes = ['/users', '/capacity', '/reports'];
 
 export function AppLayout(): React.JSX.Element {
   const { sidebarOpen, toggleSidebar } = useUiStore();
-  const { logout, user, permissions, mfaSetupRequired } = useAuthStore();
+  const { logout, user, permissions, mfaSetupRequired, sessionTimeoutMinutes } = useAuthStore();
   const navigate = useNavigate();
+
+  useIdleLogout(sessionTimeoutMinutes, () => {
+    void logout().then(() => navigate('/login?reason=idle', { replace: true }));
+  });
 
   const isAdmin = permissions.includes('admin:*') || permissions.some((p) => p.startsWith('admin'));
   const isManagerOrAdmin = isAdmin || permissions.includes('manager');

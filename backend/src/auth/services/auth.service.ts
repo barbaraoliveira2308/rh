@@ -17,6 +17,7 @@ import { PasswordHistory } from '../entities/password-history.entity';
 import { MfaRecoveryCode } from '../entities/mfa-recovery-code.entity';
 import { JwtService } from './jwt.service';
 import { MfaService } from './mfa.service';
+import { SessionActivityService } from './session-activity.service';
 import { CacheService } from '../../cache/cache.service';
 import { AdminService } from '../../admin/admin.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
@@ -44,6 +45,8 @@ export interface LoginSuccess {
   refreshToken: string;
   user: { id: string; email: string; username: string; roles: string[] };
   mfaSetupRequired: boolean;
+  // BR-AUTH-005: o frontend usa-o para terminar a sessão no browser após inatividade.
+  sessionTimeoutMinutes: number;
 }
 
 export interface MfaChallenge {
@@ -68,6 +71,7 @@ export class AuthService {
     private readonly mfaRecoveryCodeRepository: Repository<MfaRecoveryCode>,
     private readonly jwtService: JwtService,
     private readonly mfaService: MfaService,
+    private readonly sessionActivity: SessionActivityService,
     private readonly cacheService: CacheService,
     private readonly configService: ConfigService,
     private readonly adminService: AdminService,
@@ -215,7 +219,9 @@ export class AuthService {
     });
     await this.sessionRepository.save(session);
 
-    await this.cacheService.set(`session:${accessHash}`, user.id, 15 * 60 * 1000);
+    // O valor da chave é o id da sessão: é por ele que o JwtAuthGuard encontra a atividade.
+    await this.cacheService.set(`session:${accessHash}`, session.id, 15 * 60 * 1000);
+    await this.sessionActivity.touch(session.id);
     await this.cacheService.set(
       `refresh:${refreshHash}`,
       JSON.stringify({ userId: user.id, sessionId: session.id }),
@@ -232,6 +238,7 @@ export class AuthService {
         roles,
       },
       mfaSetupRequired,
+      sessionTimeoutMinutes: await this.sessionActivity.timeoutMinutes(),
     };
   }
 
@@ -261,6 +268,13 @@ export class AuthService {
       throw new UnauthorizedException('Sessão revogada ou inexistente');
     }
 
+    // BR-AUTH-005: o refresh não conta como atividade (o frontend também o faz a partir do
+    // polling) e não reanima uma sessão já inativa — revoga-a.
+    if (!(await this.sessionActivity.isActive(session.id))) {
+      await this.sessionRepository.update({ id: session.id }, { revokedAt: new Date() });
+      throw new UnauthorizedException('Sessão terminada por inatividade');
+    }
+
     const user = await this.userRepository.findOneBy({ id: payload.sub });
     if (!user?.isActive) {
       throw new UnauthorizedException('Utilizador não encontrado ou inativo');
@@ -282,7 +296,7 @@ export class AuthService {
 
     await this.sessionRepository.update({ id: parsed.sessionId }, { tokenHash: newAccessHash });
 
-    await this.cacheService.set(`session:${newAccessHash}`, user.id, 15 * 60 * 1000);
+    await this.cacheService.set(`session:${newAccessHash}`, parsed.sessionId, 15 * 60 * 1000);
     await this.cacheService.set(
       `refresh:${newRefreshHash}`,
       JSON.stringify({ userId: user.id, sessionId: parsed.sessionId }),

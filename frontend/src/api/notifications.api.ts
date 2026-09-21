@@ -1,4 +1,4 @@
-import apiClient from './client';
+import apiClient, { BACKGROUND_REQUEST } from './client';
 import type {
   Notification,
   NotificationListResponse,
@@ -23,7 +23,10 @@ export async function markAllNotificationsRead(): Promise<void> {
 }
 
 export async function fetchUnreadCount(): Promise<{ count: number }> {
-  const response = await apiClient.get<{ count: number }>('/notifications/unread-count');
+  const response = await apiClient.get<{ count: number }>(
+    '/notifications/unread-count',
+    BACKGROUND_REQUEST,
+  );
   return response.data;
 }
 

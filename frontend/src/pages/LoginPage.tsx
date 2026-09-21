@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { FormProvider } from 'react-hook-form';
 import { Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,8 @@ export function LoginPage(): React.JSX.Element {
   const { login, verifyMfa, cancelMfa, isLoading, error, pendingMfaChallenge, clearError } =
     useAuthStore();
   const showMfa = pendingMfaChallenge !== null;
+  const [searchParams] = useSearchParams();
+  const endedByInactivity = searchParams.get('reason') === 'idle';
 
   const loginForm = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -84,6 +86,11 @@ export function LoginPage(): React.JSX.Element {
               onSubmit={(e) => void loginForm.handleSubmit(onLoginSubmit)(e)}
               className="space-y-4"
             >
+              {endedByInactivity && (
+                <p className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+                  A sessão terminou por inatividade. Inicie sessão novamente.
+                </p>
+              )}
               <FormField name="email" label="Email" type="email" placeholder="nome@empresa.pt" />
               <FormField
                 name="password"

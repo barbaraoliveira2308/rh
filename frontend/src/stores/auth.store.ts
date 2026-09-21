@@ -7,6 +7,8 @@ import { queryClient } from '@/lib/queryClient';
 import { getErrorMessage } from '@/lib/utils';
 
 const STORAGE_KEY = 'srh-auth';
+// Valor por omissão de SystemSetting.sessionTimeoutMinutes, para estados guardados antes de P-096.
+const DEFAULT_SESSION_TIMEOUT_MINUTES = 30;
 
 interface PersistedAuth {
   accessToken: string | null;
@@ -16,6 +18,8 @@ interface PersistedAuth {
   permissions: string[];
   // Admin sem MFA com mfaRequiredForAdmin ativo: o token só serve para configurar o MFA.
   mfaSetupRequired: boolean;
+  // BR-AUTH-005: minutos sem interação até o browser terminar a sessão.
+  sessionTimeoutMinutes: number;
 }
 
 interface AuthState extends PersistedAuth {
@@ -42,6 +46,7 @@ function loadPersistedState(): PersistedAuth {
     isAuthenticated: false,
     permissions: [],
     mfaSetupRequired: false,
+    sessionTimeoutMinutes: DEFAULT_SESSION_TIMEOUT_MINUTES,
   };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -72,6 +77,7 @@ function sessionStateFrom(response: LoginSuccessResponse): PersistedAuth {
     isAuthenticated: true,
     permissions: response.user.roles,
     mfaSetupRequired: response.mfaSetupRequired,
+    sessionTimeoutMinutes: response.sessionTimeoutMinutes,
   };
 }
 
@@ -92,6 +98,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: persisted.isAuthenticated,
   permissions: persisted.permissions,
   mfaSetupRequired: persisted.mfaSetupRequired,
+  sessionTimeoutMinutes: persisted.sessionTimeoutMinutes,
   isLoading: false,
   error: null,
   pendingMfaChallenge: null,

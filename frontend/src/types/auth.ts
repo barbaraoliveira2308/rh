@@ -20,6 +20,7 @@ export interface LoginSuccessResponse {
   refreshToken: string;
   user: User;
   mfaSetupRequired: boolean;
+  sessionTimeoutMinutes: number;
 }
 
 // UC-AUTH-001 passo 4: com MFA ativo, a password devolve só um desafio de curta duração.

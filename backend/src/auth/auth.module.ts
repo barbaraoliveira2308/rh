@@ -3,9 +3,11 @@ import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Reflector } from '@nestjs/core';
 import { AuthController } from './auth.controller';
+import { SessionActivityController } from './session-activity.controller';
 import { AuthService } from './services/auth.service';
 import { JwtService, EncryptionService } from './services';
 import { MfaService } from './services/mfa.service';
+import { SessionActivityService } from './services/session-activity.service';
 import { EmployeeIdentityService } from './services/employee-identity.service';
 import { JwtAuthGuard, SESSION_VALIDATOR } from './guards';
 import { SessionValidator } from './guards/jwt-auth.guard';
@@ -63,12 +65,13 @@ const AUTH_ACTION_BY_HANDLER: Record<string, string> = {
     AuditModule,
     NotificationsModule,
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, SessionActivityController],
   providers: [
     AuthService,
     JwtService,
     EncryptionService,
     MfaService,
+    SessionActivityService,
     EmployeeIdentityService,
     AuthAuditInterceptor,
     RateLimitGuard,
@@ -77,26 +80,32 @@ const AUTH_ACTION_BY_HANDLER: Record<string, string> = {
       useFactory: (
         jwtService: JwtService,
         cacheService: CacheService,
+        sessionActivity: SessionActivityService,
         reflector: Reflector,
       ): JwtAuthGuard => {
         return new JwtAuthGuard(
           jwtService,
           {
-            isSessionActive: (tokenHash: string) => cacheService.exists(`session:${tokenHash}`),
+            isSessionActive: (tokenHash: string, countsAsActivity: boolean) =>
+              sessionActivity.validate(tokenHash, countsAsActivity),
             invalidateSession: (tokenHash: string) => cacheService.del(`session:${tokenHash}`),
           },
           reflector,
         );
       },
-      inject: [JwtService, CacheService, Reflector],
+      inject: [JwtService, CacheService, SessionActivityService, Reflector],
     },
     {
       provide: SESSION_VALIDATOR,
-      useFactory: (cacheService: CacheService): SessionValidator => ({
-        isSessionActive: (tokenHash: string) => cacheService.exists(`session:${tokenHash}`),
+      useFactory: (
+        cacheService: CacheService,
+        sessionActivity: SessionActivityService,
+      ): SessionValidator => ({
+        isSessionActive: (tokenHash: string, countsAsActivity: boolean) =>
+          sessionActivity.validate(tokenHash, countsAsActivity),
         invalidateSession: (tokenHash: string) => cacheService.del(`session:${tokenHash}`),
       }),
-      inject: [CacheService],
+      inject: [CacheService, SessionActivityService],
     },
     {
       provide: AUDIT_EVENT_HANDLER,

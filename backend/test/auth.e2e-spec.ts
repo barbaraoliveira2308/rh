@@ -9,6 +9,7 @@ import { hash } from 'argon2';
 import { TOTP, Secret } from 'otpauth';
 import { NotificationsService } from '../src/notifications/services/notifications.service';
 import { RateLimitGuard } from '../src/auth/guards/rate-limit.guard';
+import { CacheService } from '../src/cache/cache.service';
 
 process.env.MFA_ENCRYPTION_KEY = 'change_me_mfa_key_32_bytes';
 
@@ -497,6 +498,57 @@ describe('Auth (e2e)', () => {
         .post('/api/auth/login/mfa')
         .send({ challengeToken: second, code: totpFor(secret, -1) })
         .expect(401);
+    });
+  });
+
+  describe('Timeout por inatividade (BR-AUTH-005)', () => {
+    it('deve terminar a sessão sem atividade e recusar o refresh', async () => {
+      const email = 'idle@hr-suite.local';
+      await dataSource.getRepository('User').save({
+        email,
+        username: 'idle',
+        passwordHash: await hash('UserPass123!'),
+      });
+
+      const loginRes = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ email, password: 'UserPass123!' })
+        .expect(200);
+      expect(loginRes.body.sessionTimeoutMinutes).toBe(30);
+      const accessToken = loginRes.body.accessToken as string;
+
+      // Pedido automático (polling) e heartbeat do frontend continuam a funcionar.
+      await request(app.getHttpServer())
+        .get('/api/auth/me')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .set('X-Background-Request', '1')
+        .expect(200);
+      await request(app.getHttpServer())
+        .post('/api/auth/activity')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(204);
+
+      // Simula o fim do timeout: a chave de atividade expira sem pedidos do utilizador.
+      const [session] = await dataSource.query<Array<{ id: string }>>(
+        `SELECT s.id FROM hr.sessions s JOIN hr.users u ON u.id = s.user_id WHERE u.email = $1`,
+        [email],
+      );
+      await app.get(CacheService).del(`activity:${session.id}`);
+
+      await request(app.getHttpServer())
+        .get('/api/auth/me')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(401);
+      const refreshRes = await request(app.getHttpServer())
+        .post('/api/auth/refresh')
+        .send({ refreshToken: loginRes.body.refreshToken })
+        .expect(401);
+      expect(refreshRes.body.message).toBe('Sessão terminada por inatividade');
+
+      const revoked = (await dataSource.getRepository('Session').findOneBy({ id: session.id })) as {
+        revokedAt: Date | null;
+      };
+      expect(revoked.revokedAt).not.toBeNull();
     });
   });
 
