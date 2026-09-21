@@ -21,6 +21,7 @@ import {
   GraduationCap,
   FileBarChart,
   ShieldCheck,
+  Megaphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -53,6 +54,7 @@ const navItems: NavItem[] = [
   { label: 'Relatórios', href: '/reports', icon: <FileBarChart className="h-4 w-4" /> },
   { label: 'Privacidade', href: '/gdpr', icon: <ShieldCheck className="h-4 w-4" /> },
   { label: 'Notificações', href: '/notifications', icon: <Bell className="h-4 w-4" /> },
+  { label: 'Comunicados', href: '/announcements', icon: <Megaphone className="h-4 w-4" /> },
   { label: 'Administração', href: '/admin/settings', icon: <Settings className="h-4 w-4" /> },
 ];
 
@@ -151,8 +153,8 @@ export function AppLayout(): React.JSX.Element {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-6">
-          <div className="mx-auto max-w-7xl">
+        <main className="flex-1 overflow-auto p-4 sm:p-6">
+          <div className="w-full">
             <Outlet />
           </div>
         </main>
