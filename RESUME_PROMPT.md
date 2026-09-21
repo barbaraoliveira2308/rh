@@ -12,6 +12,8 @@
 
 ## 2. Estado atual (resumo — confirmar sempre contra o `PROJECT_STATE.md`)
 
+- **P-088 em andamento — migração gradual para MUI e microfrontends:** o frontend mantém o SPA atual como shell, com MUI instalado, tema partilhado ligado via `ThemeProvider` e a camada base compartilhada (`Button`, `Card`, `Input`, `DataTable`, `Dialog` e `Select`) já migrada. Tailwind/Radix continuam temporariamente para permitir migração incremental; os módulos serão extraídos gradualmente por domínio, com deploy independente na etapa de microfrontend.
+
 - Stack: NestJS + React 18 + TypeORM + PostgreSQL, monorepo pnpm (`backend/`, `frontend/`, `shared/`).
 - Última fase concluída: **P-088** (correção do arranque em dev e produção, a partir de um relatório de consultoria externa com 9 gaps entre o Quickstart do `README.md` e a realidade; nenhum módulo funcional tocado — toda a fase é arranque/infra/documentação). Os 3 modos (Modo A tudo em Docker, Modo B app no host, Produção) foram validados de raiz pelo utilizador.
 - **23 dos 23 módulos** da spec (`specs/README.md`) `Implemented` no backend — nenhum módulo em `Draft`.

@@ -1,6 +1,16 @@
 import * as React from 'react';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import Box from '@mui/material/Box';
+import Checkbox from '@mui/material/Checkbox';
+import Paper from '@mui/material/Paper';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import TableSortLabel from '@mui/material/TableSortLabel';
+import Typography from '@mui/material/Typography';
 import { Button } from '@/components/ui/button';
 
 export interface Column<T> {
@@ -73,91 +83,93 @@ export function DataTable<T>({
   }, [data.length]);
 
   return (
-    <div className={cn('w-full overflow-hidden rounded-md border', className)}>
-      <div className="overflow-x-auto">
-        <table className="w-full caption-bottom text-sm">
-          <thead className="border-b bg-muted/50">
-            <tr>
+    <Paper className={className} sx={{ width: '100%', overflow: 'hidden' }}>
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
               {selectable && (
-                <th className="w-12 px-4 py-3 text-left">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-border"
+                <TableCell padding="checkbox">
+                  <Checkbox
                     checked={
                       paginatedData.length > 0 &&
                       paginatedData.every((row) => selectedRows.includes(keyExtractor(row)))
                     }
                     onChange={toggleSelectAll}
                   />
-                </th>
+                </TableCell>
               )}
               {columns.map((column) => (
-                <th
+                <TableCell
                   key={column.key}
-                  className={cn(
-                    'px-4 py-3 text-left font-medium text-muted-foreground',
-                    column.sortable && 'cursor-pointer select-none hover:text-foreground',
-                  )}
-                  onClick={() => {
-                    if (column.sortable) {
-                      handleSort(column.key);
-                    }
-                  }}
+                  sortDirection={sortColumn === column.key ? sortDirection : false}
                 >
-                  <div className="flex items-center gap-1">
-                    {column.header}
-                    {column.sortable && sortColumn === column.key && (
-                      <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                    )}
-                  </div>
-                </th>
+                  {column.sortable ? (
+                    <TableSortLabel
+                      active={sortColumn === column.key}
+                      direction={sortColumn === column.key ? sortDirection : 'asc'}
+                      onClick={() => {
+                        handleSort(column.key);
+                      }}
+                    >
+                      {column.header}
+                    </TableSortLabel>
+                  ) : (
+                    column.header
+                  )}
+                </TableCell>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHead>
+          <TableBody>
             {paginatedData.map((row) => {
               const id = keyExtractor(row);
               return (
-                <tr key={id} className="border-b transition-colors hover:bg-muted/50">
+                <TableRow key={id} hover>
                   {selectable && (
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-border"
+                    <TableCell padding="checkbox">
+                      <Checkbox
                         checked={selectedRows.includes(id)}
                         onChange={() => {
                           toggleSelectRow(id);
                         }}
                       />
-                    </td>
+                    </TableCell>
                   )}
                   {columns.map((column) => (
-                    <td key={`${id}-${column.key}`} className="px-4 py-3">
-                      {column.cell(row)}
-                    </td>
+                    <TableCell key={`${id}-${column.key}`}>{column.cell(row)}</TableCell>
                   ))}
-                </tr>
+                </TableRow>
               );
             })}
             {paginatedData.length === 0 && (
-              <tr>
-                <td
-                  colSpan={columns.length + (selectable ? 1 : 0)}
-                  className="px-4 py-8 text-center text-muted-foreground"
-                >
-                  Nenhum resultado encontrado.
-                </td>
-              </tr>
+              <TableRow>
+                <TableCell colSpan={columns.length + (selectable ? 1 : 0)} align="center">
+                  <Typography color="text.secondary" sx={{ py: 3 }}>
+                    Nenhum resultado encontrado.
+                  </Typography>
+                </TableCell>
+              </TableRow>
             )}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </TableContainer>
       {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t px-4 py-3">
-          <div className="text-sm text-muted-foreground">
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderTop: 1,
+            borderColor: 'divider',
+            px: 2,
+            py: 1.5,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">
             Página {currentPage} de {totalPages}
-          </div>
-          <div className="flex items-center gap-1">
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
             <Button
               variant="outline"
               size="icon"
@@ -198,9 +210,9 @@ export function DataTable<T>({
             >
               <ChevronsRight className="h-4 w-4" />
             </Button>
-          </div>
-        </div>
+          </Box>
+        </Box>
       )}
-    </div>
+    </Paper>
   );
 }
