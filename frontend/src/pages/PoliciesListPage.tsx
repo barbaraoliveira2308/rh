@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuthStore } from '@/stores/auth.store';
+import { PolicyAcceptanceLogTable } from '@/components/PolicyAcceptanceLogTable';
 import { fetchPolicies, createPolicy } from '@/api/policies.api';
 import { PolicyStatus, type Policy, type CreatePolicyRequest } from '@/types/policies';
 
@@ -279,6 +280,12 @@ export function PoliciesListPage(): React.JSX.Element {
         </Tabs>
       ) : (
         <PoliciesTable />
+      )}
+
+      {canManage && (
+        <div className="mt-8">
+          <PolicyAcceptanceLogTable />
+        </div>
       )}
 
       <NewPolicyDialog open={dialogOpen} onOpenChange={setDialogOpen} />

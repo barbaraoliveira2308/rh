@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dialog';
 import { useAuthStore } from '@/stores/auth.store';
 import { fetchEmployees } from '@/api/users.api';
+import { PolicyDocument } from '@/components/PolicyDocument';
 import {
   fetchPolicy,
   fetchPolicyVersions,
@@ -274,7 +275,9 @@ export function PolicyDetailPage(): React.JSX.Element {
       )}
 
       <Card className="mb-6">
-        <CardContent className="whitespace-pre-wrap pt-6 text-sm">{policy.content}</CardContent>
+        <CardContent className="pt-6 text-sm">
+          <PolicyDocument policy={policy} />
+        </CardContent>
       </Card>
 
       {canManage && versions && versions.length > 1 && (

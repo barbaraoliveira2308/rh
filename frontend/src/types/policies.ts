@@ -38,3 +38,13 @@ export interface UpdatePolicyRequest {
   category?: string;
   tags?: string[];
 }
+
+export interface PolicyAcceptanceLog {
+  id: string;
+  userId: string;
+  policyId: string;
+  policyVersion: number;
+  acceptedAt: string;
+  user: { username: string; email: string };
+  policy: { title: string };
+}
