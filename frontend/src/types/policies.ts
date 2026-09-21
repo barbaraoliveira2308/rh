@@ -46,5 +46,5 @@ export interface PolicyAcceptanceLog {
   policyVersion: number;
   acceptedAt: string;
   user: { username: string; email: string };
-  policy: { title: string };
+  policy: { title: string; category: string };
 }

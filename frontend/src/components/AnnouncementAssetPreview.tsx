@@ -210,7 +210,7 @@ export function AnnouncementAssetPreview({
         onClick={() => {
           downloadMutation.mutate();
         }}
-        type="button"
+        type="outline"
         variant="outline"
       >
         {downloadMutation.isPending ? (

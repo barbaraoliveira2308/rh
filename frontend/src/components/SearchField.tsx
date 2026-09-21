@@ -31,6 +31,7 @@ export const SearchField = React.forwardRef<HTMLInputElement, SearchFieldProps>(
         type="search"
         size="small"
         fullWidth
+
         slotProps={{
           input: {
             startAdornment: (
@@ -50,6 +51,16 @@ export const SearchField = React.forwardRef<HTMLInputElement, SearchFieldProps>(
                 </IconButton>
               </InputAdornment>
             ) : undefined,
+          },
+        }}
+        sx={{
+          height: '18px',
+          minHeight: '28px',
+          '& .MuiOutlinedInput-notchedOutline': {
+            top: 0,
+            '& legend': {
+              fontSize: '0.8125rem',
+            },
           },
         }}
       />
