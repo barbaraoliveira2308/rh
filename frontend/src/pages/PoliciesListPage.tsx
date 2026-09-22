@@ -235,12 +235,11 @@ function PoliciesTable({
             sx={{
               bgcolor: 'primary.main',
               color: 'primary.contrastText',
-
-              marginLeft: 103,
               height: 30,
               px: 1.5,
               py: 0.5,
               fontSize: '0.8125rem',
+              marginLeft: 'auto',
             }}
           >
             Nova Política
