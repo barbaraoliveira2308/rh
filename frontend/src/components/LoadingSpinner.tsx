@@ -1,5 +1,5 @@
-import { Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import CircularProgress from '@mui/material/CircularProgress';
+import Box from '@mui/material/Box';
 
 interface LoadingSpinnerProps {
   className?: string;
@@ -7,5 +7,9 @@ interface LoadingSpinnerProps {
 }
 
 export function LoadingSpinner({ className, size = 24 }: LoadingSpinnerProps): React.JSX.Element {
-  return <Loader2 className={cn('animate-spin text-brand-800', className)} size={size} />;
+  return (
+    <Box className={className} sx={{ display: 'inline-flex' }}>
+      <CircularProgress color="primary" size={size} />
+    </Box>
+  );
 }

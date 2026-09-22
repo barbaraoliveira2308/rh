@@ -82,7 +82,7 @@ export function TimesheetsListPage(): React.JSX.Element {
 
   const employeesQuery = useQuery({
     queryKey: ['employees', 'active'],
-    queryFn: () => fetchEmployees({ status: EmployeeStatus.ACTIVE, limit: 1000 }),
+    queryFn: () => fetchEmployees({ status: EmployeeStatus.ACTIVE, limit: 100 }),
     enabled: isManagerUser,
   });
 

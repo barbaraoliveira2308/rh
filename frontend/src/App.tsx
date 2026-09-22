@@ -20,6 +20,9 @@ const ResetPasswordConfirmPage = React.lazy(() =>
 const DashboardPage = React.lazy(() =>
   import('@/pages/DashboardPage').then((m) => ({ default: m.DashboardPage })),
 );
+const AnnouncementsPage = React.lazy(() =>
+  import('@/pages/AnnouncementsPage').then((m) => ({ default: m.AnnouncementsPage })),
+);
 const UsersListPage = React.lazy(() =>
   import('@/pages/UsersListPage').then((m) => ({ default: m.UsersListPage })),
 );
@@ -178,6 +181,7 @@ export function App(): React.JSX.Element {
                 }
               >
                 <Route path="/" element={<DashboardPage />} />
+                <Route path="/announcements" element={<AnnouncementsPage />} />
                 <Route path="/users" element={<UsersListPage />} />
                 <Route path="/users/new" element={<UserNewPage />} />
                 <Route path="/users/:id" element={<UserDetailPage />} />

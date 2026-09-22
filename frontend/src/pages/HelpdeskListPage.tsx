@@ -211,6 +211,9 @@ function NewTicketDialog({
 
 function TicketsTab(): React.JSX.Element {
   const navigate = useNavigate();
+  const permissions = useAuthStore((state) => state.permissions);
+  const isAdmin = permissions.includes('admin:*') || permissions.some((p) => p.startsWith('admin'));
+  const canListEmployees = isAdmin || permissions.includes('manager');
   const [status, setStatus] = React.useState(ALL);
   const [priority, setPriority] = React.useState(ALL);
   const [categoryId, setCategoryId] = React.useState(ALL);
@@ -235,6 +238,7 @@ function TicketsTab(): React.JSX.Element {
   const { data: employeesResponse } = useQuery({
     queryKey: ['helpdesk-employees'],
     queryFn: () => fetchEmployees({ limit: 100 }),
+    enabled: canListEmployees,
   });
 
   const employeeNameByUserId = React.useMemo(() => {

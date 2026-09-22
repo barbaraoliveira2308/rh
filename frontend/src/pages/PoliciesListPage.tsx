@@ -4,8 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, Search } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
+import { SearchField } from '@/components/SearchField';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { StatusBadge, type BadgeVariant } from '@/components/StatusBadge';
 import { DataTable, type Column } from '@/components/DataTable';
@@ -201,16 +202,8 @@ function PoliciesTable({ status }: { status?: PolicyStatus }): React.JSX.Element
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-4">
-        <div className="relative w-[260px]">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-            }}
-            placeholder="Pesquisar por palavra-chave"
-            className="pl-9"
-          />
+        <div className="w-[260px]">
+          <SearchField value={q} onChange={setQ} placeholder="Pesquisar por palavra-chave" />
         </div>
         <div className="w-[200px]">
           <Input

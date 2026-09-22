@@ -1,47 +1,43 @@
 import * as React from 'react';
-import { Slot } from '@radix-ui/react-slot';
-import { cva, type VariantProps } from 'class-variance-authority';
-import { cn } from '@/lib/utils';
+import MuiButton, { type ButtonProps as MuiButtonProps } from '@mui/material/Button';
 
-const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
-  {
-    variants: {
-      variant: {
-        default: 'bg-brand-800 text-white hover:bg-brand-900',
-        destructive: 'bg-red-600 text-white hover:bg-red-700',
-        outline: 'border border-border bg-background hover:bg-muted',
-        secondary: 'bg-brand-100 text-brand-900 hover:bg-brand-200',
-        ghost: 'hover:bg-muted',
-        link: 'text-brand-800 underline-offset-4 hover:underline',
-      },
-      size: {
-        default: 'h-10 px-4 py-2',
-        sm: 'h-8 rounded-md px-3 text-xs',
-        lg: 'h-11 rounded-md px-8',
-        icon: 'h-10 w-10',
-      },
-    },
-    defaultVariants: {
-      variant: 'default',
-      size: 'default',
-    },
-  },
-);
-
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
+export interface ButtonProps extends Omit<MuiButtonProps, 'size' | 'variant'> {
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+  size?: 'default' | 'sm' | 'lg' | 'icon';
   asChild?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : 'button';
+  ({ size = 'default', variant = 'default', asChild: _asChild, sx, style, ...props }, ref) => {
+    const muiVariant =
+      variant === 'default' || variant === 'destructive' || variant === 'secondary'
+        ? 'contained'
+        : variant === 'outline'
+          ? 'outlined'
+          : 'text';
+    const color =
+      variant === 'destructive' ? 'error' : variant === 'secondary' ? 'secondary' : 'primary';
+    const muiSize =
+      size === 'default' || size === 'icon' ? 'medium' : size === 'sm' ? 'small' : 'large';
+    const buttonStyle: React.CSSProperties = {
+      ...(size === 'icon' ? { minWidth: 40, width: 40, paddingLeft: 0, paddingRight: 0 } : {}),
+      ...(variant === 'link' ? { textDecoration: 'underline', textUnderlineOffset: 4 } : {}),
+      ...style,
+    };
+
     return (
-      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+      <MuiButton
+        ref={ref}
+        variant={muiVariant}
+        color={color}
+        size={muiSize}
+        sx={sx}
+        style={buttonStyle}
+        {...props}
+      />
     );
   },
 );
 Button.displayName = 'Button';
 
-export { Button, buttonVariants };
+export { Button };

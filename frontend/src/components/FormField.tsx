@@ -1,10 +1,11 @@
 import * as React from 'react';
 import { useFormContext } from 'react-hook-form';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
+import TextField from '@mui/material/TextField';
 
-interface FormFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
+interface FormFieldProps extends Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  'color' | 'size'
+> {
   name: string;
   label: string;
   helperText?: string;
@@ -25,11 +26,17 @@ export function FormField({
   const error = errors[name]?.message as string | undefined;
 
   return (
-    <div className={cn('space-y-2', className)}>
-      <Label htmlFor={name}>{label}</Label>
-      <Input id={name} aria-invalid={!!error} {...register(name)} {...inputProps} />
-      {helperText && !error && <p className="text-xs text-muted-foreground">{helperText}</p>}
-      {error && <p className="text-xs text-red-600">{error}</p>}
-    </div>
+    <TextField
+      {...register(name)}
+      {...inputProps}
+      className={className}
+      error={Boolean(error)}
+      helperText={error ?? helperText}
+      id={name}
+      label={label}
+      size="small"
+      fullWidth
+      variant="outlined"
+    />
   );
 }

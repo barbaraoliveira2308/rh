@@ -1,10 +1,9 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Tree, TreeNode } from 'react-organizational-chart';
-import { Search } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { Input } from '@/components/ui/input';
+import { SearchField } from '@/components/SearchField';
 import { Card, CardContent } from '@/components/ui/card';
 import { fetchOrgChart } from '@/api/users.api';
 import type { OrgChartNode } from '@/types/users';
@@ -63,17 +62,11 @@ export function OrgChartPage(): React.JSX.Element {
       <PageHeader title="Organograma" description="Estrutura hierárquica da organização" />
 
       <div className="mb-6 max-w-md">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Pesquisar colaborador..."
-            className="pl-9"
-            value={searchTerm}
-            onChange={(event) => {
-              setSearchTerm(event.target.value);
-            }}
-          />
-        </div>
+        <SearchField
+          placeholder="Pesquisar colaborador..."
+          value={searchTerm}
+          onChange={setSearchTerm}
+        />
       </div>
 
       {isLoading && (
