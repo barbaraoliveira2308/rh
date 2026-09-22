@@ -4,7 +4,6 @@ import CampaignIcon from '@mui/icons-material/Campaign';
 import DescriptionIcon from '@mui/icons-material/Description';
 import ImageIcon from '@mui/icons-material/Image';
 import LinkIcon from '@mui/icons-material/Link';
-import PollIcon from '@mui/icons-material/Poll';
 import VideoFileIcon from '@mui/icons-material/VideoFile';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
@@ -16,28 +15,20 @@ import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { AnnouncementAssetPreview } from '@/components/AnnouncementAssetPreview';
 import {
   addAnnouncementLink,
   createAnnouncement,
   fetchAnnouncements,
   uploadAnnouncementAsset,
 } from '@/api/announcements.api';
-import type { AnnouncementAssetType, AnnouncementFormField } from '@/types/announcements';
-
-const defaultField: AnnouncementFormField = {
-  name: 'email',
-  label: 'Email',
-  type: 'email',
-  required: true,
-};
+import type { AnnouncementAssetType } from '@/types/announcements';
 
 export function AnnouncementsPage(): React.JSX.Element {
   const queryClient = useQueryClient();
   const loadMoreRef = React.useRef<HTMLDivElement | null>(null);
   const [title, setTitle] = React.useState('');
   const [body, setBody] = React.useState('');
-  const [formEnabled, setFormEnabled] = React.useState(false);
-  const [formTitle, setFormTitle] = React.useState('Inscrição');
   const [linkUrl, setLinkUrl] = React.useState('');
   const [assetType, setAssetType] = React.useState<AnnouncementAssetType>('image');
   const [assetFile, setAssetFile] = React.useState<File | null>(null);
@@ -56,7 +47,6 @@ export function AnnouncementsPage(): React.JSX.Element {
       const announcement = await createAnnouncement({
         title,
         body,
-        forms: formEnabled ? [{ title: formTitle, fields: [defaultField] }] : [],
       });
       if (linkUrl.trim()) await addAnnouncementLink(announcement.id, 'link', linkUrl.trim());
       if (assetFile) await uploadAnnouncementAsset(announcement.id, assetType, assetFile);
@@ -65,7 +55,6 @@ export function AnnouncementsPage(): React.JSX.Element {
     onSuccess: async () => {
       setTitle('');
       setBody('');
-      setFormEnabled(false);
       setLinkUrl('');
       setAssetFile(null);
       setLinkEnabled(false);
@@ -133,20 +122,6 @@ export function AnnouncementsPage(): React.JSX.Element {
               placeholder="Escreva o comunicado..."
             />
             <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-              <Tooltip title="Adicionar formulário">
-                <IconButton
-                  aria-label="Adicionar formulário"
-                  aria-pressed={formEnabled}
-                  color={formEnabled ? 'secondary' : 'default'}
-                  onClick={() => {
-                    setFormEnabled((value) => !value);
-                  }}
-                  size="small"
-                  type="button"
-                >
-                  <PollIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
               <Tooltip title="Adicionar imagem">
                 <IconButton
                   aria-label="Adicionar imagem"
@@ -235,25 +210,6 @@ export function AnnouncementsPage(): React.JSX.Element {
                 Ficheiro: {assetFile.name}
               </Typography>
             )}
-            {formEnabled && (
-              <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, p: 2 }}>
-                <Stack spacing={2}>
-                  <Typography variant="subtitle2">Formulário de inscrição</Typography>
-                  <TextField
-                    label="Título do formulário"
-                    value={formTitle}
-                    onChange={(event) => {
-                      setFormTitle(event.target.value);
-                    }}
-                    fullWidth
-                  />
-                  <Typography color="text.secondary" variant="body2">
-                    A primeira versão inclui um campo obrigatório de email e será expandida com mais
-                    tipos de campo.
-                  </Typography>
-                </Stack>
-              </Box>
-            )}
             {createMutation.isError && (
               <Typography color="error">Não foi possível publicar o comunicado.</Typography>
             )}
@@ -288,10 +244,12 @@ export function AnnouncementsPage(): React.JSX.Element {
             </CardHeader>
             <CardContent>
               <Typography sx={{ whiteSpace: 'pre-wrap' }}>{item.body}</Typography>
-              {item.forms.length > 0 && (
-                <Typography color="primary" sx={{ mt: 2 }} variant="body2">
-                  Formulário: {item.forms[0]?.title}
-                </Typography>
+              {item.assets.length > 0 && (
+                <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {item.assets.map((asset) => (
+                    <AnnouncementAssetPreview asset={asset} key={asset.id} />
+                  ))}
+                </Box>
               )}
             </CardContent>
           </Card>
