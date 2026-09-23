@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1040" viewBox="0 0 1600 1040" role="img" aria-labelledby="title desc">
+  <title id="title">Arquitetura atual do frontend do HR Suite</title>
+  <desc id="desc">Diagrama da aplicação React, rotas protegidas, páginas, componentes, estado, APIs e backend.</desc>
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#1f2933" flood-opacity="0.14"/></filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#68757a"/></marker>
+    <style>
+      .title { font: 700 30px 'Segoe UI', Arial, sans-serif; fill: #263238; }
+      .subtitle { font: 400 16px 'Segoe UI', Arial, sans-serif; fill: #667277; }
+      .layer { font: 700 15px 'Segoe UI', Arial, sans-serif; fill: #4b5558; letter-spacing: 1.5px; }
+      .group { font: 700 18px 'Segoe UI', Arial, sans-serif; fill: #263238; }
+      .label { font: 600 14px 'Segoe UI', Arial, sans-serif; fill: #263238; }
+      .small { font: 400 12px 'Segoe UI', Arial, sans-serif; fill: #667277; }
+      .box { stroke: #c7ced0; stroke-width: 1.4; rx: 9; }
+      .arrow { stroke: #68757a; stroke-width: 2.1; fill: none; marker-end: url(#arrow); }
+      .dashed { stroke-dasharray: 7 6; }
+    </style>
+  </defs>
+  <rect width="1600" height="1040" fill="#f4f6f6"/>
+  <rect x="44" y="30" width="1512" height="980" rx="18" fill="#fff" stroke="#d6dcde" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="84" y="88" class="title">HR Suite · Arquitetura do frontend</text>
+  <text x="84" y="118" class="subtitle">React 18 + Vite · SPA com rotas lazy-loaded · estado local e servidor separados</text>
+
+  <text x="84" y="164" class="layer">BOOTSTRAP DA APLICAÇÃO</text>
+  <rect x="84" y="184" width="1432" height="116" rx="12" fill="#eef3f3" stroke="#c8d4d5"/>
+  <rect x="112" y="211" width="220" height="62" class="box" fill="#fff"/><text x="222" y="238" text-anchor="middle" class="group">main.tsx</text><text x="222" y="260" text-anchor="middle" class="small">ReactDOM · index.css</text>
+  <rect x="366" y="211" width="220" height="62" class="box" fill="#fff"/><text x="476" y="238" text-anchor="middle" class="group">App.tsx</text><text x="476" y="260" text-anchor="middle" class="small">ErrorBoundary · Suspense</text>
+  <rect x="620" y="211" width="220" height="62" class="box" fill="#fff"/><text x="730" y="238" text-anchor="middle" class="group">Providers</text><text x="730" y="260" text-anchor="middle" class="small">QueryClient · BrowserRouter</text>
+  <rect x="874" y="211" width="220" height="62" class="box" fill="#fff"/><text x="984" y="238" text-anchor="middle" class="group">Theme</text><text x="984" y="260" text-anchor="middle" class="small">MUI · Tailwind · shadcn/ui</text>
+  <rect x="1128" y="211" width="360" height="62" class="box" fill="#fff"/><text x="1308" y="238" text-anchor="middle" class="group">Code splitting</text><text x="1308" y="260" text-anchor="middle" class="small">React.lazy + fallback PageLoader</text>
+
+  <path d="M800 300 L800 350" class="arrow"/>
+
+  <text x="84" y="386" class="layer">NAVEGAÇÃO E CONTROLO DE ACESSO</text>
+  <rect x="84" y="406" width="1432" height="108" rx="12" fill="#f5f2ed" stroke="#ded4c5"/>
+  <rect x="112" y="432" width="300" height="54" class="box" fill="#fffdf9"/><text x="262" y="455" text-anchor="middle" class="label">AuthLayout</text><text x="262" y="475" text-anchor="middle" class="small">login · reset password</text>
+  <rect x="458" y="432" width="300" height="54" class="box" fill="#fffdf9"/><text x="608" y="455" text-anchor="middle" class="label">PublicRoute</text><text x="608" y="475" text-anchor="middle" class="small">redireciona sessão autenticada</text>
+  <rect x="804" y="432" width="300" height="54" class="box" fill="#fffdf9"/><text x="954" y="455" text-anchor="middle" class="label">AppLayout</text><text x="954" y="475" text-anchor="middle" class="small">sidebar · header · navegação</text>
+  <rect x="1150" y="432" width="338" height="54" class="box" fill="#fffdf9"/><text x="1319" y="455" text-anchor="middle" class="label">ProtectedRoute</text><text x="1319" y="475" text-anchor="middle" class="small">exige sessão autenticada</text>
+
+  <path d="M800 514 L800 560" class="arrow"/>
+
+  <text x="84" y="596" class="layer">PÁGINAS POR DOMÍNIO</text>
+  <rect x="84" y="616" width="1432" height="164" rx="12" fill="#edf0f1" stroke="#cbd2d4"/>
+  <text x="112" y="645" class="label">Rotas lazy-loaded</text>
+  <g>
+    <rect x="112" y="662" width="164" height="32" rx="7" fill="#fff" stroke="#c7ced0"/><text x="194" y="683" text-anchor="middle" class="small">Dashboard · Users</text>
+    <rect x="290" y="662" width="164" height="32" rx="7" fill="#fff" stroke="#c7ced0"/><text x="372" y="683" text-anchor="middle" class="small">Projects · Teams</text>
+    <rect x="468" y="662" width="164" height="32" rx="7" fill="#fff" stroke="#c7ced0"/><text x="550" y="683" text-anchor="middle" class="small">Timesheets · Absences</text>
+    <rect x="646" y="662" width="164" height="32" rx="7" fill="#fff" stroke="#c7ced0"/><text x="728" y="683" text-anchor="middle" class="small">Expenses · Workflow</text>
+    <rect x="824" y="662" width="164" height="32" rx="7" fill="#fff" stroke="#c7ced0"/><text x="906" y="683" text-anchor="middle" class="small">Policies · Helpdesk</text>
+    <rect x="1002" y="662" width="164" height="32" rx="7" fill="#fff" stroke="#c7ced0"/><text x="1084" y="683" text-anchor="middle" class="small">Calendar · Training</text>
+    <rect x="1180" y="662" width="164" height="32" rx="7" fill="#fff" stroke="#c7ced0"/><text x="1262" y="683" text-anchor="middle" class="small">Reports · GDPR</text>
+    <rect x="1358" y="662" width="130" height="32" rx="7" fill="#fff" stroke="#c7ced0"/><text x="1423" y="683" text-anchor="middle" class="small">Admin</text>
+    <rect x="112" y="716" width="164" height="32" rx="7" fill="#fff" stroke="#c7ced0"/><text x="194" y="737" text-anchor="middle" class="small">Announcements</text>
+    <rect x="290" y="716" width="164" height="32" rx="7" fill="#fff" stroke="#c7ced0"/><text x="372" y="737" text-anchor="middle" class="small">Notifications</text>
+    <rect x="468" y="716" width="164" height="32" rx="7" fill="#fff" stroke="#c7ced0"/><text x="550" y="737" text-anchor="middle" class="small">Detail / New views</text>
+    <rect x="646" y="716" width="842" height="32" rx="7" fill="#e8eeee" stroke="#c7d4d5"/><text x="1067" y="737" text-anchor="middle" class="small">MUI DataGrid · formulários React Hook Form + Zod · componentes de domínio</text>
+  </g>
+
+  <path d="M800 780 L800 828" class="arrow"/>
+
+  <text x="84" y="864" class="layer">CAMADA PARTILHADA E INTEGRAÇÃO</text>
+  <rect x="84" y="884" width="1432" height="88" rx="12" fill="#eef3f3" stroke="#c8d4d5"/>
+  <rect x="112" y="906" width="250" height="44" rx="8" fill="#fff" stroke="#c7ced0"/><text x="237" y="933" text-anchor="middle" class="label">components/ · layouts/</text>
+  <rect x="390" y="906" width="250" height="44" rx="8" fill="#fff" stroke="#c7ced0"/><text x="515" y="933" text-anchor="middle" class="label">stores/ · lib/ · theme/</text>
+  <rect x="668" y="906" width="250" height="44" rx="8" fill="#fff" stroke="#c7ced0"/><text x="793" y="933" text-anchor="middle" class="label">api/client.ts · APIs</text>
+  <rect x="946" y="906" width="250" height="44" rx="8" fill="#fff" stroke="#c7ced0"/><text x="1071" y="933" text-anchor="middle" class="label">types/ · shared package</text>
+  <rect x="1224" y="906" width="264" height="44" rx="8" fill="#fff" stroke="#c7ced0"/><text x="1356" y="933" text-anchor="middle" class="label">Backend REST /api</text>
+
+  <path d="M918 928 L1224 928" class="arrow"/>
+  <text x="1065" y="918" text-anchor="middle" class="small">Axios · JWT Bearer · React Query</text>
+</svg>
