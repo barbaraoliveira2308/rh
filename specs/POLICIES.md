@@ -45,12 +45,16 @@ Publicar, organizar e disponibilizar políticas internas e conhecimento organiza
 
 ## APIs
 
-- GET /api/v1/policies
+- GET /api/v1/policies?q=&category=&status=
 - POST /api/v1/policies
 - GET /api/v1/policies/:id
-- PUT /api/v1/policies/:id
+- GET /api/v1/policies/:id/versions
+- PATCH /api/v1/policies/:id
 - POST /api/v1/policies/:id/publish
-- GET /api/v1/policies/search?q=
+- DELETE /api/v1/policies/:id (arquiva, não elimina)
+- GET /api/v1/policies/acceptance/pending
+- POST /api/v1/policies/:id/accept
+- GET /api/v1/policies/acceptance/logs
 
 ## Nota sobre IA
 
@@ -62,15 +66,17 @@ Implementado em P-020 (`backend/src/policies/`), documentado em P-027.
 
 - **Entidade `Policy`**: campos conforme a spec, mais `parent_id` (UUID, nullable) — liga uma versão publicada à sua versão original, usado por `findVersions()` para reconstruir o histórico. `status` é `varchar(20)` com valores do enum `PolicyStatus` (draft, published, archived), em vez de um `ENUM` nativo do Postgres.
 - **Pesquisa (RF-POL-002)**: implementada com `tsvector`/`plainto_tsquery('portuguese', ...)` do Postgres sobre `title || content`, aplicada diretamente em `GET /policies?q=`. Não existe um endpoint `GET /policies/search` separado como listado na spec original — a pesquisa é um filtro opcional do mesmo endpoint de listagem, junto com `category`.
-- **Versionamento (RF-POL-003)**: `update()` nunca faz UPDATE em linha existente — cria sempre uma nova linha com `version + 1` e `status = draft`, preservando a versão publicada anterior imutável. `GET /policies/:id/versions` (extra face à spec original, admin-only) devolve todas as versões de uma política.
-- **Rotas reais**: `POST /policies`, `GET /policies` (lista publicadas, com `q`/`category`), `GET /policies/:id`, `GET /policies/:id/versions` (admin), `PATCH /policies/:id` (a spec original listava `PUT`), `POST /policies/:id/publish`, `DELETE /policies/:id` (arquiva — não apaga; corresponde ao estado `archived` do enum).
+- **Versionamento (RF-POL-003)**: `update()` nunca faz UPDATE em linha existente — cria sempre uma nova linha com `version + 1` e `status = draft`, preservando a versão publicada anterior imutável. `GET /policies/:id/versions` devolve todas as versões e está disponível para Administrador e Gestor.
+- **Rotas reais**: `POST /policies`, `GET /policies` (lista publicadas por omissão, com `q`/`category`; `status` permite ao Administrador/Gestor consultar rascunhos e arquivadas), `GET /policies/:id`, `GET /policies/:id/versions`, `PATCH /policies/:id`, `POST /policies/:id/publish`, `DELETE /policies/:id` (arquiva — não apaga; corresponde ao estado `archived` do enum), e as rotas de aceite obrigatório listadas acima.
 - **Permissões**: `findAll`/`findOne` sem `@Roles` — qualquer utilizador autenticado pode ver/pesquisar políticas publicadas, conforme a tabela de permissões. Criar e editar exigem `RoleEnum.ADMIN` ou `RoleEnum.MANAGER` (alargado a Gestor em P-086); publicar e arquivar continuam exclusivos de `RoleEnum.ADMIN`.
+- **Aceite obrigatório**: `PolicyAcceptance` regista utilizador, política, versão e data de aceite em `hr.policy_acceptances`, com unicidade por par utilizador/política. O frontend bloqueia a continuação enquanto existirem políticas publicadas pendentes e permite aceitar individualmente ou em lote.
 - **RF-POL-005** (IA para pesquisa contextual): não implementado, conforme já assinalado como fora de âmbito v1.
 
 ## Frontend (P-037)
 
-- `frontend/src/pages/PoliciesListPage.tsx` (`/policies`) — item "Políticas" na sidebar, visível a todos os utilizadores autenticados (sem restrição de papel, conforme "Ver políticas publicadas" ✅ para Admin/Gestor/Colaborador). Não-admin vê diretamente a tabela de políticas publicadas com pesquisa (`q`) e filtro de categoria (texto livre, campo `category` não é um enum fixo no backend). Admin vê `Tabs` "Publicadas"/"Rascunhos"/"Arquivadas" e botão "Nova Política" (diálogo com título/categoria/conteúdo em `<textarea>` simples — sem editor rich-text, por não haver nenhuma biblioteca deste tipo no frontend nem ter sido pedida; conteúdo tratado como texto simples também na leitura, com `white-space: pre-wrap`, para evitar risco de XSS ao injetar HTML gerado pelo admin).
-- `frontend/src/pages/PolicyDetailPage.tsx` (`/policies/:id`) — título, badges de estado/versão, categoria, tags, autor (resolvido via `GET /employees` cruzando `Employee.userId` com `Policy.authorId`, mesmo padrão do Helpdesk) e conteúdo. Ações admin: "Editar (nova versão)" (chama `PATCH /policies/:id`, que devolve uma nova linha/versão — a página navega para o novo `id`, mantendo a versão anterior imutável), "Publicar" (se `draft`), "Arquivar" (se `published`, com `ConfirmDialog`). Secção "Histórico de Versões" (admin, via `GET /policies/:id/versions`) lista todas as versões com link para cada uma.
+- `frontend/src/pages/PoliciesListPage.tsx` (`/policies`) — item "Políticas" na sidebar, visível a todos os utilizadores autenticados (sem restrição de papel, conforme "Ver políticas publicadas" ✅ para Admin/Gestor/Colaborador). A tabela usa o toolbar do DataGrid para filtragem local das colunas carregadas; não envia `q` para a pesquisa full-text nem pesquisa o conteúdo integral. Administrador e Gestor veem as abas "Publicadas"/"Rascunhos"/"Arquivadas" e o botão "Nova Política" (diálogo com título/categoria/conteúdo em `<textarea>` simples — sem editor rich-text; conteúdo tratado como texto simples também na leitura, com `white-space: pre-wrap`).
+- `frontend/src/pages/PolicyDetailPage.tsx` (`/policies/:id`) — título, metadados de estado/versão/categoria, tags, autor, ações e histórico. A visualização do conteúdo usa uma página de manual institucional, com ambiente acinzentado, folha central clara, cabeçalho formal, divisórias, margens e tipografia sóbria. Administrador e Gestor podem editar; apenas Administrador pode publicar ou arquivar. O histórico de versões está disponível para ambos.
+- `frontend/src/components/PolicyAcceptanceGate.tsx` — modal bloqueante de "Leitura e aceite obrigatório", apresentado a utilizadores autenticados com políticas publicadas pendentes. Usa a mesma linguagem visual de manual institucional, com cabeçalho de conformidade, instruções, Accordion por política, checkbox individual, opção "marcar todas" e ação "Aceitar e continuar".
 - **Gap de backend encontrado e corrigido nesta fase** (decisão do utilizador P037-01): `PoliciesService.findAll()` filtrava sempre por `PUBLISHED`, sem forma de listar rascunhos — intencional para o público, mas impedia uma UI de gestão (um rascunho só era visível pela UI logo a seguir a ser criado, através do `id` devolvido na resposta; se o admin saísse da página antes de publicar, o rascunho ficava inacessível). `findAll()` ganhou um 4º parâmetro `status` mais um 5º `isAdmin` — só quando `isAdmin` é `true` e `status` é fornecido é que o filtro deixa de ser forçado a `PUBLISHED`; a verificação de admin é feita no `PoliciesController` a partir do JWT (`user.roles.includes(RoleEnum.ADMIN)`), nunca confiando no valor enviado pelo cliente. `GET /policies?status=` passa a aceitar o parâmetro (Swagger `@ApiQuery`), usado pela aba "Rascunhos"/"Arquivadas" do frontend. 3 novos testes unitários (180/180 total, antes 177/177).
 - `pnpm run lint` (0 erros) e `pnpm run build` (raiz — shared, backend, frontend) green; verificação em browser real via Playwright contra a stack Docker completa — criação de política (rascunho), publicação, edição (nova versão em rascunho mantendo a v1 publicada imutável), histórico de versões, aba "Rascunhos" a mostrar corretamente a v2, pesquisa full-text a devolver o resultado esperado, 0 erros de consola em todos os passos.
 
