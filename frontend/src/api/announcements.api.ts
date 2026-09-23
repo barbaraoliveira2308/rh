@@ -1,12 +1,11 @@
 import apiClient from './client';
-import type { Announcement, AnnouncementFeed, AnnouncementFormField } from '@/types/announcements';
+import type { Announcement, AnnouncementFeed } from '@/types/announcements';
 import type { AnnouncementAsset, AnnouncementAssetType } from '@/types/announcements';
 
 export interface CreateAnnouncementRequest {
   title: string;
   body?: string;
   bodyBlocks?: Record<string, unknown>[];
-  forms?: { title: string; fields: AnnouncementFormField[] }[];
 }
 
 export async function fetchAnnouncements(cursor?: string, limit = 10): Promise<AnnouncementFeed> {
@@ -47,5 +46,10 @@ export async function uploadAnnouncementAsset(
     formData,
     { params: { assetType }, headers: { 'Content-Type': 'multipart/form-data' } },
   );
+  return response.data;
+}
+
+export async function fetchAnnouncementAssetBlob(url: string): Promise<Blob> {
+  const response = await apiClient.get<Blob>(url, { responseType: 'blob' });
   return response.data;
 }

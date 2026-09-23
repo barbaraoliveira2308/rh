@@ -7,13 +7,14 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { EmployeeIdentityService } from '../auth/services/employee-identity.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -96,6 +97,14 @@ export class AnnouncementsController {
   @Get('forms/:formId/responses')
   async responses(@Param('formId') formId: string, @Req() req: Request) {
     return this.announcementsService.listResponses(formId, await this.employeeId(req));
+  }
+
+  @Get('assets/:assetId/download')
+  async downloadAsset(@Param('assetId') assetId: string, @Res() res: Response): Promise<void> {
+    const file = await this.announcementsService.getAssetStream(assetId);
+    res.setHeader('Content-Disposition', 'inline; filename="' + file.filename + '"');
+    res.setHeader('Content-Type', file.contentType);
+    file.stream.pipe(res);
   }
 
   @Get(':id')

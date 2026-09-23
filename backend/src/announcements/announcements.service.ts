@@ -1,9 +1,15 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import type { Readable } from 'stream';
 import { LessThan, Repository } from 'typeorm';
 import { StorageService } from '../storage/services/storage.service';
 import { Announcement, AnnouncementStatus } from './entities/announcement.entity';
-import { AnnouncementAsset } from './entities/announcement-asset.entity';
+import { AnnouncementAsset, AnnouncementAssetType } from './entities/announcement-asset.entity';
 import { AnnouncementForm } from './entities/announcement-form.entity';
 import { AnnouncementFormResponse } from './entities/announcement-form-response.entity';
 import {
@@ -125,23 +131,49 @@ export class AnnouncementsService {
     assetType: CreateAnnouncementAssetDto['assetType'],
   ): Promise<AnnouncementAsset> {
     await this.getOwned(id, employeeId);
+    if (assetType === AnnouncementAssetType.VIDEO && !file.mimetype.startsWith('video/')) {
+      throw new BadRequestException('O ficheiro selecionado não é um vídeo válido');
+    }
+    if (assetType === AnnouncementAssetType.IMAGE && !file.mimetype.startsWith('image/')) {
+      throw new BadRequestException('O ficheiro selecionado não é uma imagem válida');
+    }
+    if (
+      assetType === AnnouncementAssetType.DOCUMENT &&
+      (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/'))
+    ) {
+      throw new BadRequestException('O ficheiro selecionado não é um documento válido');
+    }
     const storagePath = await this.storageService.upload(
       `announcements/${id}/${String(Date.now())}-${file.originalname}`,
       file.buffer,
       file.mimetype,
     );
-    const url = await this.storageService.getPresignedUrl(storagePath);
-    return this.assetRepository.save(
+    const saved = await this.assetRepository.save(
       this.assetRepository.create({
         announcementId: id,
         assetType,
-        url,
+        url: '',
         storagePath,
         fileName: file.originalname,
         contentType: file.mimetype,
         sizeBytes: file.size,
       }),
     );
+    saved.url = `/announcements/assets/${saved.id}/download`;
+    return this.assetRepository.save(saved);
+  }
+
+  async getAssetStream(
+    assetId: string,
+  ): Promise<{ stream: Readable; contentType: string; filename: string }> {
+    const asset = await this.assetRepository.findOne({ where: { id: assetId } });
+    if (!asset?.storagePath) throw new NotFoundException('Anexo não encontrado');
+    const object = await this.storageService.getObjectStream(asset.storagePath);
+    return {
+      stream: object.body,
+      contentType: asset.contentType ?? object.contentType ?? 'application/octet-stream',
+      filename: asset.fileName ?? 'ficheiro',
+    };
   }
 
   async respond(
