@@ -99,6 +99,12 @@ export function PolicyAcceptanceGate({
           }}
         >
           <Typography
+            component="div"
+            sx={{ fontSize: '1.25rem', fontWeight: 700, mt: 0.75, textAlign: 'center' }}
+          >
+            Leitura e aceite obrigatório
+          </Typography>
+          <Typography
             sx={{
               color: '#d9dede',
               fontSize: '0.7rem',
@@ -109,12 +115,6 @@ export function PolicyAcceptanceGate({
             }}
           >
             Conformidade interna
-          </Typography>
-          <Typography
-            component="div"
-            sx={{ fontSize: '1.25rem', fontWeight: 700, mt: 0.75, textAlign: 'center' }}
-          >
-            Leitura e aceite obrigatório
           </Typography>
         </DialogTitle>
         <DialogContent dividers sx={{ backgroundColor: '#eef0f0', p: { xs: 2, sm: 3 } }}>
