@@ -2,7 +2,7 @@
 
 ## Current Architecture
 
-![Arquitetura atual do HR Suite](./architecture-current.svg)
+![Arquitetura atual do HR Suite](./architecture-current.png)
 
 O diagrama acima representa o estado atual do sistema: frontend React/Vite, API NestJS,
 módulos de negócio, serviços transversais e infraestrutura Docker. O SVG é vetorial e pode
@@ -57,7 +57,7 @@ flowchart LR
     NOTIFY[Notifications] -.->|email| SMTP
 ```
 
-O frontend está documentado em detalhe no diagrama [frontend-architecture.svg](./frontend-architecture.svg).
+O frontend está documentado em detalhe no diagrama [frontend-architecture.png](./frontend-architecture.png).
 O Keycloak é uma integração opcional para SSO; o login por email/password usa diretamente o módulo
 de autenticação do backend. Redis é usado por cache e sessões, RabbitMQ por relatórios assíncronos,
 MinIO por armazenamento S3 e Mailpit/SMTP por notificações de email.

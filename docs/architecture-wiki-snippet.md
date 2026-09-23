@@ -2,4 +2,4 @@
 
 ![Arquitetura atual do frontend do HR Suite](frontend-architecture.png)
 
-> Carregue `frontend-architecture.png` como anexo/ficheiro de imagem na página do Wiki e mantenha o nome do ficheiro no Markdown acima.
+> No Wiki, carregue primeiro `frontend-architecture.png` como anexo. Se o Wiki usar uma pasta de uploads, substitua o caminho por esse caminho gerado pelo próprio Wiki.
