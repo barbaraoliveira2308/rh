@@ -82,16 +82,49 @@ export function PolicyAcceptanceGate({
         maxWidth="md"
         onClose={() => undefined}
         aria-labelledby="policy-acceptance-title"
+        PaperProps={{
+          sx: {
+            borderRadius: 1.5,
+            overflow: 'hidden',
+          },
+        }}
       >
-        <DialogTitle id="policy-acceptance-title">Leitura e aceite obrigatório</DialogTitle>
-        <DialogContent dividers>
+        <DialogTitle
+          id="policy-acceptance-title"
+          sx={{
+            backgroundColor: '#4b5558',
+            color: '#fff',
+            px: { xs: 3, sm: 4 },
+            py: 2.5,
+          }}
+        >
+          <Typography
+            sx={{
+              color: '#d9dede',
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
+              textAlign: 'center',
+            }}
+          >
+            Conformidade interna
+          </Typography>
+          <Typography
+            component="div"
+            sx={{ fontSize: '1.25rem', fontWeight: 700, mt: 0.75, textAlign: 'center' }}
+          >
+            Leitura e aceite obrigatório
+          </Typography>
+        </DialogTitle>
+        <DialogContent dividers sx={{ backgroundColor: '#eef0f0', p: { xs: 2, sm: 3 } }}>
           {isLoading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
               <CircularProgress />
             </Box>
           )}
           {isError && (
-            <Stack spacing={2}>
+            <Stack spacing={2} sx={{ backgroundColor: '#fff', p: 3 }}>
               <Alert severity="error">
                 {getApiErrorMessage(error, 'Não foi possível carregar as políticas pendentes.')}
               </Alert>
@@ -102,35 +135,134 @@ export function PolicyAcceptanceGate({
           )}
           {!isLoading && !isError && pendingPolicies.length > 0 && (
             <Stack spacing={2}>
-              <Typography>
-                Para continuar, leia e aceite todas as políticas publicadas abaixo.
-              </Typography>
-              <FormControlLabel
-                control={<Checkbox checked={allSelected} onChange={toggleAll} />}
-                label="Marcar todas como lidas e aceites"
-              />
+              <Box sx={{ backgroundColor: '#f8f9f9', border: '1px solid #d5d8d8', p: 2.5 }}>
+                <Typography sx={{ color: '#303638', fontSize: '0.95rem', fontWeight: 600 }}>
+                  Reveja as políticas abaixo antes de continuar.
+                </Typography>
+                <Typography sx={{ color: '#687174', fontSize: '0.85rem', mt: 0.5 }}>
+                  É necessário confirmar a leitura de {pendingPolicies.length}{' '}
+                  {pendingPolicies.length === 1 ? 'política' : 'políticas'} publicada(s).
+                </Typography>
+                <FormControlLabel
+                  control={<Checkbox checked={allSelected} onChange={toggleAll} />}
+                  label="Marcar todas como lidas e aceites"
+                  sx={{ mt: 1, mb: -1, ml: -1 }}
+                />
+              </Box>
               {pendingPolicies.map((policy) => (
-                <Accordion key={policy.id} disableGutters>
-                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                    <Typography sx={{ fontWeight: 700 }}>
-                      {policy.title} · versão {policy.version}
-                    </Typography>
-                  </AccordionSummary>
-                  <AccordionDetails>
-                    <Box sx={{ mb: 1.5 }}>
-                      <PolicyDocument policy={policy} />
+                <Accordion
+                  key={policy.id}
+                  disableGutters
+                  sx={{
+                    '&:before': { display: 'none' },
+                    backgroundColor: '#fff',
+                    border: '1px solid #d2d5d5',
+                    borderRadius: 1,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <AccordionSummary
+                    expandIcon={<ExpandMoreIcon />}
+                    sx={{
+                      '&.Mui-expanded': { minHeight: 56 },
+                      '& .MuiAccordionSummary-content': { my: 1.5 },
+                      backgroundColor: '#f8f9f9',
+                    }}
+                  >
+                    <Box>
+                      <Typography sx={{ color: '#252b2d', fontWeight: 700 }}>
+                        {policy.title} · versão {policy.version}
+                      </Typography>
+                      <Typography sx={{ color: '#687174', fontSize: '0.75rem', mt: 0.25 }}>
+                        Política interna · {policy.category}
+                      </Typography>
                     </Box>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={selectedPolicyIds.has(policy.id)}
-                          onChange={() => {
-                            togglePolicy(policy.id);
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ p: 0 }}>
+                    <Box sx={{ backgroundColor: '#e7e8e8', p: { xs: 1.5, sm: 3 } }}>
+                      <Box
+                        sx={{
+                          mx: 'auto',
+                          maxWidth: 820,
+                          border: '1px solid #d2d4d4',
+                          backgroundColor: '#fafafa',
+                          boxShadow: '0 10px 28px rgba(35, 42, 45, 0.12)',
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            borderBottom: '4px solid #4b5558',
+                            px: { xs: 3, sm: 6 },
+                            py: { xs: 3, sm: 4 },
                           }}
-                        />
-                      }
-                      label="Li e aceito esta política"
-                    />
+                        >
+                          <Typography
+                            sx={{
+                              color: '#687174',
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                              letterSpacing: '0.18em',
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            Política interna
+                          </Typography>
+                          <Typography
+                            component="h2"
+                            sx={{
+                              color: '#252b2d',
+                              fontFamily: 'Georgia, "Times New Roman", serif',
+                              fontSize: { xs: '1.35rem', sm: '1.7rem' },
+                              fontWeight: 700,
+                              mt: 1.5,
+                            }}
+                          >
+                            {policy.title}
+                          </Typography>
+                          <Box
+                            sx={{
+                              borderTop: '1px solid #d7d9d9',
+                              color: '#687174',
+                              display: 'grid',
+                              fontSize: '0.7rem',
+                              gap: 1,
+                              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+                              letterSpacing: '0.06em',
+                              mt: 2,
+                              pt: 1.5,
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            <span>Categoria: {policy.category}</span>
+                            <span>Versão: {policy.version}</span>
+                          </Box>
+                        </Box>
+                        <Box sx={{ px: { xs: 3, sm: 6 }, py: { xs: 3, sm: 5 } }}>
+                          <PolicyDocument policy={policy} showHeader={false} variant="sheet" />
+                        </Box>
+                      </Box>
+                    </Box>
+                    <Box
+                      sx={{
+                        borderTop: '1px solid #d7d9d9',
+                        backgroundColor: '#f8f9f9',
+                        px: 3,
+                        py: 1.5,
+                      }}
+                    >
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={selectedPolicyIds.has(policy.id)}
+                            onChange={() => {
+                              togglePolicy(policy.id);
+                            }}
+                          />
+                        }
+                        label="Li e aceito esta política"
+                        sx={{ m: 0, fontWeight: 600 }}
+                      />
+                    </Box>
                   </AccordionDetails>
                 </Accordion>
               ))}
@@ -141,13 +273,21 @@ export function PolicyAcceptanceGate({
           )}
         </DialogContent>
         {!isLoading && !isError && pendingPolicies.length > 0 && (
-          <DialogActions sx={{ px: 3, py: 2 }}>
+          <DialogActions
+            sx={{
+              backgroundColor: '#f8f9f9',
+              borderTop: '1px solid #d7d9d9',
+              px: { xs: 2, sm: 3 },
+              py: 2,
+            }}
+          >
             <Button
               variant="contained"
               onClick={() => {
                 acceptMutation.mutate();
               }}
               disabled={!allSelected || acceptMutation.isPending}
+              sx={{ minWidth: 190 }}
             >
               {acceptMutation.isPending ? 'A guardar...' : 'Aceitar e continuar'}
             </Button>

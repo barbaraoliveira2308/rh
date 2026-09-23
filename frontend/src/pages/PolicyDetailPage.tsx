@@ -318,9 +318,26 @@ export function PolicyDetailPage(): React.JSX.Element {
         <CardHeader>
           <CardTitle className="text-base">Conteúdo da política</CardTitle>
         </CardHeader>
-        <CardContent className="border-t pt-6">
-          <div className="max-w-4xl text-sm leading-7">
-            <PolicyDocument policy={policy} showHeader={false} />
+        <CardContent className="border-t bg-[#e7e8e8] p-3 sm:p-6 md:p-8">
+          <div className="mx-auto w-full max-w-4xl border border-[#d2d4d4] bg-[#fafafa] shadow-[0_10px_28px_rgba(35,42,45,0.12)]">
+            <div className="border-b-4 border-[#4b5558] px-6 py-6 sm:px-12 sm:py-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#687174]">
+                Política interna
+              </p>
+              <h2 className="mt-3 text-2xl font-semibold tracking-normal text-[#252b2d] sm:text-3xl">
+                {policy.title}
+              </h2>
+              <div className="mt-5 grid gap-3 border-t border-[#d7d9d9] pt-4 text-xs uppercase tracking-wide text-[#687174] sm:grid-cols-3">
+                <span>Categoria: {policy.category}</span>
+                <span>Versão: {policy.version}</span>
+                <span>Estado: {statusLabels[policy.status]}</span>
+              </div>
+            </div>
+            <div className="px-6 py-8 sm:px-12 sm:py-12">
+              <div className="text-sm leading-7">
+                <PolicyDocument policy={policy} showHeader={false} variant="sheet" />
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

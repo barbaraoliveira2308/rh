@@ -85,7 +85,7 @@ Pedido direto do utilizador: "Adiciona os gestores como criadores e editores de 
 ## Verificação 2026-09-23
 
 - **Conforme**: entidade, estados, versionamento imutável, tags/categorias, permissões diferenciadas para Administrador/Gestor/Colaborador, publicação exclusiva de Administrador, arquivo exclusivo de Administrador e pesquisa full-text no backend (`GET /policies?q=`).
-- **Conforme após ajuste visual**: `PolicyDetailPage` passou a separar breadcrumb/cabeçalho, metadados, tags, ações, conteúdo e histórico de versões. O título não é mais repetido dentro do conteúdo quando a política é aberta pela lista; o componente mantém o cabeçalho no fluxo de aceite obrigatório.
+- **Conforme após ajuste visual**: `PolicyDetailPage` e `PolicyAcceptanceGate` usam a mesma linguagem de manual institucional, com ambiente cinza, folha central clara, cabeçalho formal, divisórias, margens e tipografia sóbria. O detalhe separa breadcrumb/cabeçalho, metadados, tags, ações, conteúdo e histórico de versões; o aceite mantém Accordion, checkbox individual e “marcar todas”, com modal de conformidade, instruções e rodapé de confirmação destacados.
 - **Gap RF-POL-001**: a criação/edição usa `<textarea>` de texto simples, não um editor rich-text HTML/Markdown.
 - **Gap RF-POL-002 no frontend**: a lista exibe o toolbar do DataGrid, mas a pesquisa é local sobre as colunas carregadas e não envia `q` para a pesquisa full-text do backend; o conteúdo integral não é pesquisado nessa interface.
 - **Desvios de contrato documentados**: a atualização real é `PATCH /policies/:id` (não `PUT`) e a pesquisa é um filtro opcional de `GET /policies` (não uma rota separada `/policies/search`).
