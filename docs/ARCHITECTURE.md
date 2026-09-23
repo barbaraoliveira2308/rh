@@ -1,5 +1,13 @@
 # Architecture
 
+## Current Architecture
+
+![Arquitetura atual do HR Suite](./architecture-current.svg)
+
+O diagrama acima representa o estado atual do sistema: frontend React/Vite, API NestJS,
+módulos de negócio, serviços transversais e infraestrutura Docker. O SVG é vetorial e pode
+ser reutilizado em documentação técnica, apresentações e exportações para PDF.
+
 ## Component Diagram
 
 ```mermaid
