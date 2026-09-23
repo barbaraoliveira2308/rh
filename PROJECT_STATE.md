@@ -1,7 +1,9 @@
 # Project State
 
-**Current Phase:** P-092 Fluxo inicial de autenticação e políticas (100% complete)
-**Last Updated:** 2026-09-21
+**Current Phase:** P-093 Verificação e reorganização visual de Políticas (100% complete)
+**Last Updated:** 2026-09-23
+
+| P-093 | 00 | 2026-09-23 | Verificação da implementação face à spec do Módulo 17 e reorganização visual de `PolicyDetailPage`: breadcrumb/cabeçalho único, metadados em grelha, tags, ações, conteúdo e histórico separados; `PolicyDocument` ganhou `showHeader` para evitar duplicação no detalhe sem afetar o aceite obrigatório. Lint completo sem erros (12 avisos preexistentes). Build completo bloqueado por erro de tipagem preexistente em `frontend/src/components/DataTable.tsx`. Confirmados e documentados os gaps RF-POL-001 (sem editor rich-text) e RF-POL-002 no frontend (toolbar local não usa `q` full-text). |
 
 | P-092 | 00 | 2026-09-21 | Removido o fluxo frontend MFA/admin desta branch e guardado no stash `wip: configuracao MFA obrigatoria do admin`, fora do escopo atual. O frontend deixa de confiar na sessão `srh-auth` persistida em `localStorage`: sessões passam a usar `sessionStorage`, fazendo uma nova abertura da aplicação iniciar no login. Mantido o aceite obrigatório de políticas e melhoradas as mensagens reais de erro da API. Typecheck/build/lint frontend green, com 3 avisos preexistentes. |
 

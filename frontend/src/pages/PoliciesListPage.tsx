@@ -207,7 +207,7 @@ function PoliciesTable({
         headerName: '',
         sortable: false,
         filterable: false,
-        width: 80,
+        width: 95,
         renderCell: (params) => (
           <Button
             variant="ghost"
@@ -225,8 +225,8 @@ function PoliciesTable({
   );
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-4">
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
         {canManage && (
           <Button
             onClick={onCreate}
@@ -255,7 +255,7 @@ function PoliciesTable({
         autoHeight
         disableRowSelectionOnClick
         pageSizeOptions={[15, 30, 50]}
-        initialState={{ pagination: { paginationModel: { pageSize: 15, page: 0 } } }}
+        initialState={{ pagination: { paginationModel: { pageSize: 12, page: 0 } } }}
         localeText={{ noRowsLabel: 'Nenhuma política encontrada.' }}
       />
     </div>
@@ -272,7 +272,7 @@ export function PoliciesListPage(): React.JSX.Element {
     <div>
       <PageHeader
         title="Políticas Internas"
-        //description="Repositório centralizado e pesquisável de políticas e conhecimento organizacional"
+        description="Repositório centralizado e pesquisável de políticas e conhecimento organizacional"
       />
 
       {canManage ? (

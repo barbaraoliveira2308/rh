@@ -214,22 +214,62 @@ export function PolicyDetailPage(): React.JSX.Element {
   }
 
   return (
-    <div>
-      <PageHeader title={policy.title} description={`Categoria: ${policy.category}`} />
+    <div className="space-y-6">
+      <PageHeader
+        title={policy.title}
+        breadcrumb={[{ label: 'Políticas', href: '/policies' }, { label: policy.title }]}
+        description="Documento interno"
+      />
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <StatusBadge label={statusLabels[policy.status]} variant={statusVariants[policy.status]} />
-        <span className="text-sm text-muted-foreground">Versão {policy.version}</span>
-        {policy.publishedAt && (
-          <span className="text-sm text-muted-foreground">
-            · Publicada em {new Date(policy.publishedAt).toLocaleDateString('pt-PT')}
-          </span>
-        )}
-        {authorName && <span className="text-sm text-muted-foreground">· Autor: {authorName}</span>}
-      </div>
+      <Card>
+        <CardContent className="pt-6">
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Categoria
+              </dt>
+              <dd className="mt-1 text-sm font-medium">{policy.category}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Estado
+              </dt>
+              <dd className="mt-1">
+                <StatusBadge
+                  label={statusLabels[policy.status]}
+                  variant={statusVariants[policy.status]}
+                />
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Versão
+              </dt>
+              <dd className="mt-1 text-sm font-medium">{policy.version}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Última edição
+              </dt>
+              <dd className="mt-1 text-sm text-muted-foreground">
+                {new Date(policy.updatedAt).toLocaleDateString('pt-PT')}
+              </dd>
+            </div>
+          </dl>
+          {(policy.publishedAt ?? authorName) && (
+            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 border-t pt-4 text-sm text-muted-foreground">
+              {policy.publishedAt && (
+                <span>Publicada em {new Date(policy.publishedAt).toLocaleDateString('pt-PT')}</span>
+              )}
+              {authorName && <span>Última edição por {authorName}</span>}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {policy.tags && policy.tags.length > 0 && (
-        <div className="mb-4 flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-muted-foreground">Tags:</span>
           {policy.tags.map((tag) => (
             <span
               key={tag}
@@ -242,7 +282,7 @@ export function PolicyDetailPage(): React.JSX.Element {
       )}
 
       {canManage && (
-        <div className="mb-4 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             onClick={() => {
@@ -274,9 +314,14 @@ export function PolicyDetailPage(): React.JSX.Element {
         </div>
       )}
 
-      <Card className="mb-6">
-        <CardContent className="pt-6 text-sm">
-          <PolicyDocument policy={policy} />
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Conteúdo da política</CardTitle>
+        </CardHeader>
+        <CardContent className="border-t pt-6">
+          <div className="max-w-4xl text-sm leading-7">
+            <PolicyDocument policy={policy} showHeader={false} />
+          </div>
         </CardContent>
       </Card>
 
