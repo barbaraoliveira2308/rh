@@ -1,7 +1,9 @@
 # Project State
 
-**Current Phase:** P-093 Verificação e reorganização visual de Políticas (100% complete)
-**Last Updated:** 2026-09-23
+**Current Phase:** P-094 Listagem de utilizadores pendentes de aceite de políticas (100% complete)
+**Last Updated:** 2026-09-24
+
+| P-094 | 00 | 2026-09-24 | Pedido direto do utilizador: listar utilizadores que ainda não aceitaram as políticas publicadas, para Administrador/Gestor cobrarem a aceitação. 4 ambiguidades resolvidas com o utilizador antes de implementar (decisões P094-01/02/03/04): visão global agregada (não por política); consulta da listagem registada em `hr.audit_logs` (`PolicyAcceptancePendingReviewed`, chamado diretamente de `AuditService.log()` no controller, já que é um `GET` fora do mecanismo `@Audit(...)`/`AuditInterceptor`); nova secção `PolicyPendingAcceptanceTable` na página de Políticas; botão "Lembrar" por utilizador que envia notificação in-app (sem email nem lote automático). Novo `GET /policies/acceptance/pending-users` e `POST /policies/acceptance/remind/:userId` (`PoliciesController`/`PoliciesService`, `@Roles(ADMIN, MANAGER)`); `remindUser()` reaproveita `findPendingAcceptances()` já existente. `PoliciesModule` passa a importar `AuditModule`/`NotificationsModule`. 8 novos testes unitários (22/22 em `policies.service.spec.ts`). `pnpm run lint` (0 erros, mesmos avisos pré-existentes) e `pnpm test -- policies` green. `pnpm run build` continua bloqueado pelos 2 erros de tipagem pré-existentes já documentados (`DataTable.tsx`, `PolicyAcceptanceGate.tsx`), não relacionados a esta funcionalidade. |
 
 | P-093 | 00 | 2026-09-23 | Verificação da implementação face à spec do Módulo 17 e reorganização visual de `PolicyDetailPage` e `PolicyAcceptanceGate`: detalhe e aceite usam a mesma página de manual institucional, com ambiente cinza, folha central clara, cabeçalho formal, divisórias, margens e tipografia sóbria; o modal de aceite ganhou hierarquia de conformidade, instruções, cartões de políticas e rodapé de confirmação, mantendo Accordion e checkboxes. Lint completo sem erros (12 avisos preexistentes). Build completo bloqueado por erro de tipagem preexistente em `frontend/src/components/DataTable.tsx`. Confirmados e documentados os gaps RF-POL-001 (sem editor rich-text) e RF-POL-002 no frontend (toolbar local não usa `q` full-text). |
 

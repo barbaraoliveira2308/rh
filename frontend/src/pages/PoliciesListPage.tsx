@@ -20,6 +20,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuthStore } from '@/stores/auth.store';
 import { PolicyAcceptanceLogTable } from '@/components/PolicyAcceptanceLogTable';
+import { PolicyPendingAcceptanceTable } from '@/components/PolicyPendingAcceptanceTable';
 import { ReusableDataGrid } from '@/components/ReusableDataGrid';
 import type { GridColDef } from '@mui/x-data-grid';
 import { fetchPolicies, createPolicy } from '@/api/policies.api';
@@ -315,7 +316,8 @@ export function PoliciesListPage(): React.JSX.Element {
       )}
 
       {canManage && (
-        <div className="mt-8">
+        <div className="mt-8 space-y-8">
+          <PolicyPendingAcceptanceTable />
           <PolicyAcceptanceLogTable />
         </div>
       )}

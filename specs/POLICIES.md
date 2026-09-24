@@ -55,6 +55,8 @@ Publicar, organizar e disponibilizar políticas internas e conhecimento organiza
 - GET /api/v1/policies/acceptance/pending
 - POST /api/v1/policies/:id/accept
 - GET /api/v1/policies/acceptance/logs
+- GET /api/v1/policies/acceptance/pending-users (Administrador, Gestor — P-094)
+- POST /api/v1/policies/acceptance/remind/:userId (Administrador, Gestor — P-094)
 
 ## Nota sobre IA
 
@@ -97,3 +99,16 @@ Pedido direto do utilizador: "Adiciona os gestores como criadores e editores de 
 - **Desvios de contrato documentados**: a atualização real é `PATCH /policies/:id` (não `PUT`) e a pesquisa é um filtro opcional de `GET /policies` (não uma rota separada `/policies/search`).
 - **RF-POL-005** continua fora do âmbito v1 por ser integração futura com IA.
 - Validação desta revisão: lint completo sem erros, com 12 avisos preexistentes; o build completo continua bloqueado por erro de tipagem preexistente em `frontend/src/components/DataTable.tsx`, não relacionado às políticas.
+
+## P-094 — Listagem de utilizadores pendentes de aceite, para Administrador/Gestor "cobrarem" a aceitação
+
+Pedido direto do utilizador: listar os utilizadores que ainda não aceitaram as políticas publicadas, para Administrador/Gestor poderem cobrar a aceitação. Quatro decisões de âmbito confirmadas com o utilizador antes de implementar (ambiguidades genuínas, não cobertas pela spec original):
+
+- **Âmbito da listagem**: visão global agregada — todos os utilizadores ativos com pelo menos uma política publicada por aceitar, com a lista das políticas em falta por utilizador (não uma listagem por política individual).
+- **"Armazenada nos logs"**: cada consulta da listagem por Administrador/Gestor é registada em `hr.audit_logs` (`AuditService.log()`, chamado diretamente do controller — a listagem é um `GET`, fora do mecanismo `@Audit(...)`/`AuditInterceptor` que só intercepta `POST`/`PUT`/`PATCH`/`DELETE`), com `action: 'PolicyAcceptancePendingReviewed'`, `entityType: 'PolicyAcceptance'`, `entityId` = o próprio Administrador/Gestor que consultou (não há uma única entidade de negócio para uma vista agregada), `module: 'policies'`, `newValues: { pendingUsersCount }`.
+- **Exposição no frontend**: nova secção `PolicyPendingAcceptanceTable` na página de Políticas, junto do registo de aceites já existente, visível a Administrador/Gestor.
+- **Ação de "cobrar"**: botão "Lembrar" por utilizador, que envia uma notificação in-app (`NotificationsService.sendInApp()`, tipo `policy.acceptance.reminder`) listando as políticas pendentes desse utilizador — sem envio de email nem lembrete em lote automático.
+
+**Backend**: `GET /policies/acceptance/pending-users` (`PoliciesController.pendingAcceptanceUsers()`, `@Roles(ADMIN, MANAGER)`) — `PoliciesService.findPendingAcceptanceUsers()` cruza políticas publicadas × utilizadores ativos × aceites existentes, devolvendo só quem tem pelo menos uma política pendente. `POST /policies/acceptance/remind/:userId` (mesmos papéis) — `PoliciesService.remindUser()` reaproveita `findPendingAcceptances(userId)` já existente (P-020), lança `NotFoundException` se o utilizador não existir e `BadRequestException` se não tiver nada pendente. `PoliciesModule` passa a importar `AuditModule` e `NotificationsModule`.
+
+8 novos testes unitários em `policies.service.spec.ts` (22/22 no ficheiro). `pnpm run lint` (0 erros, mesmos avisos pré-existentes de `explicit-function-return-type`) e `pnpm test -- policies` green. `pnpm run build` continua bloqueado pelos 2 erros de tipagem pré-existentes já documentados (`DataTable.tsx`, `PolicyAcceptanceGate.tsx`), não relacionados a esta funcionalidade.
