@@ -1,4 +1,4 @@
-import apiClient from './client';
+import apiClient, { BACKGROUND_REQUEST } from './client';
 import { ReportFormat, type ReportJob, type ReportResult } from '@/types/reports';
 import type { ScheduledReport, CreateScheduledReportPayload } from '@/types/reports';
 
@@ -103,7 +103,7 @@ export async function generateAuditReport(
 }
 
 export async function fetchReportJob(jobId: string): Promise<ReportJob> {
-  const response = await apiClient.get<ReportJob>(`/reports/jobs/${jobId}`);
+  const response = await apiClient.get<ReportJob>(`/reports/jobs/${jobId}`, BACKGROUND_REQUEST);
   return response.data;
 }
 

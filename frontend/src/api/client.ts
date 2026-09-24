@@ -19,6 +19,10 @@ const apiClient = axios.create({
   },
 });
 
+// Pedidos automáticos (polling): o backend valida a sessão mas não os conta como atividade do
+// utilizador, senão um separador aberto nunca terminaria por inatividade (BR-AUTH-005).
+export const BACKGROUND_REQUEST = { headers: { 'X-Background-Request': '1' } };
+
 export function setAccessToken(token: string | null): void {
   accessToken = token;
 }

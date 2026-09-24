@@ -5,20 +5,17 @@ import {
   UseGuards,
   Get,
   Req,
-  Query,
   UseInterceptors,
   HttpCode,
   HttpStatus,
-  Redirect,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
-import { AuthService } from './services/auth.service';
+import { AuthService, LoginSuccess, MfaChallenge } from './services/auth.service';
 import { JwtService } from './services/jwt.service';
-import { KeycloakService } from './keycloak/keycloak.service';
 import {
   LoginDto,
+  LoginMfaDto,
   RefreshTokenDto,
   MfaVerifyDto,
   ChangePasswordDto,
@@ -39,46 +36,24 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly jwtService: JwtService,
-    private readonly keycloakService: KeycloakService,
-    private readonly configService: ConfigService,
   ) {}
-
-  @Get('sso/redirect')
-  @ApiOperation({ summary: 'Redirecionar para Keycloak SSO' })
-  @Redirect()
-  ssoRedirect(): { url: string; statusCode: number } {
-    const redirectUri = `${this.configService.get<string>('APP_URL', 'http://localhost:3000')}/auth/sso/callback`;
-    const url = this.keycloakService.getAuthorizationUrl(redirectUri);
-    return { url, statusCode: 302 };
-  }
-
-  @Get('sso/callback')
-  @ApiOperation({ summary: 'Callback do Keycloak SSO' })
-  @ApiQuery({ name: 'code', required: true })
-  @ApiQuery({ name: 'state', required: false })
-  @HttpCode(HttpStatus.OK)
-  async ssoCallback(
-    @Query('code') code: string,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
-    return this.authService.ssoLogin(code, this.keycloakService);
-  }
 
   @Post('login')
   @UseGuards(RateLimitGuard)
   @ApiOperation({ summary: 'Autenticar utilizador' })
   @HttpCode(HttpStatus.OK)
-  async login(
-    @Body() dto: LoginDto,
-    @Req() req: Request,
-  ): Promise<{
-    accessToken: string;
-    refreshToken: string;
-    user: { id: string; email: string; username: string; roles: string[] };
-  }> {
-    return this.authService.login(
-      dto.email,
-      dto.password,
-      dto.mfaCode,
+  async login(@Body() dto: LoginDto, @Req() req: Request): Promise<LoginSuccess | MfaChallenge> {
+    return this.authService.login(dto.email, dto.password, req.ip, req.headers['user-agent']);
+  }
+
+  @Post('login/mfa')
+  @UseGuards(RateLimitGuard)
+  @ApiOperation({ summary: 'Concluir login com o código MFA' })
+  @HttpCode(HttpStatus.OK)
+  async loginMfa(@Body() dto: LoginMfaDto, @Req() req: Request): Promise<LoginSuccess> {
+    return this.authService.loginMfa(
+      dto.challengeToken,
+      dto.code,
       req.ip,
       req.headers['user-agent'],
     );
@@ -116,7 +91,9 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Iniciar configuração MFA' })
   @HttpCode(HttpStatus.OK)
-  async enableMfa(@Req() req: Request): Promise<{ secret: string; qrCodeUrl: string }> {
+  async enableMfa(
+    @Req() req: Request,
+  ): Promise<{ secret: string; qrCodeUrl: string; qrCodeDataUrl: string }> {
     const user = req.user as JwtPayload;
     return this.authService.enableMfa(user.sub);
   }
@@ -127,10 +104,30 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Verificar código MFA e ativar' })
   @HttpCode(HttpStatus.OK)
-  async verifyMfa(@Req() req: Request, @Body() dto: MfaVerifyDto): Promise<{ message: string }> {
+  async verifyMfa(
+    @Req() req: Request,
+    @Body() dto: MfaVerifyDto,
+  ): Promise<{ message: string; recoveryCodes: string[] }> {
     const user = req.user as JwtPayload;
-    await this.authService.verifyMfa(user.sub, dto.code);
-    return { message: 'MFA ativado com sucesso' };
+    const { recoveryCodes } = await this.authService.verifyMfa(
+      user.sub,
+      dto.code,
+      this.currentTokenHash(req),
+    );
+    return { message: 'MFA ativado com sucesso', recoveryCodes };
+  }
+
+  @Post('mfa/recovery-codes')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Gerar novos códigos de recuperação MFA' })
+  @HttpCode(HttpStatus.OK)
+  async regenerateRecoveryCodes(
+    @Req() req: Request,
+    @Body() dto: MfaVerifyDto,
+  ): Promise<{ recoveryCodes: string[] }> {
+    const user = req.user as JwtPayload;
+    return this.authService.regenerateRecoveryCodes(user.sub, dto.code);
   }
 
   @Post('mfa/disable')
@@ -138,10 +135,17 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Desativar MFA' })
   @HttpCode(HttpStatus.OK)
-  async disableMfa(@Req() req: Request, @Body() dto: MfaDisableDto): Promise<{ message: string }> {
+  async disableMfa(
+    @Req() req: Request,
+    @Body() dto: MfaDisableDto,
+  ): Promise<{ message: string; sessionEnded: boolean }> {
     const user = req.user as JwtPayload;
-    await this.authService.disableMfa(user.sub, dto.code);
-    return { message: 'MFA desativado' };
+    const { sessionEnded } = await this.authService.disableMfa(
+      user.sub,
+      dto.code,
+      this.currentTokenHash(req),
+    );
+    return { message: 'MFA desativado', sessionEnded };
   }
 
   @Post('password/change')
@@ -158,7 +162,7 @@ export class AuthController {
     return { message: 'Password alterada com sucesso' };
   }
 
-  @Post('password/reset')
+  @Post('password/reset-request')
   @ApiOperation({ summary: 'Solicitar reset de password' })
   @HttpCode(HttpStatus.OK)
   async resetPassword(@Body() dto: ResetPasswordDto): Promise<{ message: string }> {
@@ -166,8 +170,8 @@ export class AuthController {
     return { message: 'Email enviado se a conta existir' };
   }
 
-  @Post('password/reset/confirm')
-  @ApiOperation({ summary: 'Confirmar reset de password com token' })
+  @Post('password/reset')
+  @ApiOperation({ summary: 'Definir nova password com token de reset' })
   @HttpCode(HttpStatus.OK)
   async confirmResetPassword(@Body() dto: ConfirmResetPasswordDto): Promise<{ message: string }> {
     await this.authService.confirmResetPassword(dto.token, dto.newPassword);
@@ -191,5 +195,11 @@ export class AuthController {
   }> {
     const user = req.user as JwtPayload;
     return this.authService.getProfile(user.sub);
+  }
+
+  // Só chamado em rotas com JwtAuthGuard, que já garantiu um header `Bearer <token>`.
+  private currentTokenHash(req: Request): string | undefined {
+    const token = req.headers.authorization?.split(' ')[1];
+    return token ? this.jwtService.computeTokenHash(token) : undefined;
   }
 }

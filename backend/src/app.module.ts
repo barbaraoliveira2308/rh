@@ -30,6 +30,8 @@ import { PoliciesModule } from './policies/policies.module';
 import { HelpdeskModule } from './helpdesk/helpdesk.module';
 import { StorageModule } from './storage/storage.module';
 import { AdminModule } from './admin/admin.module';
+import { AnnouncementsModule } from './announcements/announcements.module';
+import { OpportunitiesModule } from './opportunities/opportunities.module';
 import { dataSourceOptions } from './database/data-source';
 
 @Module({
@@ -66,6 +68,8 @@ import { dataSourceOptions } from './database/data-source';
     PoliciesModule,
     HelpdeskModule,
     AdminModule,
+    AnnouncementsModule,
+    OpportunitiesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

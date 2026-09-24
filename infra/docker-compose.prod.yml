@@ -43,36 +43,6 @@ services:
       timeout: 5s
       retries: 5
 
-  keycloak:
-    image: quay.io/keycloak/keycloak:23.0
-    container_name: srh-keycloak-prod
-    restart: unless-stopped
-    ports:
-      - '127.0.0.1:8080:8080'
-    environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
-      KC_DB: postgres
-      KC_DB_URL_HOST: postgres
-      KC_DB_URL_DATABASE: keycloak
-      KC_DB_USERNAME: ${POSTGRES_USER}
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
-      KC_DB_SCHEMA: keycloak
-      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME}
-      KC_HTTP_ENABLED: 'true'
-      KC_PROXY: edge
-    volumes:
-      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
-    command: start --import-realm
-    deploy:
-      resources:
-        limits:
-          memory: 1g
-          cpus: '1.0'
-    depends_on:
-      postgres:
-        condition: service_healthy
-
   minio:
     image: minio/minio:latest
     container_name: srh-minio-prod
@@ -90,6 +60,23 @@ services:
         limits:
           memory: 1g
           cpus: '1.0'
+
+  # Serviço one-shot: cria o bucket de documentos e termina. Sem isto, os uploads
+  # falham com NoSuchBucket — nem o compose nem o StorageService criam o bucket.
+  createbuckets:
+    image: quay.io/minio/mc:latest
+    container_name: srh-createbuckets-prod
+    restart: 'no'
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 '${STORAGE_ACCESS_KEY}' '${STORAGE_SECRET_KEY}' >/dev/null 2>&1; do
+        echo 'à espera do MinIO...'; sleep 2;
+      done;
+      mc mb --ignore-existing 'local/${STORAGE_BUCKET:-srh-documents}'
+      "
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -144,9 +131,12 @@ services:
       MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY}
       BACKEND_PORT: 3000
       BACKEND_CORS_ORIGIN: ${BACKEND_CORS_ORIGIN}
-      KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_REALM: hr-suite
-      KEYCLOAK_CLIENT_ID: srh-backend
+      FRONTEND_URL: ${FRONTEND_URL}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_FROM: ${SMTP_FROM}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER}
@@ -162,8 +152,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      keycloak:
-        condition: service_started
       rabbitmq:
         condition: service_healthy
 
@@ -172,10 +160,7 @@ services:
       context: ..
       dockerfile: frontend/Dockerfile
       args:
-        VITE_API_BASE_URL: ''
-        VITE_KEYCLOAK_URL: http://keycloak:8080
-        VITE_KEYCLOAK_REALM: hr-suite
-        VITE_KEYCLOAK_CLIENT_ID: srh-frontend
+        VITE_API_URL: /api
     container_name: srh-frontend-prod
     restart: unless-stopped
     ports:
