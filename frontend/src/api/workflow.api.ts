@@ -1,4 +1,4 @@
-import apiClient from './client';
+import apiClient, { BACKGROUND_REQUEST } from './client';
 import type { WorkflowItem, WorkflowCount, BulkApproveResult } from '@/types/workflow';
 
 export async function fetchWorkflowInbox(type?: string): Promise<WorkflowItem[]> {
@@ -11,7 +11,7 @@ export async function fetchWorkflowInbox(type?: string): Promise<WorkflowItem[]>
 }
 
 export async function fetchWorkflowInboxCount(): Promise<WorkflowCount> {
-  const response = await apiClient.get<WorkflowCount>('/workflow/inbox/count');
+  const response = await apiClient.get<WorkflowCount>('/workflow/inbox/count', BACKGROUND_REQUEST);
   return response.data;
 }
 

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MinLength, MaxLength } from 'class-validator';
+import { IsString, MinLength, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class LoginDto {
@@ -11,10 +11,4 @@ export class LoginDto {
   @IsString()
   @MinLength(1)
   password: string;
-
-  @ApiProperty({ description: 'Código TOTP (obrigatório se MFA ativo)', required: false })
-  @IsOptional()
-  @IsString()
-  @MaxLength(6)
-  mfaCode?: string;
 }

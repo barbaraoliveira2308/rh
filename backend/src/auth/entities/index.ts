@@ -7,3 +7,4 @@ export { UserRole } from './user-role.entity';
 export { PasswordResetToken } from './password-reset-token.entity';
 export { PasswordHistory } from './password-history.entity';
 export { ApiKey } from './api-key.entity';
+export { MfaRecoveryCode } from './mfa-recovery-code.entity';

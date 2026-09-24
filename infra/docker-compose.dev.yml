@@ -34,31 +34,6 @@ services:
       timeout: 5s
       retries: 5
 
-  keycloak:
-    image: quay.io/keycloak/keycloak:23.0
-    container_name: srh-keycloak-dev
-    restart: unless-stopped
-    ports:
-      - '8080:8080'
-    environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin123}
-      KC_DB: postgres
-      KC_DB_URL_HOST: postgres
-      KC_DB_URL_DATABASE: keycloak
-      KC_DB_USERNAME: ${POSTGRES_USER:-srh_user}
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-srh_dev_pass}
-      KC_DB_SCHEMA: keycloak
-      KC_HOSTNAME_STRICT: 'false'
-      KC_HTTP_ENABLED: 'true'
-      KC_PROXY: edge
-    volumes:
-      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
-    command: start-dev --import-realm
-    depends_on:
-      postgres:
-        condition: service_healthy
-
   minio:
     image: minio/minio:latest
     container_name: srh-minio-dev
@@ -152,9 +127,15 @@ services:
       MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-dev_mfa_encryption_key_change_in_prod}
       BACKEND_PORT: 3000
       BACKEND_CORS_ORIGIN: ${BACKEND_CORS_ORIGIN:-http://localhost:5173}
-      KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_REALM: hr-suite
-      KEYCLOAK_CLIENT_ID: srh-backend
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      # SMTP_HOST fixo em 'mailpit' (nome do serviço): o valor de .env é 'localhost',
+      # correto para o backend a correr no host (Modo B) mas inalcançável de dentro do
+      # container. Sem isto o transporter fica null e os emails são descartados em silêncio.
+      SMTP_HOST: mailpit
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@hr-suite.local}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER:-srh_rabbit}
@@ -168,8 +149,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      keycloak:
-        condition: service_started
       rabbitmq:
         condition: service_healthy
 
@@ -183,9 +162,6 @@ services:
       - '5173:5173'
     environment:
       VITE_API_URL: http://localhost:3000/api
-      VITE_KEYCLOAK_URL: http://localhost:8080
-      VITE_KEYCLOAK_REALM: hr-suite
-      VITE_KEYCLOAK_CLIENT_ID: srh-frontend
     volumes:
       - ../frontend/src:/app/frontend/src
       - ../frontend/index.html:/app/frontend/index.html

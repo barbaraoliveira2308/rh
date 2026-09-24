@@ -4,11 +4,12 @@ build/
 .turbo/
 *.tsbuildinfo
 
+# Segredos: ignorar o .env e todas as variantes (incluindo as cópias .env.bak.*
+# que o generate-secrets.sh cria), menos os exemplos versionados.
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
+!.env.test
 
 *.log
 npm-debug.log*

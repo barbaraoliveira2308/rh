@@ -1,10 +1,14 @@
 import { create } from 'zustand';
-import type { User, LoginCredentials, AuthTokens, LoginResponse } from '@/types/auth';
-import { login, refreshAccessToken, logout as apiLogout } from '@/api/auth.api';
+import { isAxiosError } from 'axios';
+import type { User, LoginCredentials, AuthTokens, LoginSuccessResponse } from '@/types/auth';
+import { login, loginMfa, refreshAccessToken, logout as apiLogout } from '@/api/auth.api';
 import { setAccessToken, setRefreshTokenFn } from '@/api/client';
 import { queryClient } from '@/lib/queryClient';
+import { getErrorMessage } from '@/lib/utils';
 
 const STORAGE_KEY = 'srh-auth';
+// Valor por omissão de SystemSetting.sessionTimeoutMinutes, para estados guardados antes de P-096.
+const DEFAULT_SESSION_TIMEOUT_MINUTES = 30;
 
 interface PersistedAuth {
   accessToken: string | null;
@@ -12,16 +16,22 @@ interface PersistedAuth {
   user: User | null;
   isAuthenticated: boolean;
   permissions: string[];
+  // Admin sem MFA com mfaRequiredForAdmin ativo: o token só serve para configurar o MFA.
+  mfaSetupRequired: boolean;
+  // BR-AUTH-005: minutos sem interação até o browser terminar a sessão.
+  sessionTimeoutMinutes: number;
 }
 
 interface AuthState extends PersistedAuth {
   isLoading: boolean;
   error: string | null;
-  pendingMfaEmail: string | null;
-  pendingMfaPassword: string | null;
+  // Token do desafio MFA devolvido pelo login. O browser nunca guarda a password (P093-01).
+  pendingMfaChallenge: string | null;
 
   login: (credentials: LoginCredentials) => Promise<void>;
   verifyMfa: (code: string) => Promise<void>;
+  cancelMfa: () => void;
+  completeMfaSetup: () => Promise<boolean>;
   refreshToken: () => Promise<boolean>;
   logout: () => Promise<void>;
   setTokens: (tokens: AuthTokens) => void;
@@ -35,13 +45,15 @@ function loadPersistedState(): PersistedAuth {
     user: null,
     isAuthenticated: false,
     permissions: [],
+    mfaSetupRequired: false,
+    sessionTimeoutMinutes: DEFAULT_SESSION_TIMEOUT_MINUTES,
   };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as PersistedAuth;
-      setAccessToken(parsed.accessToken);
-      return parsed;
+      const parsed = JSON.parse(raw) as Partial<PersistedAuth>;
+      setAccessToken(parsed.accessToken ?? null);
+      return { ...fallback, ...parsed };
     }
   } catch {
     // ignore
@@ -55,6 +67,18 @@ function savePersistedState(state: PersistedAuth): void {
   } catch {
     // ignore
   }
+}
+
+function sessionStateFrom(response: LoginSuccessResponse): PersistedAuth {
+  return {
+    user: response.user,
+    accessToken: response.accessToken,
+    refreshTokenValue: response.refreshToken,
+    isAuthenticated: true,
+    permissions: response.user.roles,
+    mfaSetupRequired: response.mfaSetupRequired,
+    sessionTimeoutMinutes: response.sessionTimeoutMinutes,
+  };
 }
 
 function clearPersistedState(): void {
@@ -73,91 +97,78 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: persisted.user,
   isAuthenticated: persisted.isAuthenticated,
   permissions: persisted.permissions,
+  mfaSetupRequired: persisted.mfaSetupRequired,
+  sessionTimeoutMinutes: persisted.sessionTimeoutMinutes,
   isLoading: false,
   error: null,
-  pendingMfaEmail: null,
-  pendingMfaPassword: null,
+  pendingMfaChallenge: null,
 
   login: async (credentials: LoginCredentials): Promise<void> => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, pendingMfaChallenge: null });
     try {
-      const response: LoginResponse = await login(credentials);
+      const response = await login(credentials);
 
-      if (response.requiresMfa) {
-        set({
-          pendingMfaEmail: credentials.email,
-          pendingMfaPassword: credentials.password,
-          isLoading: false,
-        });
+      if ('mfaRequired' in response) {
+        set({ pendingMfaChallenge: response.challengeToken, isLoading: false });
         return;
       }
 
-      const newState: PersistedAuth = {
-        user: response.user,
-        accessToken: response.accessToken,
-        refreshTokenValue: response.refreshToken,
-        isAuthenticated: true,
-        permissions: response.user.roles,
-      };
+      const newState = sessionStateFrom(response);
       setAccessToken(newState.accessToken);
       savePersistedState(newState);
-      set({
-        ...newState,
-        isLoading: false,
-        error: null,
-        pendingMfaEmail: null,
-        pendingMfaPassword: null,
-      });
+      set({ ...newState, isLoading: false, error: null });
     } catch (err) {
       setAccessToken(null);
       clearPersistedState();
       set({
         isLoading: false,
-        error: err instanceof Error ? err.message : 'Erro ao iniciar sessão',
+        error: getErrorMessage(err, 'Erro ao iniciar sessão'),
       });
       throw err;
     }
   },
 
   verifyMfa: async (code: string): Promise<void> => {
-    const { pendingMfaEmail, pendingMfaPassword } = get();
-    if (!pendingMfaEmail || !pendingMfaPassword) {
+    const { pendingMfaChallenge } = get();
+    if (!pendingMfaChallenge) {
       throw new Error('Não existe sessão MFA pendente');
     }
 
     set({ isLoading: true, error: null });
     try {
-      const response: LoginResponse = await login({
-        email: pendingMfaEmail,
-        password: pendingMfaPassword,
-        mfaCode: code,
-      });
-
-      const newState: PersistedAuth = {
-        user: response.user,
-        accessToken: response.accessToken,
-        refreshTokenValue: response.refreshToken,
-        isAuthenticated: true,
-        permissions: response.user.roles,
-      };
+      const response = await loginMfa(pendingMfaChallenge, code);
+      const newState = sessionStateFrom(response);
       setAccessToken(newState.accessToken);
       savePersistedState(newState);
-      set({
-        ...newState,
-        isLoading: false,
-        error: null,
-        pendingMfaEmail: null,
-        pendingMfaPassword: null,
-      });
+      set({ ...newState, isLoading: false, error: null, pendingMfaChallenge: null });
     } catch (err) {
-      setAccessToken(null);
-      clearPersistedState();
+      // Um código errado mantém o desafio (o utilizador corrige e volta a tentar). Um desafio
+      // expirado (401 sem ser de código) ou a conta bloqueada (403) obrigam a recomeçar.
+      const status = isAxiosError(err) ? err.response?.status : undefined;
+      const message = getErrorMessage(err, 'Erro ao verificar o código');
+      const mustRestart = status === 403 || (status === 401 && message !== 'Código MFA inválido');
       set({
         isLoading: false,
-        error: err instanceof Error ? err.message : 'Erro ao verificar MFA',
+        error: message,
+        ...(mustRestart ? { pendingMfaChallenge: null } : {}),
       });
       throw err;
     }
+  },
+
+  cancelMfa: (): void => {
+    set({ pendingMfaChallenge: null, error: null });
+  },
+
+  // O token de âmbito limitado só é trocado por um normal num refresh, que recalcula o âmbito
+  // a partir da BD — por isso concluir a configuração do MFA é um refresh.
+  completeMfaSetup: async (): Promise<boolean> => {
+    const refreshed = await get().refreshToken();
+    if (!refreshed) return false;
+    const newState: PersistedAuth = { ...get(), mfaSetupRequired: false };
+    savePersistedState(newState);
+    set({ mfaSetupRequired: false });
+    return true;
   },
 
   /* eslint-disable @typescript-eslint/no-unnecessary-condition */
@@ -202,10 +213,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       refreshTokenValue: null,
       isAuthenticated: false,
       permissions: [],
+      mfaSetupRequired: false,
       isLoading: false,
       error: null,
-      pendingMfaEmail: null,
-      pendingMfaPassword: null,
+      pendingMfaChallenge: null,
     });
   },
 
