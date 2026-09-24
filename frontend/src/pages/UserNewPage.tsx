@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Controller, FormProvider, Path, useForm, useFormContext, useWatch } from 'react-hook-form';
+import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -9,15 +9,11 @@ import { PageHeader } from '@/components/PageHeader';
 import { FormField } from '@/components/FormField';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import {
+  EmployeeSelectField,
+  type EmployeeSelectOption,
+} from '@/features/employees/components/EmployeeSelectField';
 import { createEmployee, fetchDepartments, fetchEmployees, fetchJobTitles } from '@/api/users.api';
 import { EmployeeStatus } from '@/types/users';
 
@@ -65,54 +61,7 @@ function getStatusLabel(status: EmployeeStatus): string {
   }
 }
 
-interface SelectOption {
-  value: string;
-  label: string;
-}
-
-interface SelectFieldProps {
-  name: Path<EmployeeForm>;
-  label: string;
-  options: SelectOption[];
-  placeholder?: string;
-}
-
-function SelectField({ name, label, options, placeholder }: SelectFieldProps): React.JSX.Element {
-  const { control, formState } = useFormContext<EmployeeForm>();
-  const error = formState.errors[name]?.message;
-
-  return (
-    <div className="space-y-2">
-      <Label htmlFor={name}>{label}</Label>
-      <Controller
-        name={name}
-        control={control}
-        render={({ field }) => (
-          <Select
-            value={field.value ?? ''}
-            onValueChange={(value) => {
-              field.onChange(value || undefined);
-            }}
-          >
-            <SelectTrigger id={name} aria-invalid={Boolean(error)}>
-              <SelectValue placeholder={placeholder ?? label} />
-            </SelectTrigger>
-            <SelectContent>
-              {options.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      />
-      {error && <p className="text-xs text-red-600">{error}</p>}
-    </div>
-  );
-}
-
-const stepFields: Path<EmployeeForm>[][] = [
+const stepFields: (keyof EmployeeForm)[][] = [
   ['firstName', 'lastName', 'email'],
   ['employeeNumber', 'employmentStartDate', 'status'],
 ];
@@ -170,7 +119,7 @@ export function UserNewPage(): React.JSX.Element {
     queryFn: () => fetchEmployees({ status: EmployeeStatus.ACTIVE, limit: 100 }),
   });
 
-  const departmentOptions: SelectOption[] = React.useMemo(
+  const departmentOptions: EmployeeSelectOption[] = React.useMemo(
     () =>
       departments?.map((department) => ({
         value: department.id,
@@ -179,7 +128,7 @@ export function UserNewPage(): React.JSX.Element {
     [departments],
   );
 
-  const jobTitleOptions: SelectOption[] = React.useMemo(
+  const jobTitleOptions: EmployeeSelectOption[] = React.useMemo(
     () =>
       jobTitles?.map((jobTitle) => ({
         value: jobTitle.id,
@@ -188,7 +137,7 @@ export function UserNewPage(): React.JSX.Element {
     [jobTitles],
   );
 
-  const managerOptions: SelectOption[] = React.useMemo(
+  const managerOptions: EmployeeSelectOption[] = React.useMemo(
     () =>
       managers?.data.map((manager) => ({
         value: manager.id,
@@ -280,19 +229,19 @@ export function UserNewPage(): React.JSX.Element {
             <Card>
               <CardContent className="grid gap-4 pt-6 sm:grid-cols-2 lg:grid-cols-3">
                 <FormField name="employeeNumber" label="Número de colaborador" />
-                <SelectField
+                <EmployeeSelectField<EmployeeForm>
                   name="departmentId"
                   label="Departamento"
                   placeholder="Selecionar departamento"
                   options={departmentOptions}
                 />
-                <SelectField
+                <EmployeeSelectField<EmployeeForm>
                   name="jobTitleId"
                   label="Cargo"
                   placeholder="Selecionar cargo"
                   options={jobTitleOptions}
                 />
-                <SelectField
+                <EmployeeSelectField<EmployeeForm>
                   name="managerId"
                   label="Gestor"
                   placeholder="Selecionar gestor"
@@ -301,7 +250,7 @@ export function UserNewPage(): React.JSX.Element {
                 <FormField name="employmentStartDate" label="Data de início" type="date" />
                 <FormField name="employmentEndDate" label="Data de fim" type="date" />
                 <FormField name="workLocation" label="Local de trabalho" />
-                <SelectField
+                <EmployeeSelectField<EmployeeForm>
                   name="status"
                   label="Estado"
                   placeholder="Selecionar estado"
