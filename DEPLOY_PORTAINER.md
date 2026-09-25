@@ -19,11 +19,14 @@ Diferenças face a produção (`DEPLOY_UBUNTU.md`):
 - O backend corre o **seed de dados de demo** a cada arranque, depois das migrações e do seed base.
 - Os contentores chamam-se `srh-*-devserver`, por isso não colidem com um stack de produção no
   mesmo host.
-- O MinIO usa as imagens do fork da Pigsty, fixadas numa versão validada
-  (`pgsty/minio:RELEASE.2026-08-04T00-00-00Z` e `pgsty/mc:RELEASE.2026-09-16T00-00-00Z`): a
-  MinIO deixou de publicar imagens da edição comunitária, e `minio/minio` (Docker Hub) e
-  `quay.io/minio/*` já não se descarregam sem autenticação. Para mudar de versão, altera a tag no
-  compose e volta a validar upload, download e remoção de documentos.
+- O serviço one-shot `prune` limpa imagens antigas e **toda** a cache de build do host no fim de
+  cada deploy (ver "Espaço em disco").
+
+O MinIO usa, aqui como em produção e no dev local, as imagens do fork da Pigsty, fixadas numa versão
+validada (`pgsty/minio:RELEASE.2026-08-04T00-00-00Z` e `pgsty/mc:RELEASE.2026-09-16T00-00-00Z`): a
+MinIO deixou de publicar imagens da edição comunitária, e `minio/minio` (Docker Hub) e
+`quay.io/minio/*` já não se descarregam sem autenticação. Para mudar de versão, altera a tag nos três
+composes e volta a validar upload, download e remoção de documentos.
 
 ---
 
@@ -115,8 +118,9 @@ pelo qual os utilizadores abrem a aplicação.
    - Admin: `admin@hr-suite.local` / `Admin123!` (pede configuração de MFA no primeiro login)
    - Utilizadores de demo: `mariana.ferreira`, `tiago.rocha`, `carla.mendes`, `diogo.pinto`,
      `sofia.almeida`, `rui.cardoso`, `beatriz.nunes` — todos `@hr-suite.local` / `Demo123!`
-5. Pede uma recuperação de password e confirma que o email aparece em `http://<host>:8025/`.
-6. Faz um push para `develop` e confirma que, dentro do intervalo de polling, as imagens
+5. `srh-prune-devserver` termina com código 0; os logs mostram o espaço recuperado.
+6. Pede uma recuperação de password e confirma que o email aparece em `http://<host>:8025/`.
+7. Faz um push para `develop` e confirma que, dentro do intervalo de polling, as imagens
    `srh-devserver-backend` e `srh-devserver-frontend` (em **Images**) têm uma data de criação nova.
 
 ## 6. Operação
@@ -126,7 +130,8 @@ pelo qual os utilizadores abrem a aplicação.
 A cada commit novo em `develop`, o Portainer atualiza o clone e corre o compose. `pull_policy: build`
 obriga a rebuildar as duas imagens em cada redeploy. Se o build falhar, os contentores antigos
 continuam a correr. O backend é recriado e volta a correr migrações, seed base e seed de demo — conta
-com algumas dezenas de segundos de indisponibilidade por deploy.
+com algumas dezenas de segundos de indisponibilidade por deploy. No fim, o `prune` corre uma vez e
+termina.
 
 ### Dados de demo
 
@@ -159,8 +164,22 @@ utilizadores com MFA a reconfigurá-lo.
 
 ### Espaço em disco
 
-Cada build deixa imagens antigas sem uso. Limpa-as periodicamente em **Images → Unused → Remove**.
-A cache de build do Docker também cresce e não é possível limpá-la pela UI do Portainer CE.
+O serviço `srh-prune-devserver` corre no fim de cada deploy, depois de o backend e o frontend terem
+sido recriados, e termina:
+
+- `docker image prune` com o label do projeto: remove só imagens sem tag deste stack. Com o Docker 29
+  (image store do containerd) o próprio Docker já apaga a imagem antiga quando a nova fica com o
+  nome, pelo que isto é só uma rede de segurança.
+- `docker builder prune -a`: remove **toda** a cache de build do host, incluindo a de outros stacks
+  que corram no mesmo Docker. A cache nunca acumula, mas cada deploy builda de raiz (cerca de 2–3
+  minutos, sobretudo a instalação de dependências).
+
+Para isso o contentor monta `/var/run/docker.sock`, o que lhe dá controlo total do Docker do host
+(equivale a acesso root). Só corre os dois comandos acima, a partir da imagem oficial
+`docker:29.8.1-cli`, e termina.
+
+Volumes e imagens de outros stacks não são tocados. Se precisares de libertar mais espaço, usa
+**Images → Unused → Remove** no Portainer.
 
 ---
 
@@ -170,7 +189,8 @@ A cache de build do Docker também cresce e não é possível limpá-la pela UI 
   pública sem um reverse proxy com TLS à frente.
 - **Credenciais conhecidas.** O admin base e os utilizadores de demo têm passwords publicadas neste
   repositório — aceitável para um servidor de desenvolvimento interno, não para dados reais.
-- **Cache de build.** Ver "Espaço em disco" acima.
+- **Acesso ao Docker do host.** O serviço `prune` monta o socket do Docker (ver "Espaço em disco").
+- **Deploys sem cache.** Como a cache de build é apagada em cada deploy, todos os builds são de raiz.
 
 ## Troubleshooting
 
@@ -182,5 +202,6 @@ A cache de build do Docker também cresce e não é possível limpá-la pela UI 
 | Login falha com erro 500 genérico                    | Chaves `JWT_*` em falta ou inválidas                                     | Gerar de novo (passo 3), atualizar as variáveis e **Update the stack**                                 |
 | Backend reinicia sem nunca ficar pronto              | Falha numa migração ou num seed                                          | Ver os logs do `srh-backend-devserver`; o erro está logo antes do reinício                             |
 | `password authentication failed for user "srh_user"` | `POSTGRES_PASSWORD` mudou depois do primeiro deploy                      | Repor o valor antigo, ou repor a base de dados do zero                                                 |
+| `srh-prune-devserver` com código de saída ≠ 0        | Sem acesso ao socket do Docker, ou erro do Docker durante a limpeza      | Ver os logs do contentor; a aplicação não é afetada, só a limpeza                                      |
 | Push para `develop` não gera deploy                  | GitOps updates desligado, ou ainda dentro do intervalo de polling        | Confirmar a configuração no stack; forçar com **Pull and redeploy**                                    |
 | Upload de documento falha                            | O `createbuckets` não criou o bucket                                     | Ver os logs do `srh-createbuckets-devserver` e fazer **Update the stack**                              |

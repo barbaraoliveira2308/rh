@@ -121,7 +121,7 @@ pnpm dev
 - **Backend**: http://localhost:3000/api
 - **Swagger** (dev/staging): http://localhost:3000/api/docs
 - **Mailpit** (emails de dev): http://localhost:8025
-- **MinIO** (consola): http://localhost:9001
+- **MinIO** (consola): http://localhost:9001 — com o fork da Pigsty usado nos composes, a consola aparece como "SILO Console"
 
 Credenciais criadas pelo `run seed`:
 
