@@ -47,8 +47,12 @@ services:
       timeout: 5s
       retries: 5
 
+  # A MinIO deixou de publicar imagens da edição comunitária (minio/minio no Docker Hub e
+  # quay.io/minio/minio exigem autenticação). Usa-se o fork da Pigsty, com o mesmo código
+  # AGPL, fixado na versão validada com a aplicação (upload, download, delete e leitura de um
+  # volume escrito pela imagem oficial RELEASE.2025-09-07).
   minio:
-    image: minio/minio:latest
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     container_name: srh-minio-devserver
     restart: unless-stopped
     environment:
@@ -66,7 +70,7 @@ services:
   # Serviço one-shot: cria o bucket de documentos e termina. Sem isto, os uploads
   # falham com NoSuchBucket — nem o compose nem o StorageService criam o bucket.
   createbuckets:
-    image: quay.io/minio/mc:latest
+    image: pgsty/mc:RELEASE.2026-09-16T00-00-00Z
     container_name: srh-createbuckets-devserver
     restart: 'no'
     depends_on:

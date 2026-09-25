@@ -19,6 +19,11 @@ Diferenças face a produção (`DEPLOY_UBUNTU.md`):
 - O backend corre o **seed de dados de demo** a cada arranque, depois das migrações e do seed base.
 - Os contentores chamam-se `srh-*-devserver`, por isso não colidem com um stack de produção no
   mesmo host.
+- O MinIO usa as imagens do fork da Pigsty, fixadas numa versão validada
+  (`pgsty/minio:RELEASE.2026-08-04T00-00-00Z` e `pgsty/mc:RELEASE.2026-09-16T00-00-00Z`): a
+  MinIO deixou de publicar imagens da edição comunitária, e `minio/minio` (Docker Hub) e
+  `quay.io/minio/*` já não se descarregam sem autenticação. Para mudar de versão, altera a tag no
+  compose e volta a validar upload, download e remoção de documentos.
 
 ---
 
