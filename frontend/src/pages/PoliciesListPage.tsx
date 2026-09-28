@@ -4,15 +4,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
-import { SearchField } from '@/components/SearchField';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { StatusBadge, type BadgeVariant } from '@/components/StatusBadge';
-import { DataTable, type Column } from '@/components/DataTable';
 import { FormField } from '@/components/FormField';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Dialog,
@@ -23,6 +19,9 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuthStore } from '@/stores/auth.store';
+import { PolicyAcceptanceLogTable } from '@/components/PolicyAcceptanceLogTable';
+import { ReusableDataGrid } from '@/components/ReusableDataGrid';
+import type { GridColDef } from '@mui/x-data-grid';
 import { fetchPolicies, createPolicy } from '@/api/policies.api';
 import { PolicyStatus, type Policy, type CreatePolicyRequest } from '@/types/policies';
 
@@ -144,92 +143,121 @@ function NewPolicyDialog({
   );
 }
 
-function PoliciesTable({ status }: { status?: PolicyStatus }): React.JSX.Element {
+function PoliciesTable({
+  status,
+  canManage,
+  onCreate,
+}: {
+  status?: PolicyStatus;
+  canManage: boolean;
+  onCreate: () => void;
+}): React.JSX.Element {
   const navigate = useNavigate();
-  const [q, setQ] = React.useState('');
-  const [category, setCategory] = React.useState('');
-
-  const filters = {
-    q: q.trim() || undefined,
-    category: category.trim() || undefined,
-    status,
-  };
+  const filters = { status };
 
   const { data: policies, isLoading } = useQuery({
     queryKey: ['policies', filters],
     queryFn: () => fetchPolicies(filters),
   });
 
-  const columns: Column<Policy>[] = [
-    { key: 'title', header: 'Título', cell: (row) => row.title },
-    { key: 'category', header: 'Categoria', cell: (row) => row.category },
-    {
-      key: 'tags',
-      header: 'Tags',
-      cell: (row) => (row.tags && row.tags.length > 0 ? row.tags.join(', ') : '-'),
-    },
-    {
-      key: 'status',
-      header: 'Estado',
-      cell: (row) => (
-        <StatusBadge label={statusLabels[row.status]} variant={statusVariants[row.status]} />
-      ),
-    },
-    { key: 'version', header: 'Versão', cell: (row) => String(row.version) },
-    {
-      key: 'publishedAt',
-      header: 'Publicada em',
-      cell: (row) =>
-        row.publishedAt ? new Date(row.publishedAt).toLocaleDateString('pt-PT') : '-',
-    },
-    {
-      key: 'actions',
-      header: '',
-      cell: (row) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            void navigate(`/policies/${row.id}`);
-          }}
-        >
-          Ver
-        </Button>
-      ),
-    },
-  ];
+  const categoryOptions = React.useMemo(
+    () => [...new Set((policies ?? []).map((policy) => policy.category))].sort(),
+    [policies],
+  );
+
+  const columns = React.useMemo<GridColDef<Policy>[]>(
+    () => [
+      { field: 'title', headerName: 'Título', flex: 1.4 },
+      {
+        field: 'category',
+        headerName: 'Categoria',
+        type: 'singleSelect',
+        flex: 0.9,
+        valueOptions: categoryOptions,
+      },
+      {
+        field: 'tags',
+        headerName: 'Tags',
+        flex: 1,
+        valueGetter: (_, row) => row.tags?.join(', ') ?? '-',
+      },
+      {
+        field: 'status',
+        headerName: 'Estado',
+        type: 'singleSelect',
+        flex: 0.8,
+        valueOptions: Object.values(PolicyStatus),
+        renderCell: (params) => (
+          <StatusBadge
+            label={statusLabels[params.row.status]}
+            variant={statusVariants[params.row.status]}
+          />
+        ),
+      },
+      { field: 'version', headerName: 'Versão', type: 'number', width: 100 },
+      {
+        field: 'publishedAt',
+        headerName: 'Publicada em',
+        type: 'dateTime',
+        flex: 1,
+        valueGetter: (_, row) => (row.publishedAt ? new Date(row.publishedAt) : null),
+      },
+      {
+        field: 'actions',
+        headerName: '',
+        sortable: false,
+        filterable: false,
+        width: 95,
+        renderCell: (params) => (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              void navigate(`/policies/${params.row.id}`);
+            }}
+          >
+            Ver
+          </Button>
+        ),
+      },
+    ],
+    [categoryOptions, navigate],
+  );
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-4">
-        <div className="w-[260px]">
-          <SearchField value={q} onChange={setQ} placeholder="Pesquisar por palavra-chave" />
-        </div>
-        <div className="w-[200px]">
-          <Input
-            value={category}
-            onChange={(e) => {
-              setCategory(e.target.value);
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {canManage && (
+          <Button
+            onClick={onCreate}
+            variant="default"
+            size="sm"
+            sx={{
+              bgcolor: 'primary.main',
+              color: 'primary.contrastText',
+              height: 30,
+              px: 1.5,
+              py: 0.5,
+              fontSize: '0.8125rem',
+              marginLeft: 'auto',
             }}
-            placeholder="Filtrar por categoria"
-          />
-        </div>
+          >
+            Nova Política
+          </Button>
+        )}
       </div>
 
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <LoadingSpinner size={32} />
-        </div>
-      ) : (policies ?? []).length === 0 ? (
-        <p className="py-8 text-center text-muted-foreground">Nenhuma política encontrada.</p>
-      ) : (
-        <DataTable
-          data={policies ?? []}
-          columns={columns}
-          keyExtractor={(row) => row.id}
-          pageSize={15}
-        />
-      )}
+      <ReusableDataGrid
+        rows={policies ?? []}
+        columns={columns}
+        loading={isLoading}
+        getRowId={(row) => row.id}
+        autoHeight
+        disableRowSelectionOnClick
+        pageSizeOptions={[15, 30, 50]}
+        initialState={{ pagination: { paginationModel: { pageSize: 12, page: 0 } } }}
+        localeText={{ noRowsLabel: 'Nenhuma política encontrada.' }}
+      />
     </div>
   );
 }
@@ -247,19 +275,6 @@ export function PoliciesListPage(): React.JSX.Element {
         description="Repositório centralizado e pesquisável de políticas e conhecimento organizacional"
       />
 
-      {canManage && (
-        <div className="mb-4 flex justify-end">
-          <Button
-            onClick={() => {
-              setDialogOpen(true);
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Nova Política
-          </Button>
-        </div>
-      )}
-
       {canManage ? (
         <Tabs defaultValue="published">
           <TabsList>
@@ -268,17 +283,41 @@ export function PoliciesListPage(): React.JSX.Element {
             <TabsTrigger value="archived">Arquivadas</TabsTrigger>
           </TabsList>
           <TabsContent value="published">
-            <PoliciesTable status={PolicyStatus.PUBLISHED} />
+            <PoliciesTable
+              status={PolicyStatus.PUBLISHED}
+              canManage={canManage}
+              onCreate={() => {
+                setDialogOpen(true);
+              }}
+            />
           </TabsContent>
           <TabsContent value="drafts">
-            <PoliciesTable status={PolicyStatus.DRAFT} />
+            <PoliciesTable
+              status={PolicyStatus.DRAFT}
+              canManage={canManage}
+              onCreate={() => {
+                setDialogOpen(true);
+              }}
+            />
           </TabsContent>
           <TabsContent value="archived">
-            <PoliciesTable status={PolicyStatus.ARCHIVED} />
+            <PoliciesTable
+              status={PolicyStatus.ARCHIVED}
+              canManage={canManage}
+              onCreate={() => {
+                setDialogOpen(true);
+              }}
+            />
           </TabsContent>
         </Tabs>
       ) : (
-        <PoliciesTable />
+        <PoliciesTable canManage={false} onCreate={() => undefined} />
+      )}
+
+      {canManage && (
+        <div className="mt-8">
+          <PolicyAcceptanceLogTable />
+        </div>
       )}
 
       <NewPolicyDialog open={dialogOpen} onOpenChange={setDialogOpen} />
