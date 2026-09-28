@@ -54,7 +54,7 @@ export function DataTable<T>({
       className={className}
       rows={data as GridValidRowModel[]}
       columns={gridColumns}
-      getRowId={keyExtractor}
+      getRowId={(row) => keyExtractor(row as T)}
       checkboxSelection={selectable}
       disableRowSelectionOnClick
       rowSelectionModel={selectable ? rowSelectionModel : undefined}

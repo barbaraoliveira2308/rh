@@ -1,94 +1,65 @@
-# Review da branch `experiment/mui-open-source-components`
+# Review da branch `feature002-politicas-internas`
 
 ## Comparação
 
-- Base remota para review: `origin/experiment/mui-open-source-components` (`5d91113`)
-- HEAD avaliado: `718cfef`
-- Commits à frente da base remota: 5
-- Diff efetivo: 11 arquivos, 439 linhas adicionadas e 165 removidas
-- Comparação histórica ampliada: `c0e4edd..HEAD`, 16 arquivos, 593 linhas adicionadas e 226 removidas
+- Branch: `feature002-politicas-internas`.
+- Base de comparação: `origin/develop`; o Git encontra dois merge bases (`2d460e3` e `718cfef`). Para reproduzir o diff agregado usado nesta revisão, compare `2d460e3..HEAD`.
+- Simulação de merge (`git merge-tree --write-tree HEAD origin/develop`): conflitos de conteúdo em `PROJECT_STATE.md`, `RESUME_PROMPT.md`, `docs/ARCHITECTURE.md` e `pnpm-lock.yaml`. Não foi feito merge nem alteração da branch.
+- Commits ainda não publicados na branch remota: 5 antes deste preparo; não foi feito push.
+- Diff agregado observado: 40 arquivos, 2.578 inserções e 943 remoções.
+- Há também uma alteração local não commitada em `pnpm-lock.yaml`, predominantemente uma reserialização do YAML. A checagem de linhas de versões/specifiers não apontou alterações de versão nesse diff local.
 
-O diff efetivo pode ser conferido com:
+## Descrição para o reviewer
 
-```powershell
-git diff origin/experiment/mui-open-source-components..HEAD
-```
-
-## Resumo para o reviewer
-
-Esta branch consolida a evolução do dashboard MUI e do Mural de Comunicados. O foco desta revisão é corrigir o transporte/renderização de assets protegidos, migrar assets antigos para a nova URL relativa, renderizar mídia também no widget do dashboard e remover do contrato frontend a opção de formulários que deixou de fazer parte do produto.
+Esta branch amplia o módulo de Políticas Internas com aceite obrigatório por usuário e versão, melhora a gestão e a leitura de políticas e corrige a entrega de mídia protegida nos Comunicados. Também atualiza o dashboard e os componentes reutilizáveis de tabela, além de documentar a arquitetura atual do backend e do frontend.
 
 ## Alterações principais
 
-### 1. Assets do Mural
+### Políticas internas e aceite
 
-- Adicionado `GET /api/announcements/assets/:assetId/download`.
-- O backend passa a transmitir o objeto pelo `StorageService`, em vez de expor um presigned URL com hostname interno do MinIO.
-- Uploads novos gravam uma URL relativa no asset depois que o ID é gerado.
-- A migração `1838000000000-BackfillAnnouncementAssetUrls` corrige assets antigos que ainda apontavam para `http://minio:9000/...`.
-- O frontend baixa imagens, vídeos e documentos com o cliente autenticado e cria object URLs locais.
-- Links externos continuam sendo tratados como links normais.
+- Adicionada a entidade `PolicyAcceptance` e a migration `1839000000000-CreatePolicyAcceptances`, registrando usuário, política, versão e data, com unicidade por usuário/política.
+- Adicionadas as rotas para consultar políticas pendentes, aceitar uma política publicada e consultar o log de aceites. A consulta do log é restrita a Administrador e Gestor.
+- O frontend passa a bloquear o conteúdo principal enquanto houver políticas publicadas pendentes. O usuário pode aceitar políticas individualmente ou em lote; a interface inclui histórico/log de aceites.
+- Administrador e Gestor podem criar e editar políticas e consultar versões. Publicação e arquivamento continuam restritos ao Administrador.
+- Atualizadas as telas de listagem e detalhe, incluindo abas de estado, histórico de versões e visualização em formato de documento institucional; ajustados também modal, confirmação de leitura e pesquisa.
+- Atualizada `specs/POLICIES.md` com o contrato e as decisões de implementação.
 
-### 2. Validação de upload
+### Comunicados e dashboard
 
-- `video` exige MIME `video/*`.
-- `image` exige MIME `image/*`.
-- `document` rejeita MIME de imagem e vídeo.
-- Isso impede que um arquivo como `.png` seja persistido como vídeo e falhe no browser.
+- Assets de comunicado são servidos pelo backend por endpoint autenticado, em vez de depender de URLs assinadas com hostname interno do MinIO.
+- A migration `1838000000000-BackfillAnnouncementAssetUrls` corrige URLs antigas; novos uploads usam URLs relativas.
+- O frontend carrega imagens, vídeos e documentos autenticados e apresenta previews no mural e no widget de comunicados do dashboard.
+- Reforçada a validação entre o tipo do asset e seu MIME. Removida do frontend a opção legada de formulários; os endpoints/modelos existentes no backend não são removidos.
+- Compactado o layout do dashboard e reorganizadas as tabelas/toolbar reutilizáveis. Adicionada a dependência `@mui/x-data-grid` e ajustes relacionados à pesquisa, erros de API e autenticação da sessão.
 
-### 3. Remoção de formulários do frontend
+### Arquitetura e estado do projeto
 
-- Removidos o componente e a UI de formulários do mural.
-- Removidos `forms` do payload de criação e dos tipos frontend.
-- Removido o cliente frontend de resposta a formulário.
-- Entidades, DTOs e endpoints de formulário do backend foram mantidos sem consumidores, evitando alteração de schema/API fora do escopo solicitado.
+- Atualizado `docs/ARCHITECTURE.md` e adicionados diagramas de arquitetura do sistema e do frontend em SVG/PNG, além do snippet para a wiki.
+- Atualizados `PROJECT_STATE.md`, `RESUME_PROMPT.md` e `specs/GLOBAL-TASKS-RISKS.md` para refletir o estado e riscos registrados no projeto.
+- O `pnpm-lock.yaml` contém as mudanças de resolução do branch e, no working tree, uma reserialização adicional pendente.
+- Corrigida a assinatura genérica de `getRowId` no Data Grid e migrada a customização visual do modal para `slotProps.paper`, removendo erros de compilação do frontend.
+- Atualizado o fixture de `PoliciesService` para fornecer o repositório de aceites requerido pela injeção de dependência.
 
-### 4. Dashboard
+## Foco recomendado para a revisão
 
-- O widget de comunicados passou a renderizar os mesmos previews de imagem, vídeo, documento e link do mural.
-- O layout do dashboard foi compactado para suportar o conteúdo operacional sem perder os widgets existentes.
+- Confirmar que a migration de aceite aplica corretamente a unicidade e que usuários diferentes podem aceitar a mesma política.
+- Verificar que política em rascunho/arquivada não aparece como pendente e não pode ser aceita.
+- Validar o bloqueio após login, aceite individual/em lote, persistência da sessão e liberação do conteúdo após todos os aceites.
+- Confirmar que somente Administrador e Gestor acessam logs/gestão, enquanto publicar e arquivar continuam exclusivos do Administrador.
+- Testar upload e visualização de imagem, vídeo e documento no mural e no dashboard, incluindo acesso sem autenticação e URLs legadas.
+- Conferir a renderização dos novos diagramas na documentação/wiki.
 
-### 5. Documentação de estado
+## Validação
 
-- [PROJECT_STATE.md](PROJECT_STATE.md) e [RESUME_PROMPT.md](RESUME_PROMPT.md) foram atualizados com a conclusão da fase P-090.
-- `specs/GLOBAL-TASKS-RISKS.md` registra o risco de criação automática do bucket MinIO quando o ambiente for recriado.
-
-## Arquivos no diff efetivo
-
-- `backend/src/announcements/announcements.controller.ts`
-- `backend/src/announcements/announcements.service.ts`
-- `backend/src/database/migrations/1838000000000-BackfillAnnouncementAssetUrls.ts`
-- `frontend/src/api/announcements.api.ts`
-- `frontend/src/components/AnnouncementAssetPreview.tsx`
-- `frontend/src/pages/AnnouncementsPage.tsx`
-- `frontend/src/pages/DashboardPage.tsx`
-- `frontend/src/types/announcements.ts`
-- `PROJECT_STATE.md`
-- `RESUME_PROMPT.md`
-- `specs/GLOBAL-TASKS-RISKS.md`
-
-## Validação executada
-
-- `pnpm run lint`: passou sem erros.
-- `pnpm run build`: passou para shared, backend e frontend.
-- `pnpm --filter @bridge351/srh-frontend exec tsc -b`: passou.
-- `pnpm --filter @bridge351/srh-backend run build`: passou.
+- `pnpm run lint`: passou sem erros; 68 avisos de `@typescript-eslint/explicit-function-return-type` (56 backend e 12 frontend).
+- `pnpm run build`: passou para shared, backend e frontend. O Vite exibiu avisos de exports internos (`isJSDOM`/`isFirefox`) do MUI, sem impedir o build.
+- `pnpm --filter @bridge351/srh-backend run test -- --runInBand`: 35 suítes e 468 testes passaram.
 - `git diff --check`: passou.
-- O lint ainda reporta 56 avisos preexistentes de `@typescript-eslint/explicit-function-return-type` (53 backend e 3 frontend); não há erros.
-
-## Checklist manual recomendado
-
-- Aplicar as migrations em uma base limpa e em uma base que já possua assets antigos.
-- Criar um comunicado com imagem, vídeo real (`.mp4`, `.webm` ou `.ogg`) e documento.
-- Confirmar que o feed do mural e o widget do dashboard renderizam os assets autenticados.
-- Confirmar que o endpoint de download retorna `200`, `Content-Type` correto e `401` sem autenticação.
-- Tentar enviar PNG como `video` e confirmar resposta `400` sem gravar o arquivo.
-- Confirmar que a opção de formulário não aparece no composer nem no feed.
-- Recriar os volumes MinIO e validar o comportamento do serviço `createbuckets` em ambiente de review.
 
 ## Pontos de atenção
 
-- O backend ainda contém o modelo e endpoints legados de formulários por compatibilidade; a remoção nesta branch é somente do frontend.
-- A migração de backfill é deliberadamente irreversível: os presigned URLs antigos já expiraram.
-- O endpoint de asset continua protegido por JWT; por isso o frontend usa download autenticado em vez de `src` direto.
-- O funcionamento do bucket depende da infraestrutura MinIO do ambiente de review.
+- A comparação com `develop` tem dois merge bases, portanto a revisão deve confirmar o diff no contexto do merge pretendido.
+- A branch não está pronta para integração com `develop` até resolver os quatro conflitos listados acima; em particular, o conflito do lockfile deve ser regenerado/verificado após a decisão de merge.
+- A migration de backfill de URLs dos assets pode exigir ambiente MinIO configurado para validar o fluxo completo.
+- O aceite é armazenado por usuário/política e registra a versão aceita; revisar o comportamento esperado quando uma política é republicada como nova versão.
+- O reformatamento local do lockfile é muito amplo e não veio acompanhado de alteração de `package.json`; revisar se deve ser incluído nesta branch ou isolado.

@@ -82,10 +82,12 @@ export function PolicyAcceptanceGate({
         maxWidth="md"
         onClose={() => undefined}
         aria-labelledby="policy-acceptance-title"
-        PaperProps={{
-          sx: {
-            borderRadius: 1.5,
-            overflow: 'hidden',
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 1.5,
+              overflow: 'hidden',
+            },
           },
         }}
       >
