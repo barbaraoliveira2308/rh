@@ -31,6 +31,7 @@ import { useUiStore } from '@/stores/ui.store';
 import { useIdleLogout } from '@/lib/useIdleLogout';
 import { fetchWorkflowInboxCount } from '@/api/workflow.api';
 import { fetchUnreadCount } from '@/api/notifications.api';
+import { PolicyAcceptanceGate } from '@/components/PolicyAcceptanceGate';
 
 interface NavItem {
   label: string;
@@ -165,7 +166,9 @@ export function AppLayout(): React.JSX.Element {
 
         <main className="flex-1 overflow-auto p-4 sm:p-6">
           <div className="w-full">
-            <Outlet />
+            <PolicyAcceptanceGate>
+              <Outlet />
+            </PolicyAcceptanceGate>
           </div>
         </main>
       </div>
