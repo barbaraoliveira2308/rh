@@ -132,6 +132,13 @@ Credenciais criadas pelo `run seed`:
 Para uma organização fictícia completa com utilizadores de demonstração, ver
 [Dados de Demo](#dados-de-demo).
 
+## Servidor de Desenvolvimento
+
+Há um servidor de desenvolvimento partilhado, gerido pelo Portainer, que é atualizado
+automaticamente a cada push para `develop` (alguns minutos depois). Inclui os dados de demo e o
+Mailpit, que captura todos os emails. Configuração, acesso e operação em
+[DEPLOY_PORTAINER.md](DEPLOY_PORTAINER.md).
+
 ## Produção
 
 ```bash
