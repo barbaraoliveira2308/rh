@@ -39,8 +39,8 @@ describe('MfaService', () => {
     });
   });
 
-  describe('validateToken', () => {
-    it('deve validar um token TOTP correto gerado a partir do mesmo segredo', () => {
+  describe('matchTotpStep', () => {
+    it('deve devolver o passo TOTP atual para um código correto', () => {
       const { secret, encryptedSecret } = service.generateSecret('user-1');
       const totp = new TOTP({
         secret: Secret.fromBase32(secret),
@@ -48,29 +48,79 @@ describe('MfaService', () => {
         digits: 6,
         period: 30,
       });
-      const validToken = totp.generate();
+      const step = totp.counter();
 
-      const result = service.validateToken(encryptedSecret, validToken);
+      const result = service.matchTotpStep(encryptedSecret, totp.generate());
 
-      expect(result).toBe(true);
+      // O passo pode avançar entre ler o contador e gerar o código, se cruzar a fronteira dos 30 s.
+      expect([step, step + 1]).toContain(result);
     });
 
-    it('deve rejeitar um token inválido', () => {
-      const { encryptedSecret } = service.generateSecret('user-1');
+    it('deve devolver o passo anterior para o código da janela anterior', () => {
+      const { secret, encryptedSecret } = service.generateSecret('user-1');
+      const totp = new TOTP({
+        secret: Secret.fromBase32(secret),
+        algorithm: 'SHA1',
+        digits: 6,
+        period: 30,
+      });
+      const timestamp = Date.now() - 30_000;
 
-      const result = service.validateToken(encryptedSecret, '000000');
+      const result = service.matchTotpStep(encryptedSecret, totp.generate({ timestamp }));
 
-      expect(result).toBe(false);
+      expect(result).toBe(totp.counter({ timestamp }));
+    });
+
+    it('deve devolver null para um código inválido', () => {
+      const { secret, encryptedSecret } = service.generateSecret('user-1');
+      const current = new TOTP({ secret: Secret.fromBase32(secret) }).generate();
+
+      const result = service.matchTotpStep(
+        encryptedSecret,
+        current === '000000' ? '111111' : '000000',
+      );
+
+      expect(result).toBeNull();
     });
   });
 
   describe('generateQrCodeDataUrl', () => {
     it('deve devolver um data URL de imagem PNG', async () => {
-      const { encryptedSecret } = service.generateSecret('user-1');
+      const { qrCodeUrl } = service.generateSecret('user-1');
 
-      const result = await service.generateQrCodeDataUrl(encryptedSecret);
+      const result = await service.generateQrCodeDataUrl(qrCodeUrl);
 
       expect(result).toMatch(/^data:image\/png;base64,/);
+    });
+  });
+
+  describe('generateRecoveryCodes', () => {
+    it('deve gerar 10 códigos distintos no formato XXXXX-XXXXX (UC-AUTH-005 passo 6)', () => {
+      const codes = service.generateRecoveryCodes();
+
+      expect(codes).toHaveLength(10);
+      expect(new Set(codes).size).toBe(10);
+      for (const code of codes) {
+        expect(code).toMatch(/^[A-Z2-7]{5}-[A-Z2-7]{5}$/);
+      }
+    });
+  });
+
+  describe('hashRecoveryCode', () => {
+    it('deve produzir o mesmo hash independentemente de maiúsculas, espaços e hífen', () => {
+      const [code] = service.generateRecoveryCodes();
+
+      expect(service.hashRecoveryCode(code.toLowerCase().replace('-', ' '))).toBe(
+        service.hashRecoveryCode(code),
+      );
+      expect(service.hashRecoveryCode(code)).not.toContain(code);
+    });
+  });
+
+  describe('isTotpCode', () => {
+    it('deve distinguir um código TOTP de um código de recuperação', () => {
+      expect(service.isTotpCode('123456')).toBe(true);
+      expect(service.isTotpCode('ABCDE-FGHIJ')).toBe(false);
     });
   });
 });

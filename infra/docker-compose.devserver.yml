@@ -1,0 +1,234 @@
+# Servidor de desenvolvimento partilhado, gerido por um stack Git do Portainer que segue o branch
+# `develop` (ver DEPLOY_PORTAINER.md). Baseado em docker-compose.prod.yml, com estas diferenças:
+# - nomes `srh-*-devserver`, para não colidir com um stack de produção no mesmo host;
+# - só o frontend (8888) e a UI do Mailpit (8025) são publicados no host;
+# - o Mailpit captura todos os emails (nada é enviado para fora);
+# - o backend corre também o seed de dados de demo a cada arranque;
+# - `pull_policy: build` força o rebuild das imagens em cada redeploy do Portainer;
+# - o serviço one-shot `prune` limpa imagens antigas e a cache de build no fim de cada deploy.
+# Sem bind mounts de ficheiros do repositório: o Portainer corre o stack a partir do seu próprio
+# clone. A única exceção é o socket do Docker do host (caminho absoluto), usado pelo `prune`.
+name: srh-devserver
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: srh-postgres-devserver
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: '2.0'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: srh-redis-devserver
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '1.0'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # A MinIO deixou de publicar imagens da edição comunitária (minio/minio no Docker Hub e
+  # quay.io/minio/minio exigem autenticação). Usa-se o fork da Pigsty, com o mesmo código
+  # AGPL, fixado na versão validada com a aplicação (upload, download, delete e leitura de um
+  # volume escrito pela imagem oficial RELEASE.2025-09-07).
+  minio:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    container_name: srh-minio-devserver
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_KEY}
+    volumes:
+      - minio-data:/data
+    command: server /data
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: '1.0'
+
+  # Serviço one-shot: cria o bucket de documentos e termina. Sem isto, os uploads
+  # falham com NoSuchBucket — nem o compose nem o StorageService criam o bucket.
+  createbuckets:
+    image: pgsty/mc:RELEASE.2026-09-16T00-00-00Z
+    container_name: srh-createbuckets-devserver
+    restart: 'no'
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 '${STORAGE_ACCESS_KEY}' '${STORAGE_SECRET_KEY}' >/dev/null 2>&1; do
+        echo 'à espera do MinIO...'; sleep 2;
+      done;
+      mc mb --ignore-existing 'local/${STORAGE_BUCKET:-srh-documents}'
+      "
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: srh-rabbitmq-devserver
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '1.0'
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', 'ping']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: srh-mailpit-devserver
+    restart: unless-stopped
+    ports:
+      - '8025:8025'
+
+  backend:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    pull_policy: build
+    container_name: srh-backend-devserver
+    restart: unless-stopped
+    expose:
+      - '3000'
+    # Mesma sequência do CMD do backend/Dockerfile, mais o seed de dados de demo antes de
+    # arrancar o servidor. Os seeds de demo verificam o que já existe, por isso correr a cada
+    # arranque não duplica dados — mas registos de demo apagados voltam a ser criados.
+    command:
+      - sh
+      - -c
+      - >-
+        pnpm --filter @bridge351/srh-backend run schema:create &&
+        pnpm --filter @bridge351/srh-backend run migration:run:prod &&
+        pnpm --filter @bridge351/srh-backend run seed:prod &&
+        node backend/dist/database/seeds/demo-runner.js &&
+        node backend/dist/main
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY}
+      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY}
+      STORAGE_BUCKET: ${STORAGE_BUCKET}
+      STORAGE_REGION: ${STORAGE_REGION}
+      STORAGE_USE_SSL: 'true'
+      JWT_ACCESS_PRIVATE_KEY: ${JWT_ACCESS_PRIVATE_KEY}
+      JWT_ACCESS_PUBLIC_KEY: ${JWT_ACCESS_PUBLIC_KEY}
+      JWT_REFRESH_PRIVATE_KEY: ${JWT_REFRESH_PRIVATE_KEY}
+      JWT_REFRESH_PUBLIC_KEY: ${JWT_REFRESH_PUBLIC_KEY}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY}
+      BACKEND_PORT: 3000
+      BACKEND_CORS_ORIGIN: ${BACKEND_CORS_ORIGIN}
+      FRONTEND_URL: ${FRONTEND_URL}
+      # Todos os emails vão para o Mailpit (UI em :8025), nunca para fora.
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_USER: ''
+      SMTP_PASS: ''
+      SMTP_FROM: ${SMTP_FROM}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      NODE_ENV: production
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '1.0'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_URL: /api
+    pull_policy: build
+    container_name: srh-frontend-devserver
+    restart: unless-stopped
+    ports:
+      - '8888:80'
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: '0.5'
+    depends_on:
+      - backend
+
+  # Serviço one-shot: corre no fim de cada deploy, depois de o backend e o frontend terem sido
+  # recriados (as imagens antigas já não estão em uso), e termina.
+  # - `image prune`: só imagens sem tag deste stack (label do Compose). Com o image store do
+  #   containerd (Docker 29) o Docker já as apaga sozinho; fica como rede de segurança.
+  # - `builder prune -a`: TODA a cache de build do host, incluindo a de outros stacks — cada
+  #   deploy passa a buildar de raiz (mais lento), em troca de a cache nunca acumular.
+  # ⚠️ O socket do Docker dá a este contentor controlo total do Docker do host (equivale a root).
+  prune:
+    image: docker:29.8.1-cli
+    container_name: srh-prune-devserver
+    restart: 'no'
+    depends_on:
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        docker image prune -f --filter label=com.docker.compose.project=srh-devserver
+        docker builder prune -af
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+  rabbitmq-data:

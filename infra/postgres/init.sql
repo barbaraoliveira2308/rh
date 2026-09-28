@@ -2,15 +2,6 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE SCHEMA IF NOT EXISTS hr;
 
--- Base de dados própria do Keycloak. O serviço `keycloak` do docker-compose aponta para
--- KC_DB_URL_DATABASE=keycloak e KC_DB_SCHEMA=keycloak; sem ambos, o contentor entra em
--- crash loop com `FATAL: database "keycloak" does not exist`.
-CREATE DATABASE keycloak;
-
-\c keycloak
-CREATE SCHEMA IF NOT EXISTS keycloak;
-\c srh
-
 -- Base de dados isolada para a suite e2e do backend (mesmo nome usado em ci.yml) — nunca
 -- a mesma base de dados usada pelo stack de desenvolvimento (ver R-046 em GLOBAL-TASKS-RISKS.md).
 CREATE DATABASE srh_test;

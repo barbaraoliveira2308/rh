@@ -12,8 +12,12 @@ import { JwtService } from '../services/jwt.service';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
 import { ALLOW_MFA_SETUP_KEY } from '../decorators/allow-mfa-setup.decorator';
 
+// Pedidos automáticos do frontend (polling) enviam este cabeçalho: validam a sessão mas não contam
+// como atividade do utilizador para o timeout por inatividade (BR-AUTH-005).
+export const BACKGROUND_REQUEST_HEADER = 'x-background-request';
+
 export interface SessionValidator {
-  isSessionActive(tokenHash: string): Promise<boolean>;
+  isSessionActive(tokenHash: string, countsAsActivity: boolean): Promise<boolean>;
   invalidateSession(tokenHash: string): Promise<void>;
 }
 
@@ -39,7 +43,8 @@ export class JwtAuthGuard implements CanActivate {
     const payload: JwtPayload = this.jwtService.verifyAccessToken(token);
 
     const tokenHash = this.jwtService.computeTokenHash(token);
-    const isActive = await this.sessionValidator.isSessionActive(tokenHash);
+    const countsAsActivity = request.headers[BACKGROUND_REQUEST_HEADER] !== '1';
+    const isActive = await this.sessionValidator.isSessionActive(tokenHash, countsAsActivity);
 
     if (!isActive) {
       throw new UnauthorizedException('Sessão inválida ou expirada');

@@ -2,14 +2,13 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { FormProvider } from 'react-hook-form';
 import { Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FormField } from '@/components/FormField';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { getSsoRedirectUrl } from '@/api/auth.api';
 import { useAuthStore } from '@/stores/auth.store';
 
 const loginSchema = z.object({
@@ -17,8 +16,13 @@ const loginSchema = z.object({
   password: z.string().min(1, 'A palavra-passe é obrigatória'),
 });
 
+// 6 dígitos da aplicação autenticadora, ou um código de recuperação (XXXXX-XXXXX).
 const mfaSchema = z.object({
-  mfaCode: z.string().length(6, 'O código MFA deve ter 6 dígitos'),
+  mfaCode: z
+    .string()
+    .trim()
+    .min(6, 'Introduza o código de 6 dígitos ou um código de recuperação')
+    .max(20, 'Código demasiado longo'),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
@@ -26,8 +30,11 @@ type MfaForm = z.infer<typeof mfaSchema>;
 
 export function LoginPage(): React.JSX.Element {
   const navigate = useNavigate();
-  const { login, verifyMfa, isLoading, error, pendingMfaEmail, clearError } = useAuthStore();
-  const [showMfa, setShowMfa] = React.useState(false);
+  const { login, verifyMfa, cancelMfa, isLoading, error, pendingMfaChallenge, clearError } =
+    useAuthStore();
+  const showMfa = pendingMfaChallenge !== null;
+  const [searchParams] = useSearchParams();
+  const endedByInactivity = searchParams.get('reason') === 'idle';
 
   const loginForm = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -43,9 +50,7 @@ export function LoginPage(): React.JSX.Element {
     clearError();
     try {
       await login(data);
-      if (useAuthStore.getState().pendingMfaEmail) {
-        setShowMfa(true);
-      } else {
+      if (!useAuthStore.getState().pendingMfaChallenge) {
         void navigate('/');
       }
     } catch {
@@ -71,9 +76,7 @@ export function LoginPage(): React.JSX.Element {
         </div>
         <CardTitle className="text-2xl font-bold">HR Suite</CardTitle>
         <CardDescription>
-          {showMfa
-            ? 'Introduza o código de verificação de 6 dígitos'
-            : 'Inicie sessão na sua conta'}
+          {showMfa ? 'Verificação em dois passos' : 'Inicie sessão na sua conta'}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -83,6 +86,11 @@ export function LoginPage(): React.JSX.Element {
               onSubmit={(e) => void loginForm.handleSubmit(onLoginSubmit)(e)}
               className="space-y-4"
             >
+              {endedByInactivity && (
+                <p className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+                  A sessão terminou por inatividade. Inicie sessão novamente.
+                </p>
+              )}
               <FormField name="email" label="Email" type="email" placeholder="nome@empresa.pt" />
               <FormField
                 name="password"
@@ -99,31 +107,23 @@ export function LoginPage(): React.JSX.Element {
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? <LoadingSpinner size={16} /> : 'Iniciar sessão'}
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  window.location.href = getSsoRedirectUrl();
-                }}
-              >
-                Entrar com SSO
-              </Button>
             </form>
           </FormProvider>
         ) : (
           <FormProvider {...mfaForm}>
             <form onSubmit={(e) => void mfaForm.handleSubmit(onMfaSubmit)(e)} className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Foi enviado um código para {pendingMfaEmail}
+                Introduza o código de 6 dígitos da sua aplicação autenticadora.
               </p>
               <FormField
                 name="mfaCode"
-                label="Código MFA"
+                label="Código de verificação"
                 type="text"
                 placeholder="000000"
-                maxLength={6}
-                inputMode="numeric"
+                maxLength={20}
+                autoComplete="one-time-code"
+                autoFocus
+                helperText="Sem acesso à aplicação? Use um dos seus códigos de recuperação."
               />
               {error && <p className="text-sm text-red-600">{error}</p>}
               <Button type="submit" className="w-full" disabled={isLoading}>
@@ -134,7 +134,8 @@ export function LoginPage(): React.JSX.Element {
                 variant="ghost"
                 className="w-full"
                 onClick={() => {
-                  setShowMfa(false);
+                  mfaForm.reset();
+                  cancelMfa();
                 }}
               >
                 Voltar ao login

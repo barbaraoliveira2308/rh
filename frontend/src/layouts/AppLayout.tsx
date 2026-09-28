@@ -21,12 +21,14 @@ import {
   GraduationCap,
   FileBarChart,
   ShieldCheck,
+  KeyRound,
   Megaphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUiStore } from '@/stores/ui.store';
+import { useIdleLogout } from '@/lib/useIdleLogout';
 import { fetchWorkflowInboxCount } from '@/api/workflow.api';
 import { fetchUnreadCount } from '@/api/notifications.api';
 import { PolicyAcceptanceGate } from '@/components/PolicyAcceptanceGate';
@@ -57,6 +59,7 @@ const navItems: NavItem[] = [
   { label: 'Notificações', href: '/notifications', icon: <Bell className="h-4 w-4" /> },
   { label: 'Comunicados', href: '/announcements', icon: <Megaphone className="h-4 w-4" /> },
   { label: 'Administração', href: '/admin/settings', icon: <Settings className="h-4 w-4" /> },
+  { label: 'Segurança', href: '/settings/security', icon: <KeyRound className="h-4 w-4" /> },
 ];
 
 const adminOnlyRoutes = ['/analytics/financials', '/admin/settings'];
@@ -64,8 +67,12 @@ const managerOrAdminRoutes = ['/users', '/capacity', '/reports'];
 
 export function AppLayout(): React.JSX.Element {
   const { sidebarOpen, toggleSidebar } = useUiStore();
-  const { logout, user, permissions } = useAuthStore();
+  const { logout, user, permissions, mfaSetupRequired, sessionTimeoutMinutes } = useAuthStore();
   const navigate = useNavigate();
+
+  useIdleLogout(sessionTimeoutMinutes, () => {
+    void logout().then(() => navigate('/login?reason=idle', { replace: true }));
+  });
 
   const isAdmin = permissions.includes('admin:*') || permissions.some((p) => p.startsWith('admin'));
   const isManagerOrAdmin = isAdmin || permissions.includes('manager');
@@ -74,12 +81,14 @@ export function AppLayout(): React.JSX.Element {
     queryKey: ['workflow-count'],
     queryFn: () => fetchWorkflowInboxCount(),
     refetchInterval: 60000,
+    enabled: !mfaSetupRequired,
   });
 
   const { data: unreadCount } = useQuery({
     queryKey: ['notifications-unread-count'],
     queryFn: () => fetchUnreadCount(),
     refetchInterval: 60000,
+    enabled: !mfaSetupRequired,
   });
 
   const handleLogout = async (): Promise<void> => {
@@ -102,6 +111,7 @@ export function AppLayout(): React.JSX.Element {
         </div>
         <nav className="space-y-1 p-4">
           {navItems
+            .filter((item) => !mfaSetupRequired || item.href === '/settings/security')
             .filter((item) => !adminOnlyRoutes.includes(item.href) || isAdmin)
             .filter((item) => !managerOrAdminRoutes.includes(item.href) || isManagerOrAdmin)
             .map((item) => (

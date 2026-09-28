@@ -36,6 +36,11 @@ export class User {
   @Column({ name: 'mfa_secret', type: 'varchar', length: 512, nullable: true, select: false })
   mfaSecret: string | null;
 
+  // Último passo TOTP (janela de 30 s) aceite para este utilizador — impede reutilizar um código
+  // ainda válido (R-065).
+  @Column({ name: 'mfa_last_used_step', type: 'int', nullable: true, select: false })
+  mfaLastUsedStep: number | null;
+
   @Column({ name: 'last_login_at', type: 'timestamp', nullable: true })
   lastLoginAt: Date | null;
 

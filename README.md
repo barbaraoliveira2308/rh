@@ -6,7 +6,7 @@ Sistema de Gestão de Recursos Humanos desenvolvido com **NestJS + React + TypeO
 
 O HR Suite é uma plataforma completa de RH que cobre:
 
-- **Autenticação**: JWT com refresh token, MFA TOTP, SSO via Keycloak
+- **Autenticação**: JWT com refresh token, MFA TOTP com códigos de recuperação (sem SSO — o Keycloak foi removido em P-094)
 - **Organização**: Colaboradores, departamentos, cargos, equipas e organograma
 - **Operações**: Projetos, alocações, timesheets, ausências, despesas
 - **Processos**: Workflow de aprovações, notificações in-app e email
@@ -44,39 +44,36 @@ portas 3000 e 5173 ocupadas e o segundo arranque falha.
 
 ### Passos comuns aos dois modos
 
-> **Lê isto antes de copiar o passo 2.** O `generate-secrets.sh` gera as chaves JWT, mas
-> também `POSTGRES_PASSWORD`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY` e
-> `MFA_ENCRYPTION_KEY`. O Postgres só lê `POSTGRES_PASSWORD` quando **inicializa** o volume:
-> se já tiveres um volume `srh-dev_postgres-data`, a password gerada deixa de bater certo com
-> a que está guardada, e o backend e o Keycloak passam a falhar com
-> `password authentication failed for user "srh_user"`.
->
-> - **Instalação nova** (sem volume): corre o passo 2 tal como está.
-> - **Stack que já existiu**: salta o `generate-secrets.sh` e roda **apenas** as quatro chaves
->   JWT — ver [Troubleshooting](#jwt_access_private_key-não-configurado).
->
-> Confirma em que caso estás:
->
-> ```bash
-> docker volume ls --filter name=srh-dev_postgres-data
-> ```
-
 ```bash
 # 1. Instalar dependências (monorepo). Necessário nos dois modos: os comandos de
 #    migração e de seed correm sempre a partir do host.
 pnpm install
 
 # 2. Criar o .env e gerar segredos reais.
-#    O 2.º comando é só para instalações novas — ver o aviso acima.
 cp .env.example .env
-./scripts/generate-secrets.sh >> .env
+./scripts/generate-secrets.sh
 ```
 
 O segundo comando do passo 2 não é opcional numa instalação nova: o `.env.example` traz
 `JWT_ACCESS_PRIVATE_KEY=change_me_run_generate_secrets_sh`, que não é uma chave RSA. Como os
 tokens são assinados com RS256, sem ele o login rebenta com `secretOrPrivateKey must be an
-asymmetric key when using RS256`. Os valores acrescentados no fim do ficheiro sobrepõem-se aos
-que vieram do `.env.example`.
+asymmetric key when using RS256`.
+
+O script escreve **dentro** do `.env`, substituindo cada chave no sítio. Não uses `>> .env`:
+isso acrescenta uma segunda cópia de cada chave e o `dotenv` passa a ler a última, o que
+torna o ficheiro enganador.
+
+Por omissão só preenche o que falta, por isso é seguro correr outra vez — um valor real já
+definido é mantido. Para regenerar de propósito, usa `--rotate`:
+
+```bash
+./scripts/generate-secrets.sh --rotate jwt     # só as 4 chaves JWT
+./scripts/generate-secrets.sh --rotate all     # tudo (pede confirmação)
+```
+
+`POSTGRES_PASSWORD` é o caso especial: o Postgres só a lê quando **inicializa** o volume, por
+isso mudá-la no `.env` depois disso não muda a que está guardada — só parte o backend. Se o volume já existir, o script recusa-se a rodá-la e diz-te o que fazer (ver
+[Troubleshooting](#password-authentication-failed-for-user-srh_user)).
 
 ### Modo A — tudo em Docker
 
@@ -96,7 +93,7 @@ Não corras `pnpm dev` neste modo — o passo 3 já arrancou o backend e o front
 ```bash
 # 3. Subir SÓ a infraestrutura, nomeando os serviços explicitamente
 docker compose -f infra/docker-compose.dev.yml --env-file .env \
-  up -d postgres redis keycloak minio createbuckets rabbitmq mailpit
+  up -d postgres redis minio createbuckets rabbitmq mailpit
 
 # 4. O backend lê um .env relativo ao seu cwd (backend/), não o da raiz
 cp .env backend/.env
@@ -123,9 +120,8 @@ pnpm dev
 - **Frontend**: http://localhost:5173
 - **Backend**: http://localhost:3000/api
 - **Swagger** (dev/staging): http://localhost:3000/api/docs
-- **Keycloak**: http://localhost:8080 (realm `hr-suite`)
 - **Mailpit** (emails de dev): http://localhost:8025
-- **MinIO** (consola): http://localhost:9001
+- **MinIO** (consola): http://localhost:9001 — com o fork da Pigsty usado nos composes, a consola aparece como "SILO Console"
 
 Credenciais criadas pelo `run seed`:
 
@@ -136,6 +132,13 @@ Credenciais criadas pelo `run seed`:
 Para uma organização fictícia completa com utilizadores de demonstração, ver
 [Dados de Demo](#dados-de-demo).
 
+## Servidor de Desenvolvimento
+
+Há um servidor de desenvolvimento partilhado, gerido pelo Portainer, que é atualizado
+automaticamente a cada push para `develop` (alguns minutos depois). Inclui os dados de demo e o
+Mailpit, que captura todos os emails. Configuração, acesso e operação em
+[DEPLOY_PORTAINER.md](DEPLOY_PORTAINER.md).
+
 ## Produção
 
 ```bash
@@ -145,15 +148,12 @@ pnpm install
 # 2. Criar o .env e gerar segredos reais (as chaves JWT do .env.example são
 #    placeholders e não são chaves RSA válidas — ver Quickstart)
 cp .env.example .env
-./scripts/generate-secrets.sh >> .env
+./scripts/generate-secrets.sh
 
 # 3. Acrescentar os valores próprios de produção (ver aviso abaixo).
 #    Trocar <ip-ou-domínio-do-servidor> pelo endereço real — num teste local, `localhost`.
 cat <<'EOF' >> .env
 
-KEYCLOAK_ADMIN=admin
-KEYCLOAK_ADMIN_PASSWORD=troca_esta_password
-KEYCLOAK_HOSTNAME=<ip-ou-domínio-do-servidor>
 RABBITMQ_USER=srh_app
 RABBITMQ_PASSWORD=troca_esta_password
 BACKEND_CORS_ORIGIN=http://<ip-ou-domínio-do-servidor>
@@ -163,14 +163,12 @@ EOF
 docker compose -f infra/docker-compose.prod.yml --env-file .env up -d --build
 ```
 
-> **O passo 3 não é opcional.** Cinco daquelas variáveis não existem no `.env.example` — o compose de
+> **O passo 3 não é opcional.** Duas daquelas variáveis (`RABBITMQ_*`) não existem no `.env.example` — o compose de
 > desenvolvimento tem valores por omissão para elas, o de produção não. E o Docker Compose
 > **não falha** quando uma variável sem valor por omissão não está definida: substitui-a por
 > string vazia e emite apenas um aviso (`variable is not set. Defaulting to a blank string.`).
-> O resultado seria um Keycloak sem credenciais de administrador e um RabbitMQ sem utilizador,
-> a falhar em runtime em vez de dar um erro claro de configuração.
->
-> Num teste local, `KEYCLOAK_HOSTNAME=localhost` serve.
+> O resultado seria um RabbitMQ sem utilizador, a falhar em runtime em vez de dar um erro
+> claro de configuração.
 
 > **Três variáveis do `.env.example` não têm efeito nenhum em produção:**
 >
@@ -225,13 +223,7 @@ Para gerar valores aleatórios seguros para os segredos abaixo (`JWT_ACCESS_PRIV
 | `JWT_EXPIRES_IN`          | Expiração do access token                       | `15m`                           |
 | `JWT_REFRESH_EXPIRES_IN`  | Expiração do refresh token                      | `7d`                            |
 | `MFA_ENCRYPTION_KEY`      | Chave AES-256-GCM para MFA secrets              | `change_me_mfa_key_32_bytes`    |
-| `KEYCLOAK_URL`            | URL do Keycloak                                 | `http://localhost:8080`         |
-| `KEYCLOAK_REALM`          | Realm do Keycloak — ver nota abaixo             | `hr-suite`                      |
-| `KEYCLOAK_CLIENT_ID`      | Client ID do backend no Keycloak                | `srh-backend`                   |
 | `VITE_API_URL`            | URL da API (frontend) — ver nota abaixo         | `http://localhost:3000/api`     |
-| `VITE_KEYCLOAK_URL`       | URL do Keycloak (frontend)                      | `http://localhost:8080`         |
-| `VITE_KEYCLOAK_REALM`     | Realm do Keycloak (frontend)                    | `hr-suite`                      |
-| `VITE_KEYCLOAK_CLIENT_ID` | Client ID do frontend no Keycloak               | `srh-frontend`                  |
 | `STORAGE_ENDPOINT`        | Endpoint do MinIO/S3 (com esquema `http://`)    | `http://localhost:9000`         |
 | `STORAGE_ACCESS_KEY`      | Access key do MinIO/S3                          | `change_me`                     |
 | `STORAGE_SECRET_KEY`      | Secret key do MinIO/S3                          | `change_me`                     |
@@ -248,7 +240,7 @@ Para gerar valores aleatórios seguros para os segredos abaixo (`JWT_ACCESS_PRIV
 | `SMTP_PASS`               | Password SMTP                                   | —                               |
 | `SMTP_FROM`               | Remetente de emails                             | `noreply@srh.bridge351.com`     |
 
-> **Duas notas sobre estas variáveis:**
+> **Nota sobre estas variáveis:**
 >
 > - As `VITE_*` são substituídas pelo Vite em tempo de _build_, não lidas em tempo de
 >   execução. Em produção são passadas como `args` de build no `docker-compose.prod.yml` e o
@@ -256,10 +248,6 @@ Para gerar valores aleatórios seguros para os segredos abaixo (`JWT_ACCESS_PRIV
 >   frontend. Em produção, `VITE_API_URL` é `/api`, servido pelo proxy do nginx
 >   (`frontend/nginx.conf`) — **nunca vazio**, porque `''` não aciona o valor por omissão do
 >   código e os pedidos perderiam o prefixo `/api`.
-> - `KEYCLOAK_REALM` tem de ser `hr-suite`, que é o realm importado pelo
->   `infra/keycloak/realm-export.json`. As variáveis `VITE_KEYCLOAK_*` estão documentadas por
->   completude mas nenhuma é lida por código em `frontend/src` — o login por email/password
->   não depende delas.
 
 ## Dados de Demo
 
@@ -343,27 +331,50 @@ As migrações não foram executadas:
 pnpm --filter @bridge351/srh-backend run migration:run
 ```
 
+### Contentor `srh-keycloak-dev` ainda a correr
+
+O Keycloak foi removido em P-094, mas um ambiente criado antes disso continua com o contentor
+e com a base de dados `keycloak` no volume do Postgres. Nenhum dos dois é usado. Para limpar:
+
+```bash
+docker compose -f infra/docker-compose.dev.yml --env-file .env up -d --remove-orphans
+docker exec srh-postgres-dev psql -U srh_user -d postgres -c 'DROP DATABASE IF EXISTS keycloak;'
+```
+
+Em produção, o mesmo com `infra/docker-compose.prod.yml` e o contentor `srh-postgres-prod`.
+
 ### `password authentication failed for user "srh_user"`
 
-O backend e o Keycloak não ligam à base de dados (o backend fica de pé mas não responde na
-porta 3000; o Keycloak entra em crash-loop com `Failed to obtain JDBC connection`).
+O backend não liga à base de dados (fica de pé mas não responde na porta 3000).
 
-Quase sempre significa que o `generate-secrets.sh` correu sobre um volume que já existia: o
-Postgres só lê `POSTGRES_PASSWORD` quando **inicializa** o volume, por isso a password
-guardada continua a ser a antiga enquanto o `.env` já tem a nova.
+Quase sempre significa que a `POSTGRES_PASSWORD` do `.env` deixou de bater certo com a que
+está guardada no volume: o Postgres só a lê quando **inicializa** o volume, e a partir daí
+ignora-a. O `generate-secrets.sh` já se recusa a rodá-la com o volume criado, mas o
+desencontro ainda acontece se alguém editar o `.env` à mão, correr o script com `--force`,
+ou usar `>> .env` (que acrescenta uma segunda `POSTGRES_PASSWORD` — o `dotenv` e o
+`docker compose` leem a **última**, que não é a do volume).
+
+Confirma primeiro se há chaves duplicadas no `.env`:
+
+```bash
+grep -oE '^[A-Z_]+=' .env | sort | uniq -d
+```
 
 Para manter os dados, sincroniza a password guardada com a do `.env` (a ligação pelo socket
 local dentro do contentor não pede password):
 
 ```bash
 docker exec srh-postgres-dev psql -U srh_user -d postgres \
-  -c "ALTER USER srh_user WITH PASSWORD '<valor de POSTGRES_PASSWORD no .env>';"
+  -c "ALTER USER srh_user WITH PASSWORD '$(grep '^POSTGRES_PASSWORD=' .env | cut -d= -f2-)';"
 
 docker compose -f infra/docker-compose.dev.yml --env-file .env \
-  up -d --force-recreate backend keycloak
+  up -d --force-recreate backend
 ```
 
-Em alternativa, para começar de raiz (**apaga a base de dados**, incluindo a do Keycloak):
+Se o `.env` tinha duplicados, corre o `./scripts/generate-secrets.sh` depois: colapsa cada
+chave repetida numa linha só, mantendo o valor que estava a ser usado.
+
+Em alternativa, para começar de raiz (**apaga a base de dados**):
 
 ```bash
 docker compose -f infra/docker-compose.dev.yml --env-file .env down
@@ -387,25 +398,18 @@ cp .env backend/.env
 ```
 
 **2. As chaves são `change_me_run_generate_secrets_sh`.** Não são chaves RSA, e o RS256
-exige um PEM assimétrico. Num stack ainda não inicializado, gera tudo de novo:
+exige um PEM assimétrico. O script substitui os placeholders no sítio e deixa o resto como
+está, por isso serve tanto num stack novo como num que já existe:
 
 ```bash
-./scripts/generate-secrets.sh >> .env
+./scripts/generate-secrets.sh
 ```
 
-Se a base de dados e o MinIO **já têm volumes criados**, o comando acima rodaria também a
-`POSTGRES_PASSWORD` e as chaves do MinIO e partiria a autenticação. Nesse caso substitui só
-as quatro chaves JWT:
+Se as chaves já forem reais e mesmo assim quiseres novas, pede a rotação explícita — isto
+invalida todas as sessões ativas:
 
 ```bash
-ap=$(openssl genrsa 2048 2>/dev/null); au=$(printf '%s' "$ap" | openssl rsa -pubout 2>/dev/null)
-rp=$(openssl genrsa 2048 2>/dev/null); ru=$(printf '%s' "$rp" | openssl rsa -pubout 2>/dev/null)
-sed -i \
-  -e "s|^JWT_ACCESS_PRIVATE_KEY=.*|JWT_ACCESS_PRIVATE_KEY=$(printf '%s\n' "$ap" | openssl base64 -A)|" \
-  -e "s|^JWT_ACCESS_PUBLIC_KEY=.*|JWT_ACCESS_PUBLIC_KEY=$(printf '%s\n' "$au" | openssl base64 -A)|" \
-  -e "s|^JWT_REFRESH_PRIVATE_KEY=.*|JWT_REFRESH_PRIVATE_KEY=$(printf '%s\n' "$rp" | openssl base64 -A)|" \
-  -e "s|^JWT_REFRESH_PUBLIC_KEY=.*|JWT_REFRESH_PUBLIC_KEY=$(printf '%s\n' "$ru" | openssl base64 -A)|" \
-  .env
+./scripts/generate-secrets.sh --rotate jwt
 ```
 
 Depois recria o contentor — `docker restart` não chega, porque um contentor mantém o
