@@ -49,6 +49,20 @@ export class PoliciesController {
     return this.policiesService.findAll(q, category, status, canManage);
   }
 
+  @Get('acceptance/pending')
+  @ApiOperation({ summary: 'Listar políticas pendentes de aceite do utilizador' })
+  async pendingAcceptances(@Req() req: Request) {
+    const user = req.user as JwtPayload;
+    return this.policiesService.findPendingAcceptances(user.sub);
+  }
+
+  @Get('acceptance/logs')
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
+  @ApiOperation({ summary: 'Consultar logs de aceite de políticas' })
+  async acceptanceLogs() {
+    return this.policiesService.findAcceptanceLogs();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Obter política por ID' })
   async findOne(@Param('id') id: string) {
@@ -84,6 +98,14 @@ export class PoliciesController {
   @ApiOperation({ summary: 'Publicar política (admin)' })
   async publish(@Param('id') id: string) {
     return this.policiesService.publish(id);
+  }
+
+  @Post(':id/accept')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Registar aceite de uma política publicada' })
+  async accept(@Param('id') id: string, @Req() req: Request) {
+    const user = req.user as JwtPayload;
+    return this.policiesService.acceptPolicy(id, user.sub);
   }
 
   @Delete(':id')

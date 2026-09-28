@@ -4,6 +4,7 @@ import type {
   PolicyFilters,
   CreatePolicyRequest,
   UpdatePolicyRequest,
+  PolicyAcceptanceLog,
 } from '@/types/policies';
 
 export async function fetchPolicies(filters?: PolicyFilters): Promise<Policy[]> {
@@ -38,4 +39,18 @@ export async function publishPolicy(id: string): Promise<Policy> {
 
 export async function archivePolicy(id: string): Promise<void> {
   await apiClient.delete(`/policies/${id}`);
+}
+
+export async function fetchPendingPolicyAcceptances(): Promise<Policy[]> {
+  const response = await apiClient.get<Policy[]>('/policies/acceptance/pending');
+  return response.data;
+}
+
+export async function acceptPolicy(id: string): Promise<void> {
+  await apiClient.post(`/policies/${id}/accept`);
+}
+
+export async function fetchPolicyAcceptanceLogs(): Promise<PolicyAcceptanceLog[]> {
+  const response = await apiClient.get<PolicyAcceptanceLog[]>('/policies/acceptance/logs');
+  return response.data;
 }
