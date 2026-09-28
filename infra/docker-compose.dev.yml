@@ -34,8 +34,10 @@ services:
       timeout: 5s
       retries: 5
 
+  # Fork da Pigsty (mesmo código AGPL): a MinIO deixou de publicar imagens da edição
+  # comunitária. Versão fixada e validada com a aplicação — ver DEPLOY_PORTAINER.md.
   minio:
-    image: minio/minio:latest
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     container_name: srh-minio-dev
     restart: unless-stopped
     ports:
@@ -56,7 +58,7 @@ services:
   # Serviço one-shot: cria o bucket de documentos e termina. Sem isto, os uploads
   # falham com NoSuchBucket — nem o compose nem o StorageService criam o bucket.
   createbuckets:
-    image: quay.io/minio/mc:latest
+    image: pgsty/mc:RELEASE.2026-09-16T00-00-00Z
     container_name: srh-createbuckets-dev
     restart: 'no'
     depends_on:
