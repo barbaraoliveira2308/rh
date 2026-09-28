@@ -43,20 +43,18 @@ services:
       timeout: 5s
       retries: 5
 
-  # Fork da Pigsty (mesmo código AGPL): a MinIO deixou de publicar imagens da edição
-  # comunitária. Versão fixada e validada com a aplicação — ver DEPLOY_PORTAINER.md.
-  minio:
-    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
-    container_name: srh-minio-prod
+  # Armazenamento S3 (RustFS, Apache-2.0), versão fixada — ver DEPLOY_PORTAINER.md.
+  rustfs:
+    image: rustfs/rustfs:1.0.0
+    container_name: srh-rustfs-prod
     restart: unless-stopped
     ports:
       - '127.0.0.1:9000:9000'
     environment:
-      MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY}
-      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_KEY}
+      RUSTFS_ACCESS_KEY: ${STORAGE_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${STORAGE_SECRET_KEY}
     volumes:
-      - minio-data:/data
-    command: server /data
+      - rustfs-data:/data
     deploy:
       resources:
         limits:
@@ -65,19 +63,26 @@ services:
 
   # Serviço one-shot: cria o bucket de documentos e termina. Sem isto, os uploads
   # falham com NoSuchBucket — nem o compose nem o StorageService criam o bucket.
+  # AWS CLI (cliente S3 genérico): não tem `mb --ignore-existing`, daí o `head-bucket` antes.
   createbuckets:
-    image: pgsty/mc:RELEASE.2026-09-16T00-00-00Z
+    image: public.ecr.aws/aws-cli/aws-cli:2.37.4
     container_name: srh-createbuckets-prod
     restart: 'no'
     depends_on:
-      minio:
+      rustfs:
         condition: service_started
+    environment:
+      AWS_ACCESS_KEY_ID: ${STORAGE_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${STORAGE_SECRET_KEY}
+      AWS_DEFAULT_REGION: ${STORAGE_REGION:-eu-west-1}
+      AWS_ENDPOINT_URL: http://rustfs:9000
     entrypoint: >
       /bin/sh -c "
-      until mc alias set local http://minio:9000 '${STORAGE_ACCESS_KEY}' '${STORAGE_SECRET_KEY}' >/dev/null 2>&1; do
-        echo 'à espera do MinIO...'; sleep 2;
+      until aws s3api list-buckets >/dev/null 2>&1; do
+        echo 'à espera do RustFS...'; sleep 2;
       done;
-      mc mb --ignore-existing 'local/${STORAGE_BUCKET:-srh-documents}'
+      aws s3api head-bucket --bucket '${STORAGE_BUCKET:-srh-documents}' 2>/dev/null ||
+      aws s3 mb 's3://${STORAGE_BUCKET:-srh-documents}'
       "
 
   rabbitmq:
@@ -118,7 +123,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_ENDPOINT: http://rustfs:9000
       STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY}
       STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY}
       STORAGE_BUCKET: ${STORAGE_BUCKET}
@@ -178,5 +183,5 @@ services:
 volumes:
   postgres-data:
   redis-data:
-  minio-data:
+  rustfs-data:
   rabbitmq-data:

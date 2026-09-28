@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Gera e escreve os segredos aleatórios do .env (JWT, MFA, Postgres, MinIO).
+# Gera e escreve os segredos aleatórios do .env (JWT, MFA, Postgres, RustFS).
 #
 # Por omissão só preenche o que falta: uma chave já definida com um valor real
 # é mantida, por isso correr o script duas vezes é seguro e não parte nada.
@@ -258,7 +258,7 @@ warn_rotation() {
         echo "  POSTGRES_PASSWORD: corre o ALTER USER no Postgres, senão a auth parte." >&2
         : ;;
       STORAGE_ACCESS_KEY|STORAGE_SECRET_KEY)
-        echo "  ${k}: reinicia o MinIO depois (docker restart srh-minio-dev)." >&2
+        echo "  ${k}: reinicia o RustFS depois (docker restart srh-rustfs-dev)." >&2
         : ;;
     esac
   done

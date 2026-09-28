@@ -1,6 +1,6 @@
 # Deploy num servidor Ubuntu 24.04 limpo
 
-Guia passo a passo para subir o HR Suite (backend + frontend + Postgres + Redis + MinIO +
+Guia passo a passo para subir o HR Suite (backend + frontend + Postgres + Redis + RustFS +
 RabbitMQ) via Docker Compose de produção (`infra/docker-compose.prod.yml`) num servidor Ubuntu 24.04
 recém-instalado, sem nada pré-configurado.
 
@@ -78,7 +78,7 @@ cp .env.example .env
 ⚠️ **Passo obrigatório, não opcional.** Os placeholders do `.env.example` (`JWT_ACCESS_PRIVATE_KEY=change_me_run_generate_secrets_sh`,
 etc.) não são chaves RSA válidas — sem este passo o Docker sobe sem erro aparente, mas o primeiro login
 falha com um erro genérico do servidor. O script gera pares de chaves RSA reais (JWT) e os restantes
-segredos (Postgres, MFA, MinIO); como o `dotenv` usa o valor mais recente de cada variável no ficheiro,
+segredos (Postgres, MFA, RustFS); como o `dotenv` usa o valor mais recente de cada variável no ficheiro,
 `>>` (acrescentar ao fim) é suficiente para sobrepor os placeholders.
 
 O `.env.example` **não inclui** algumas variáveis exigidas só pelo `docker-compose.prod.yml` (o compose
@@ -106,7 +106,7 @@ docker compose -f infra/docker-compose.prod.yml --env-file .env up -d --build
 ```
 
 Isto builda as imagens do backend e frontend (via `backend/Dockerfile`/`frontend/Dockerfile`) e sobe
-Postgres, Redis, MinIO, RabbitMQ, backend e frontend. O primeiro build demora alguns minutos.
+Postgres, Redis, RustFS, RabbitMQ, backend e frontend. O primeiro build demora alguns minutos.
 
 Confirma que tudo arrancou:
 
@@ -129,7 +129,7 @@ docker exec -it srh-postgres-prod psql -U srh_user -d postgres -c "DROP DATABASE
 variáveis `KEYCLOAK_*` e `VITE_KEYCLOAK_*` que ainda estejam no `.env` deixam de ser lidas e podem
 ser apagadas.
 
-## 8. Bucket de documentos no MinIO (automático)
+## 8. Bucket de documentos no RustFS (automático)
 
 O bucket é criado pelo serviço one-shot `createbuckets` do `docker-compose.prod.yml`, que arranca
 com o stack, cria o bucket e termina. Confirma que correu bem:
@@ -138,15 +138,23 @@ com o stack, cria o bucket e termina. Confirma que correu bem:
 docker compose -f infra/docker-compose.prod.yml logs createbuckets
 ```
 
-Se for preciso criar à mão (o cliente `mc` vem incluído na imagem do MinIO):
+Se for preciso voltar a criá-lo, corre o mesmo serviço outra vez (idempotente — não mexe num
+bucket que já exista):
 
 ```bash
-docker exec srh-minio-prod mc alias set local http://localhost:9000 <STORAGE_ACCESS_KEY> <STORAGE_SECRET_KEY>
-docker exec srh-minio-prod mc mb --ignore-existing local/srh-documents
+docker compose -f infra/docker-compose.prod.yml --env-file .env up createbuckets
 ```
 
-(Usa os valores reais de `STORAGE_ACCESS_KEY`/`STORAGE_SECRET_KEY` do teu `.env`, gerados no passo 5;
-o nome do bucket deve corresponder a `STORAGE_BUCKET`, `srh-documents` por omissão.)
+(O nome do bucket vem de `STORAGE_BUCKET`, `srh-documents` por omissão.)
+
+**Só em upgrades de um servidor com MinIO:** o armazenamento passou do MinIO para o RustFS e os
+ficheiros **não são migrados** — o RustFS arranca com um volume novo (`rustfs-data`) e o bucket vazio.
+Para remover o contentor antigo e, depois, o volume do MinIO:
+
+```bash
+docker compose -f infra/docker-compose.prod.yml --env-file .env up -d --remove-orphans
+docker volume rm srh-prod_minio-data
+```
 
 ## 9. Dados de demo (opcional)
 
@@ -176,7 +184,7 @@ sudo ufw allow 80/tcp
 sudo ufw enable
 ```
 
-Não abras as portas 3000 (backend), 5432 (Postgres), 6379 (Redis), 9000 (MinIO) ou
+Não abras as portas 3000 (backend), 5432 (Postgres), 6379 (Redis), 9000 (RustFS) ou
 5672 (RabbitMQ) ao exterior — todas já estão corretamente restritas a `127.0.0.1` no
 `docker-compose.prod.yml`, exceto a 80.
 

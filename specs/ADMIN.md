@@ -56,7 +56,7 @@ O sistema suporta múltiplas entidades legais (Bridge351, NIVVOS) com:
 | Base de dados           | PostgreSQL                              |
 | Cache                   | Redis                                   |
 | Mensageria              | RabbitMQ ou Apache Kafka                |
-| Armazenamento ficheiros | MinIO (compatível S3)                   |
+| Armazenamento ficheiros | RustFS (compatível S3)                  |
 | Identity Provider       | Nenhum — ~~Keycloak~~ removido em P-094 |
 | Monitorização           | Prometheus + Grafana                    |
 | Logging                 | ELK Stack / OpenSearch                  |

@@ -7,11 +7,11 @@ fazer redeploy do stack.
 
 O stack usa `infra/docker-compose.devserver.yml`, derivado do compose de produção:
 
-| Serviço                                   | Acesso                                              |
-| ----------------------------------------- | --------------------------------------------------- |
-| Frontend (SPA + proxy de `/api`)          | `http://<host>:8888/`                               |
-| Mailpit (emails capturados)               | `http://<host>:8025/`                               |
-| Backend, Postgres, Redis, MinIO, RabbitMQ | só na rede interna do stack (sem portas publicadas) |
+| Serviço                                    | Acesso                                              |
+| ------------------------------------------ | --------------------------------------------------- |
+| Frontend (SPA + proxy de `/api`)           | `http://<host>:8888/`                               |
+| Mailpit (emails capturados)                | `http://<host>:8025/`                               |
+| Backend, Postgres, Redis, RustFS, RabbitMQ | só na rede interna do stack (sem portas publicadas) |
 
 Diferenças face a produção (`DEPLOY_UBUNTU.md`):
 
@@ -22,11 +22,17 @@ Diferenças face a produção (`DEPLOY_UBUNTU.md`):
 - O serviço one-shot `prune` limpa imagens antigas e **toda** a cache de build do host no fim de
   cada deploy (ver "Espaço em disco").
 
-O MinIO usa, aqui como em produção e no dev local, as imagens do fork da Pigsty, fixadas numa versão
-validada (`pgsty/minio:RELEASE.2026-08-04T00-00-00Z` e `pgsty/mc:RELEASE.2026-09-16T00-00-00Z`): a
-MinIO deixou de publicar imagens da edição comunitária, e `minio/minio` (Docker Hub) e
-`quay.io/minio/*` já não se descarregam sem autenticação. Para mudar de versão, altera a tag nos três
-composes e volta a validar upload, download e remoção de documentos.
+O armazenamento de ficheiros usa, aqui como em produção e no dev local, o **RustFS**
+(`rustfs/rustfs:1.0.0`, Apache-2.0), compatível com S3, que substituiu o MinIO (projeto
+descontinuado). O bucket é criado pelo serviço one-shot `createbuckets`, com a AWS CLI
+(`public.ecr.aws/aws-cli/aws-cli:2.37.4`, descarregada do registo público da AWS e não do Docker Hub).
+Para mudar de versão, altera a tag nos três composes e volta a validar upload, download e remoção de
+documentos.
+
+> **Migração do MinIO (uma vez):** os dados do MinIO não são migrados — o RustFS arranca com um
+> volume novo (`rustfs-data`) e o bucket é recriado vazio. Depois do primeiro deploy com o RustFS,
+> remove no Portainer o contentor `srh-minio-devserver` (se ainda existir) e o volume
+> `srh-devserver_minio-data`.
 
 ---
 

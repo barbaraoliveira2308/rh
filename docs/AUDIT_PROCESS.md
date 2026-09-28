@@ -30,8 +30,8 @@ O processo tem 8 fases (0–7), pensadas para correr sequencialmente — cada fa
 - [ ] Fixar o commit/branch auditado (`git rev-parse HEAD`) e o(s) ambiente(s) — dev, staging, produção
 - [ ] Confirmar a versão de `docs/openapi.json` corresponde ao commit auditado
 - [ ] Inventariar os 25 módulos de `backend/src/` e assinalar quais entram no âmbito desta ronda
-- [ ] Inventariar os serviços de infraestrutura envolvidos (`infra/docker-compose.{dev,prod}.yml`): PostgreSQL, Redis, MinIO, RabbitMQ, SMTP
-- [ ] Identificar quem tem acesso de produção (base de dados, MinIO, `.env`) neste momento
+- [ ] Inventariar os serviços de infraestrutura envolvidos (`infra/docker-compose.{dev,prod}.yml`): PostgreSQL, Redis, RustFS, RabbitMQ, SMTP
+- [ ] Identificar quem tem acesso de produção (base de dados, RustFS, `.env`) neste momento
 - [ ] Abrir o registo de findings desta ronda (cópia do modelo no fim deste documento)
 
 **Entregável:** ficha de âmbito com commit, ambientes e responsáveis por fase.
@@ -119,7 +119,7 @@ O processo tem 8 fases (0–7), pensadas para correr sequencialmente — cada fa
 - [ ] **Antes de rodar `MFA_ENCRYPTION_KEY`:** confirmar que a equipa foi avisada — a rotação torna ilegíveis os secrets TOTP já cifrados na base de dados e obriga todos os colaboradores com MFA ativo a reconfigurar do zero (ver `EncryptionService.decrypt()`)
 - [ ] **Antes de rodar `JWT_ACCESS_PRIVATE_KEY`/`JWT_REFRESH_PRIVATE_KEY`:** confirmar que a equipa foi avisada — não há suporte a rotação com sobreposição de chaves (RNF-AUTH-004 continua por implementar), pelo que rodar estas chaves invalida imediatamente todas as sessões ativas e força novo login a todos os utilizadores
 - [ ] `docker-compose.prod.yml` usa imagens fixadas por tag de versão (não `latest`) e não expõe portas de infraestrutura (Postgres, Redis, RabbitMQ) publicamente
-- [ ] Bucket `srh-documents` no MinIO/S3: política de acesso privada por omissão, `STORAGE_USE_SSL=true` em produção
+- [ ] Bucket `srh-documents` no RustFS/S3: política de acesso privada por omissão, `STORAGE_USE_SSL=true` em produção
 - [ ] Backups de PostgreSQL: existe rotina agendada, e já foi feito um teste de restauro nos últimos 90 dias
 - [ ] RabbitMQ: fila de `report_jobs` com dead-letter queue ou reprocessamento definido para jobs falhados
 - [x] `pnpm audit` (ou equivalente) corrido sobre backend e frontend — **corrido em P-042**: 21 vulnerabilidades (4 moderate, 17 high), 2 altas de runtime corrigidas (`multer` 2.1.1→2.2.0 via `pnpm.overrides` em `package.json`, `react-router-dom` 7.18.1→7.18.2), as restantes ~15 classificadas nessa altura como "só ferramentas de build/dev, nunca correm em produção", deixadas para o Dependabot. **Revisto em P-050 (`R-041`, ver `specs/GLOBAL-TASKS-RISKS.md`)**: essa classificação estava incorreta — `typeorm` (dependência de produção direta), `uuid` (via `exceljs`, produção) e `brace-expansion` (via `typeorm`/`exceljs`, produção) são de facto alcançáveis por código de produção, ainda que a exploração prática avaliada seja baixa nos 3 casos. **Corrigido em P-051**: `typeorm` atualizado para `0.3.31` (`pnpm update` dentro do range já declarado `^0.3.20`); `pnpm.overrides` adicionados para `uuid` (`^11.1.1`), `brace-expansion` (`@1`→`^1.1.18`, `@2`→`^2.1.4`, `@5`→`^5.0.9`), `js-yaml` (`@3`→`^3.15.1`, `@4`→`^4.3.1`) e `fast-uri` (`^3.1.5`) — mesmo padrão já usado para `multer`. `pnpm audit` pós-fix: só restam `nanoid`/`postcss`, confirmados build-time-only do frontend, nunca incluídos no bundle enviado ao browser

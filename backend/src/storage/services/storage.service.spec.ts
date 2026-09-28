@@ -37,7 +37,7 @@ describe('StorageService', () => {
           useValue: {
             get: jest.fn().mockImplementation((key: string, defaultValue?: string) => {
               const values: Record<string, string> = {
-                STORAGE_ENDPOINT: 'http://minio:9000',
+                STORAGE_ENDPOINT: 'http://rustfs:9000',
                 STORAGE_BUCKET: 'srh-documents',
               };
               return values[key] ?? defaultValue;
