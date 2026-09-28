@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Controller, FormProvider, Path, useForm, useFormContext } from 'react-hook-form';
+import { FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import dayjs from 'dayjs';
@@ -11,8 +11,11 @@ import { StatusBadge, type BadgeVariant } from '@/components/StatusBadge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { FormField } from '@/components/FormField';
+import {
+  EmployeeSelectField,
+  type EmployeeSelectOption,
+} from '@/features/employees/components/EmployeeSelectField';
 import {
   Dialog,
   DialogContent,
@@ -20,13 +23,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   fetchEmployee,
   updateEmployee,
@@ -112,53 +108,6 @@ const statusOptions = [
   { value: EmployeeStatus.ON_LEAVE, label: 'Em licença' },
 ];
 
-interface SelectOption {
-  value: string;
-  label: string;
-}
-
-interface SelectFieldProps {
-  name: Path<EditForm>;
-  label: string;
-  options: SelectOption[];
-  placeholder?: string;
-}
-
-function SelectField({ name, label, options, placeholder }: SelectFieldProps): React.JSX.Element {
-  const { control, formState } = useFormContext<EditForm>();
-  const error = formState.errors[name]?.message;
-
-  return (
-    <div className="space-y-2">
-      <Label htmlFor={name}>{label}</Label>
-      <Controller
-        name={name}
-        control={control}
-        render={({ field }) => (
-          <Select
-            value={field.value ?? ''}
-            onValueChange={(value) => {
-              field.onChange(value || undefined);
-            }}
-          >
-            <SelectTrigger id={name} aria-invalid={Boolean(error)}>
-              <SelectValue placeholder={placeholder ?? label} />
-            </SelectTrigger>
-            <SelectContent>
-              {options.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      />
-      {error && <p className="text-xs text-red-600">{error}</p>}
-    </div>
-  );
-}
-
 interface EditEmployeeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -194,18 +143,18 @@ function EditEmployeeDialog({
     queryFn: () => fetchEmployees({ status: EmployeeStatus.ACTIVE, limit: 100 }),
   });
 
-  const departmentOptions: SelectOption[] = React.useMemo(
+  const departmentOptions: EmployeeSelectOption[] = React.useMemo(
     () =>
       departments?.map((department) => ({ value: department.id, label: department.name })) ?? [],
     [departments],
   );
 
-  const jobTitleOptions: SelectOption[] = React.useMemo(
+  const jobTitleOptions: EmployeeSelectOption[] = React.useMemo(
     () => jobTitles?.map((jobTitle) => ({ value: jobTitle.id, label: jobTitle.name })) ?? [],
     [jobTitles],
   );
 
-  const managerOptions: SelectOption[] = React.useMemo(
+  const managerOptions: EmployeeSelectOption[] = React.useMemo(
     () =>
       managers?.data
         .filter((manager) => manager.id !== employeeId)
@@ -259,19 +208,19 @@ function EditEmployeeDialog({
               <FormField name="gender" label="Género" />
               <FormField name="address" label="Morada" />
               <FormField name="employeeNumber" label="Número de colaborador" />
-              <SelectField
+              <EmployeeSelectField<EditForm>
                 name="departmentId"
                 label="Departamento"
                 placeholder="Selecionar departamento"
                 options={departmentOptions}
               />
-              <SelectField
+              <EmployeeSelectField<EditForm>
                 name="jobTitleId"
                 label="Cargo"
                 placeholder="Selecionar cargo"
                 options={jobTitleOptions}
               />
-              <SelectField
+              <EmployeeSelectField<EditForm>
                 name="managerId"
                 label="Gestor"
                 placeholder="Selecionar gestor"
@@ -280,7 +229,7 @@ function EditEmployeeDialog({
               <FormField name="employmentStartDate" label="Data de início" type="date" />
               <FormField name="employmentEndDate" label="Data de fim" type="date" />
               <FormField name="workLocation" label="Local de trabalho" />
-              <SelectField
+              <EmployeeSelectField<EditForm>
                 name="status"
                 label="Estado"
                 placeholder="Selecionar estado"
