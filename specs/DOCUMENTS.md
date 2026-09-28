@@ -106,7 +106,7 @@ PDF, DOC/DOCX, XLS/XLSX, PNG/JPG, ZIP
   - `GET /documents/:id/download` — redireciona para presigned URL do RustFS.
   - `DELETE /documents/:id` — move o documento para a lixeira (soft delete).
   - `POST /documents/:id/restore` — restaura documento da lixeira.
-- **`StorageService`** global (`backend/src/storage/services/storage.service.ts`) baseado no AWS SDK para S3, configurado para RustFS, com `upload`, `getPresignedUrl` e `delete`.
+- **`StorageService`** global (`backend/src/storage/services/storage.service.ts`) baseado no AWS SDK para S3, configurado para RustFS, com `upload`, `getPresignedUrl` e `delete`. Desde P-101, `getObjectStream` converte um objeto em falta (`NoSuchKey`) em `404 Ficheiro não disponível` (antes: 500) — aplica-se a Documents, Comunicados e Relatórios.
 - **Presigned URLs:** o download utiliza URL assinada gerada pelo `StorageService` (expiração configurável, omissão de 300s).
 - **Lixeira/restore/purge:** soft delete via `deleted_at`; `purge` remove o objeto do RustFS e o registo da base de dados (não exposto ainda num endpoint).
 
