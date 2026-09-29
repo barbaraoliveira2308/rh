@@ -93,7 +93,7 @@ Não corras `pnpm dev` neste modo — o passo 3 já arrancou o backend e o front
 ```bash
 # 3. Subir SÓ a infraestrutura, nomeando os serviços explicitamente
 docker compose -f infra/docker-compose.dev.yml --env-file .env \
-  up -d postgres redis minio createbuckets rabbitmq mailpit
+  up -d postgres redis rustfs createbuckets rabbitmq mailpit
 
 # 4. O backend lê um .env relativo ao seu cwd (backend/), não o da raiz
 cp .env backend/.env
@@ -121,7 +121,7 @@ pnpm dev
 - **Backend**: http://localhost:3000/api
 - **Swagger** (dev/staging): http://localhost:3000/api/docs
 - **Mailpit** (emails de dev): http://localhost:8025
-- **MinIO** (consola): http://localhost:9001 — com o fork da Pigsty usado nos composes, a consola aparece como "SILO Console"
+- **RustFS** (consola): http://localhost:9001/rustfs/console/ — ver [Login na consola do RustFS](#login-na-consola-do-rustfs)
 
 Credenciais criadas pelo `run seed`:
 
@@ -131,6 +131,41 @@ Credenciais criadas pelo `run seed`:
 
 Para uma organização fictícia completa com utilizadores de demonstração, ver
 [Dados de Demo](#dados-de-demo).
+
+#### Login na consola do RustFS
+
+A consola não tem utilizadores próprios: o login é feito com as chaves de armazenamento do `.env`,
+que o compose passa ao RustFS como credenciais de administrador.
+
+| Campo da consola | Valor                                   |
+| ---------------- | --------------------------------------- |
+| **Access Key**   | valor de `STORAGE_ACCESS_KEY` no `.env` |
+| **Secret Key**   | valor de `STORAGE_SECRET_KEY` no `.env` |
+
+Para ver os valores:
+
+```bash
+grep -E '^STORAGE_(ACCESS|SECRET)_KEY=' .env
+```
+
+Copia só o que está depois do `=`. Se o `.env` não definir estas chaves, o compose de dev usa
+`rustfsadmin` / `rustfsadmin`.
+
+Se o login falhar depois de alterares as chaves no `.env` (à mão ou com
+`./scripts/generate-secrets.sh storage`), o RustFS ainda está a correr com as antigas — recria-o
+(e o backend, que usa as mesmas chaves):
+
+```bash
+# Modo A (tudo em Docker)
+docker compose -f infra/docker-compose.dev.yml --env-file .env up -d --force-recreate rustfs backend
+
+# Modo B (backend no host): recria só o RustFS e reinicia o `pnpm dev` depois de copiar o .env
+docker compose -f infra/docker-compose.dev.yml --env-file .env up -d --force-recreate rustfs
+cp .env backend/.env
+```
+
+Os ficheiros enviados pela aplicação ficam no bucket `srh-documents` (ou o valor de
+`STORAGE_BUCKET`).
 
 ## Servidor de Desenvolvimento
 
@@ -224,9 +259,9 @@ Para gerar valores aleatórios seguros para os segredos abaixo (`JWT_ACCESS_PRIV
 | `JWT_REFRESH_EXPIRES_IN`  | Expiração do refresh token                      | `7d`                            |
 | `MFA_ENCRYPTION_KEY`      | Chave AES-256-GCM para MFA secrets              | `change_me_mfa_key_32_bytes`    |
 | `VITE_API_URL`            | URL da API (frontend) — ver nota abaixo         | `http://localhost:3000/api`     |
-| `STORAGE_ENDPOINT`        | Endpoint do MinIO/S3 (com esquema `http://`)    | `http://localhost:9000`         |
-| `STORAGE_ACCESS_KEY`      | Access key do MinIO/S3                          | `change_me`                     |
-| `STORAGE_SECRET_KEY`      | Secret key do MinIO/S3                          | `change_me`                     |
+| `STORAGE_ENDPOINT`        | Endpoint do RustFS/S3 (com esquema `http://`)   | `http://localhost:9000`         |
+| `STORAGE_ACCESS_KEY`      | Access key do RustFS/S3                         | `change_me`                     |
+| `STORAGE_SECRET_KEY`      | Secret key do RustFS/S3                         | `change_me`                     |
 | `STORAGE_BUCKET`          | Bucket de documentos                            | `srh-documents`                 |
 | `STORAGE_REGION`          | Região S3                                       | `eu-west-1`                     |
 | `STORAGE_USE_SSL`         | Usar SSL para storage                           | `false`                         |
@@ -276,7 +311,7 @@ Password de todos os utilizadores de demo: `Demo123!`.
 
 Para a caixa de entrada/aprovações, entra como `mariana.ferreira` — tem itens pendentes reais de `sofia.almeida` (timesheet de agosto + pedido de férias + despesa).
 
-**Deliberadamente fora do âmbito** (não populado): Documents (requer upload real para o MinIO), GDPR (consentimentos/pedidos de titular, natureza sensível/irreversível), feriados públicos reais (dependem de importação externa via `POST /calendar/holidays/import`, correr manualmente se necessário para a demo).
+**Deliberadamente fora do âmbito** (não populado): Documents (requer upload real para o RustFS), GDPR (consentimentos/pedidos de titular, natureza sensível/irreversível), feriados públicos reais (dependem de importação externa via `POST /calendar/holidays/import`, correr manualmente se necessário para a demo).
 
 ## Estrutura do Monorepo
 
@@ -440,7 +475,7 @@ Certificar que o Docker Compose v2 está instalado:
 docker compose version
 ```
 
-### `NoSuchBucket` ou erro de permissões no MinIO
+### `NoSuchBucket` ou erro de permissões no RustFS
 
 O bucket é criado pelo serviço one-shot `createbuckets` do `docker-compose.dev.yml`, que
 corre uma vez e termina. Confirmar que correu bem:

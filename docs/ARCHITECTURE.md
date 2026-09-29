@@ -41,7 +41,7 @@ flowchart LR
         PG[(PostgreSQL 16)]
         REDIS[(Redis 7)]
         RABBIT[(RabbitMQ)]
-        MINIO[(MinIO / S3)]
+        RUSTFS[(RustFS / S3)]
         SMTP[Mailpit / SMTP]
     end
 
@@ -50,14 +50,14 @@ flowchart LR
     SHARED -.-> CORE
     MODULES -->|persistência| PG
     CROSS -->|cache / sessões| REDIS
-    CROSS -->|ficheiros| MINIO
+    CROSS -->|ficheiros| RUSTFS
     REPORTS[Reports] -.->|jobs assíncronos| RABBIT
     NOTIFY[Notifications] -.->|email| SMTP
 ```
 
 O frontend está documentado em detalhe no diagrama [frontend-architecture.png](./frontend-architecture.png).
 O login por email/password usa diretamente o módulo de autenticação do backend. Redis é usado por
-cache e sessões, RabbitMQ por relatórios assíncronos, MinIO por armazenamento S3 e Mailpit/SMTP por
+cache e sessões, RabbitMQ por relatórios assíncronos, RustFS por armazenamento S3 e Mailpit/SMTP por
 notificações de email.
 
 ## Auth Sequence
@@ -126,23 +126,24 @@ erDiagram
 
 ## ADRs (Architecture Decision Records)
 
-| ID      | Decisão                                                 | Contexto                                                                                              | Consequências                                                 |
-| ------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| ADR-001 | Monorepo com pnpm workspaces                            | Partilha de tipos entre backend e frontend                                                            | Dependências centralizadas, `@bridge351/srh-shared`           |
-| ADR-002 | NestJS + TypeORM + PostgreSQL                           | Framework maduro, decorators, integração nativa com TypeORM                                           | Módulos bem estruturados, migrations automáticas              |
-| ADR-003 | React 18 + Vite + Tailwind                              | Performance, DX, ecossistema moderno                                                                  | Build rápido (~8s), bundle otimizado                          |
-| ADR-004 | JWT + Redis para sessões                                | Stateless por padrão, revogação via Redis                                                             | `accessToken` 15min, `refreshToken` 7d com rotação            |
-| ADR-005 | ~~Keycloak para SSO corporativo~~ **Revogado em P-094** | Autenticação só na aplicação (email + password + MFA TOTP); o SSO nunca chegou a funcionar em browser | Keycloak e SSO removidos; SSO a reintroduzir numa fase futura |
-| ADR-006 | RBAC com 4 roles (admin/manager/approver/employee)      | Hierarquia simples, 30 permissoes base                                                                | Fácil de auditar, extensível via tabela `permissions`         |
-| ADR-007 | MinIO para armazenamento de documentos                  | Compatível com S3, auto-hospedado                                                                     | Presigned URLs para upload/download seguro                    |
-| ADR-008 | RabbitMQ para relatorios assincronos                    | Processamento em background de relatorios grandes                                                     | Retorno 202 Accepted, polling de status                       |
-| ADR-009 | Redis para cache (TTL 5min)                             | Analytics e dashboards com dados agregados                                                            | Cache decorator `@CacheResult`, invalidação manual            |
-| ADR-010 | Notificacoes por polling (60s)                          | Simplicidade vs WebSocket/SSE                                                                         | Endpoint `GET /notifications`, badge na sidebar               |
-| ADR-011 | Swagger apenas em dev/staging                           | Seguranca — nao expor docs em producao                                                                | Condicional `NODE_ENV === 'development' \|\| 'staging'`       |
-| ADR-012 | Layout fixo para dashboard v1                           | Sem widgets arrastaveis                                                                               | Menos complexidade, sem persistencia de layout                |
-| ADR-013 | Playwright headless sempre                              | Consistencia entre ambientes                                                                          | `headless: true` na config, CI e local                        |
-| ADR-014 | Portugues PT como lingua unica v1                       | Sem biblioteca i18n nesta fase                                                                        | Todo o UI em PT, sem suporte multi-idioma                     |
-| ADR-015 | Testes e2e com `--runInBand` e `dropSchema`             | Base de dados limpa por execucao                                                                      | Testes isolados, sequenciais, sem interferencia               |
+| ID      | Decisão                                                                          | Contexto                                                                                              | Consequências                                                                          |
+| ------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| ADR-001 | Monorepo com pnpm workspaces                                                     | Partilha de tipos entre backend e frontend                                                            | Dependências centralizadas, `@bridge351/srh-shared`                                    |
+| ADR-002 | NestJS + TypeORM + PostgreSQL                                                    | Framework maduro, decorators, integração nativa com TypeORM                                           | Módulos bem estruturados, migrations automáticas                                       |
+| ADR-003 | React 18 + Vite + Tailwind                                                       | Performance, DX, ecossistema moderno                                                                  | Build rápido (~8s), bundle otimizado                                                   |
+| ADR-004 | JWT + Redis para sessões                                                         | Stateless por padrão, revogação via Redis                                                             | `accessToken` 15min, `refreshToken` 7d com rotação                                     |
+| ADR-005 | ~~Keycloak para SSO corporativo~~ **Revogado em P-094**                          | Autenticação só na aplicação (email + password + MFA TOTP); o SSO nunca chegou a funcionar em browser | Keycloak e SSO removidos; SSO a reintroduzir numa fase futura                          |
+| ADR-006 | RBAC com 4 roles (admin/manager/approver/employee)                               | Hierarquia simples, 30 permissoes base                                                                | Fácil de auditar, extensível via tabela `permissions`                                  |
+| ADR-007 | ~~MinIO para armazenamento de documentos~~ **Substituído pelo ADR-016 em P-101** | Compatível com S3, auto-hospedado                                                                     | Presigned URLs para upload/download seguro                                             |
+| ADR-008 | RabbitMQ para relatorios assincronos                                             | Processamento em background de relatorios grandes                                                     | Retorno 202 Accepted, polling de status                                                |
+| ADR-009 | Redis para cache (TTL 5min)                                                      | Analytics e dashboards com dados agregados                                                            | Cache decorator `@CacheResult`, invalidação manual                                     |
+| ADR-010 | Notificacoes por polling (60s)                                                   | Simplicidade vs WebSocket/SSE                                                                         | Endpoint `GET /notifications`, badge na sidebar                                        |
+| ADR-011 | Swagger apenas em dev/staging                                                    | Seguranca — nao expor docs em producao                                                                | Condicional `NODE_ENV === 'development' \|\| 'staging'`                                |
+| ADR-012 | Layout fixo para dashboard v1                                                    | Sem widgets arrastaveis                                                                               | Menos complexidade, sem persistencia de layout                                         |
+| ADR-013 | Playwright headless sempre                                                       | Consistencia entre ambientes                                                                          | `headless: true` na config, CI e local                                                 |
+| ADR-014 | Portugues PT como lingua unica v1                                                | Sem biblioteca i18n nesta fase                                                                        | Todo o UI em PT, sem suporte multi-idioma                                              |
+| ADR-015 | Testes e2e com `--runInBand` e `dropSchema`                                      | Base de dados limpa por execucao                                                                      | Testes isolados, sequenciais, sem interferencia                                        |
+| ADR-016 | RustFS para armazenamento de documentos (P-101)                                  | Compatível com S3, auto-hospedado, Apache-2.0; substitui o MinIO, cujo projeto foi descontinuado      | Backend inalterado (AWS SDK); bucket criado com a AWS CLI; dados do MinIO não migrados |
 
 ---
 

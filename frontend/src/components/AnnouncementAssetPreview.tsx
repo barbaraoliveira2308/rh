@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import IconButton from '@mui/material/IconButton';
+import Typography from '@mui/material/Typography';
 import CloseIcon from '@mui/icons-material/Close';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,10 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { fetchAnnouncementAssetBlob } from '@/api/announcements.api';
 import type { AnnouncementAsset } from '@/types/announcements';
 
-function useAnnouncementAssetObjectUrl(asset: AnnouncementAsset): string | null {
+function useAnnouncementAssetObjectUrl(asset: AnnouncementAsset): {
+  objectUrl: string | null;
+  isError: boolean;
+} {
   const assetBlobQuery = useQuery({
     queryKey: ['announcement-asset', asset.id],
     queryFn: () => fetchAnnouncementAssetBlob(asset.url),
@@ -30,7 +34,16 @@ function useAnnouncementAssetObjectUrl(asset: AnnouncementAsset): string | null 
     };
   }, [assetBlobQuery.data]);
 
-  return objectUrl;
+  return { objectUrl, isError: assetBlobQuery.isError };
+}
+
+// Mostrado em vez do spinner quando o download do anexo falha (ex.: 404 do backend).
+function AssetUnavailable(): React.JSX.Element {
+  return (
+    <Typography color="text.secondary" variant="body2">
+      Ficheiro não disponível
+    </Typography>
+  );
 }
 
 export function AnnouncementAssetPreview({
@@ -40,7 +53,7 @@ export function AnnouncementAssetPreview({
   asset: AnnouncementAsset;
   maxHeight?: number;
 }): React.JSX.Element {
-  const objectUrl = useAnnouncementAssetObjectUrl(asset);
+  const { objectUrl, isError } = useAnnouncementAssetObjectUrl(asset);
   const [expanded, setExpanded] = React.useState(false);
 
   const downloadMutation = useMutation({
@@ -122,6 +135,8 @@ export function AnnouncementAssetPreview({
           </DialogContent>
         </Dialog>
       </>
+    ) : isError ? (
+      <AssetUnavailable />
     ) : (
       <LoadingSpinner size={24} />
     );
@@ -198,6 +213,8 @@ export function AnnouncementAssetPreview({
           </DialogContent>
         </Dialog>
       </>
+    ) : isError ? (
+      <AssetUnavailable />
     ) : (
       <LoadingSpinner size={24} />
     );

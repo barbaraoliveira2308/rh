@@ -36,7 +36,7 @@ Gerir o ciclo de vida dos colaboradores no sistema, incluindo perfis, dados pess
 | address               | TEXT         | Nullable, GDPR sensível    | —                             |
 | nationality           | VARCHAR(50)  | Nullable                   | —                             |
 | gender                | VARCHAR(20)  | Nullable, GDPR sensível    | —                             |
-| photo_url             | VARCHAR(512) | Nullable                   | Armazenado em MinIO           |
+| photo_url             | VARCHAR(512) | Nullable                   | Armazenado em RustFS          |
 | department_id         | UUID         | FK → Department, Nullable  | —                             |
 | job_title_id          | UUID         | FK → JobTitle, Nullable    | —                             |
 | manager_id            | UUID         | FK → Employee, Nullable    | Hierarquia direta             |
@@ -380,7 +380,7 @@ Secção de registo do estado atual da implementação do módulo no backend (`b
 - **Auditoria e eventos:** não são emitidos eventos (`EmployeeCreated`, `EmployeeUpdated`, etc.) nem é registada auditoria de alterações.
 - **Revogação de sessões:** a desativação altera o `status` e `employmentEndDate`, mas não revoga sessões ativas.
 - **GDPR:** o decorador `@GdprSensitive` existe, mas não há redação/mascaramento automático dos campos sensíveis nas respostas.
-- **Upload de fotografia:** `photoUrl` é apenas um campo string; não existe endpoint de upload para MinIO/S3.
+- **Upload de fotografia:** `photoUrl` é apenas um campo string; não existe endpoint de upload para RustFS/S3.
 - **Permissões vs Roles:** o `UsersController` usa exclusivamente `@Roles`/`RolesGuard`; `PermissionsGuard` e `@Permissions` estão implementados mas não aplicados neste módulo.
 - **Gestão de perfis de acesso (P-066)**: até P-066, `RbacService.assignRole()`/`revokeRole()` existiam desde P-003 mas sem nenhum endpoint HTTP — ver secção dedicada abaixo.
 - **Rotas:** os endpoints de colaboradores estão sob `/users` em vez de `/employees` (o spec original referia `/api/v1/employees`).

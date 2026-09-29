@@ -90,19 +90,16 @@
 
   <text x="88" y="808" class="layer">INFRAESTRUTURA DOCKER</text>
   <rect x="88" y="829" width="1424" height="82" rx="12" fill="#edf0f1" stroke="#cbd2d4"/>
-  <rect x="116" y="850" width="210" height="42" rx="8" fill="#ffffff" stroke="#c7ced0"/>
-  <text x="221" y="876" text-anchor="middle" class="label">PostgreSQL 16</text>
-  <rect x="354" y="850" width="210" height="42" rx="8" fill="#ffffff" stroke="#c7ced0"/>
-  <text x="459" y="876" text-anchor="middle" class="label">Redis 7</text>
-  <rect x="592" y="850" width="210" height="42" rx="8" fill="#ffffff" stroke="#c7ced0"/>
-  <text x="697" y="876" text-anchor="middle" class="label">RabbitMQ</text>
-  <rect x="830" y="850" width="210" height="42" rx="8" fill="#ffffff" stroke="#c7ced0"/>
-  <text x="935" y="876" text-anchor="middle" class="label">MinIO / S3</text>
-  <rect x="1068" y="850" width="210" height="42" rx="8" fill="#ffffff" stroke="#c7ced0"/>
-  <text x="1173" y="876" text-anchor="middle" class="label">Keycloak</text>
-  <rect x="1306" y="850" width="178" height="42" rx="8" fill="#ffffff" stroke="#c7ced0"/>
-  <text x="1395" y="876" text-anchor="middle" class="label">Mailpit / SMTP</text>
+  <rect x="116" y="850" width="252" height="42" rx="8" fill="#ffffff" stroke="#c7ced0"/>
+  <text x="242" y="876" text-anchor="middle" class="label">PostgreSQL 16</text>
+  <rect x="395" y="850" width="252" height="42" rx="8" fill="#ffffff" stroke="#c7ced0"/>
+  <text x="521" y="876" text-anchor="middle" class="label">Redis 7</text>
+  <rect x="674" y="850" width="252" height="42" rx="8" fill="#ffffff" stroke="#c7ced0"/>
+  <text x="800" y="876" text-anchor="middle" class="label">RabbitMQ</text>
+  <rect x="953" y="850" width="252" height="42" rx="8" fill="#ffffff" stroke="#c7ced0"/>
+  <text x="1079" y="876" text-anchor="middle" class="label">RustFS / S3</text>
+  <rect x="1232" y="850" width="252" height="42" rx="8" fill="#ffffff" stroke="#c7ced0"/>
+  <text x="1358" y="876" text-anchor="middle" class="label">Mailpit / SMTP</text>
 
-  <path d="M1270 684 C1270 740 1173 790 1173 850" class="arrow dashed"/>
-  <path d="M1360 684 C1360 740 935 790 935 850" class="arrow dashed"/>
+  <path d="M1360 684 C1360 740 1079 790 1079 850" class="arrow dashed"/>
 </svg>

@@ -13,7 +13,7 @@ Disponibilizar repositório centralizado de documentos organizacionais e pessoai
 | id           | UUID         | PK                                                                | —                               |
 | name         | VARCHAR(200) | Obrigatório                                                       | —                               |
 | category     | ENUM         | contract, id, training, absence, insurance, onboarding, equipment | —                               |
-| storage_path | VARCHAR(512) | Obrigatório                                                       | Caminho no MinIO                |
+| storage_path | VARCHAR(512) | Obrigatório                                                       | Caminho no RustFS               |
 | file_type    | VARCHAR(20)  | pdf, doc, docx, xls, xlsx, png, jpg, zip                          | —                               |
 | size_bytes   | BIGINT       | —                                                                 | —                               |
 | owner_id     | UUID         | FK Employee, Nullable                                             | Null = documento organizacional |
@@ -57,7 +57,7 @@ PDF, DOC/DOCX, XLS/XLSX, PNG/JPG, ZIP
 | BR-DOC-002 | Documentos GDPR sensíveis só são acessíveis com permissão explícita.                         |
 | BR-DOC-003 | Templates são visíveis a todos os utilizadores autorizados para criação de novos documentos. |
 | BR-DOC-004 | A distribuição massiva cria uma cópia do documento para cada destinatário.                   |
-| BR-DOC-005 | Ficheiros armazenados no MinIO com acesso por URL assinada (pre-signed URL).                 |
+| BR-DOC-005 | Ficheiros armazenados no RustFS com acesso por URL assinada (pre-signed URL).                |
 
 ## Requisitos Funcionais
 
@@ -103,12 +103,12 @@ PDF, DOC/DOCX, XLS/XLSX, PNG/JPG, ZIP
   - `POST /documents` — upload multipart com `file` + metadados.
   - `GET /documents` — listar documentos, com filtros opcionais `category` e `ownerId`.
   - `GET /documents/:id` — obter documento por ID.
-  - `GET /documents/:id/download` — redireciona para presigned URL do MinIO.
+  - `GET /documents/:id/download` — redireciona para presigned URL do RustFS.
   - `DELETE /documents/:id` — move o documento para a lixeira (soft delete).
   - `POST /documents/:id/restore` — restaura documento da lixeira.
-- **`StorageService`** global (`backend/src/storage/services/storage.service.ts`) baseado no AWS SDK para S3, configurado para MinIO, com `upload`, `getPresignedUrl` e `delete`.
+- **`StorageService`** global (`backend/src/storage/services/storage.service.ts`) baseado no AWS SDK para S3, configurado para RustFS, com `upload`, `getPresignedUrl` e `delete`. Desde P-101, `getObjectStream` converte um objeto em falta (`NoSuchKey`) em `404 Ficheiro não disponível` (antes: 500) — aplica-se a Documents, Comunicados e Relatórios.
 - **Presigned URLs:** o download utiliza URL assinada gerada pelo `StorageService` (expiração configurável, omissão de 300s).
-- **Lixeira/restore/purge:** soft delete via `deleted_at`; `purge` remove o objeto do MinIO e o registo da base de dados (não exposto ainda num endpoint).
+- **Lixeira/restore/purge:** soft delete via `deleted_at`; `purge` remove o objeto do RustFS e o registo da base de dados (não exposto ainda num endpoint).
 
 ### Simplificações/Decisões
 

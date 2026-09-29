@@ -34,42 +34,48 @@ services:
       timeout: 5s
       retries: 5
 
-  # Fork da Pigsty (mesmo código AGPL): a MinIO deixou de publicar imagens da edição
-  # comunitária. Versão fixada e validada com a aplicação — ver DEPLOY_PORTAINER.md.
-  minio:
-    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
-    container_name: srh-minio-dev
+  # Armazenamento S3 (RustFS, Apache-2.0), versão fixada — ver DEPLOY_PORTAINER.md.
+  # A consola web (porta 9001) vem ativa por omissão na imagem.
+  rustfs:
+    image: rustfs/rustfs:1.0.0
+    container_name: srh-rustfs-dev
     restart: unless-stopped
     ports:
       - '9000:9000'
       - '9001:9001'
     environment:
-      MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_KEY:-minioadmin}
+      RUSTFS_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${STORAGE_SECRET_KEY:-rustfsadmin}
     volumes:
-      - minio-data:/data
-    command: server /data --console-address ":9001"
+      - rustfs-data:/data
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/health']
       interval: 30s
       timeout: 10s
       retries: 3
 
   # Serviço one-shot: cria o bucket de documentos e termina. Sem isto, os uploads
   # falham com NoSuchBucket — nem o compose nem o StorageService criam o bucket.
+  # AWS CLI (cliente S3 genérico): não tem `mb --ignore-existing`, daí o `head-bucket` antes.
   createbuckets:
-    image: pgsty/mc:RELEASE.2026-09-16T00-00-00Z
+    image: public.ecr.aws/aws-cli/aws-cli:2.37.4
     container_name: srh-createbuckets-dev
     restart: 'no'
     depends_on:
-      minio:
+      rustfs:
         condition: service_started
+    environment:
+      AWS_ACCESS_KEY_ID: ${STORAGE_ACCESS_KEY:-rustfsadmin}
+      AWS_SECRET_ACCESS_KEY: ${STORAGE_SECRET_KEY:-rustfsadmin}
+      AWS_DEFAULT_REGION: ${STORAGE_REGION:-eu-west-1}
+      AWS_ENDPOINT_URL: http://rustfs:9000
     entrypoint: >
       /bin/sh -c "
-      until mc alias set local http://minio:9000 '${STORAGE_ACCESS_KEY:-minioadmin}' '${STORAGE_SECRET_KEY:-minioadmin}' >/dev/null 2>&1; do
-        echo 'à espera do MinIO...'; sleep 2;
+      until aws s3api list-buckets >/dev/null 2>&1; do
+        echo 'à espera do RustFS...'; sleep 2;
       done;
-      mc mb --ignore-existing 'local/${STORAGE_BUCKET:-srh-documents}'
+      aws s3api head-bucket --bucket '${STORAGE_BUCKET:-srh-documents}' 2>/dev/null ||
+      aws s3 mb 's3://${STORAGE_BUCKET:-srh-documents}'
       "
 
   rabbitmq:
@@ -114,9 +120,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-srh_dev_pass}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      STORAGE_ENDPOINT: http://minio:9000
-      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-minioadmin}
-      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:-minioadmin}
+      STORAGE_ENDPOINT: http://rustfs:9000
+      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-rustfsadmin}
+      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:-rustfsadmin}
       STORAGE_BUCKET: ${STORAGE_BUCKET:-srh-documents}
       STORAGE_REGION: ${STORAGE_REGION:-eu-west-1}
       STORAGE_USE_SSL: 'false'
@@ -173,5 +179,5 @@ services:
 volumes:
   postgres-data:
   redis-data:
-  minio-data:
+  rustfs-data:
   rabbitmq-data:

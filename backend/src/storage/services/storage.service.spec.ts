@@ -1,6 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import {
+  NoSuchKey,
+  type PutObjectCommand,
+  type DeleteObjectCommand,
+  type GetObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { StorageService } from './storage.service';
 
@@ -37,7 +43,7 @@ describe('StorageService', () => {
           useValue: {
             get: jest.fn().mockImplementation((key: string, defaultValue?: string) => {
               const values: Record<string, string> = {
-                STORAGE_ENDPOINT: 'http://minio:9000',
+                STORAGE_ENDPOINT: 'http://rustfs:9000',
                 STORAGE_BUCKET: 'srh-documents',
               };
               return values[key] ?? defaultValue;
@@ -95,6 +101,21 @@ describe('StorageService', () => {
 
       expect(mockSend).toHaveBeenCalled();
       expect(result).toEqual({ body: fakeBody, contentType: 'application/pdf' });
+    });
+
+    it('deve lançar NotFoundException quando o objeto não existe (NoSuchKey)', async () => {
+      mockSend.mockRejectedValue(new NoSuchKey({ message: 'missing', $metadata: {} }));
+
+      await expect(service.getObjectStream('documents/x.pdf')).rejects.toThrow(
+        new NotFoundException('Ficheiro não disponível'),
+      );
+    });
+
+    it('deve propagar outros erros do armazenamento sem os converter', async () => {
+      const error = new Error('connection refused');
+      mockSend.mockRejectedValue(error);
+
+      await expect(service.getObjectStream('documents/x.pdf')).rejects.toBe(error);
     });
   });
 
