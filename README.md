@@ -121,7 +121,7 @@ pnpm dev
 - **Backend**: http://localhost:3000/api
 - **Swagger** (dev/staging): http://localhost:3000/api/docs
 - **Mailpit** (emails de dev): http://localhost:8025
-- **RustFS** (consola): http://localhost:9001/rustfs/console/
+- **RustFS** (consola): http://localhost:9001/rustfs/console/ — ver [Login na consola do RustFS](#login-na-consola-do-rustfs)
 
 Credenciais criadas pelo `run seed`:
 
@@ -131,6 +131,41 @@ Credenciais criadas pelo `run seed`:
 
 Para uma organização fictícia completa com utilizadores de demonstração, ver
 [Dados de Demo](#dados-de-demo).
+
+#### Login na consola do RustFS
+
+A consola não tem utilizadores próprios: o login é feito com as chaves de armazenamento do `.env`,
+que o compose passa ao RustFS como credenciais de administrador.
+
+| Campo da consola | Valor                                   |
+| ---------------- | --------------------------------------- |
+| **Access Key**   | valor de `STORAGE_ACCESS_KEY` no `.env` |
+| **Secret Key**   | valor de `STORAGE_SECRET_KEY` no `.env` |
+
+Para ver os valores:
+
+```bash
+grep -E '^STORAGE_(ACCESS|SECRET)_KEY=' .env
+```
+
+Copia só o que está depois do `=`. Se o `.env` não definir estas chaves, o compose de dev usa
+`rustfsadmin` / `rustfsadmin`.
+
+Se o login falhar depois de alterares as chaves no `.env` (à mão ou com
+`./scripts/generate-secrets.sh storage`), o RustFS ainda está a correr com as antigas — recria-o
+(e o backend, que usa as mesmas chaves):
+
+```bash
+# Modo A (tudo em Docker)
+docker compose -f infra/docker-compose.dev.yml --env-file .env up -d --force-recreate rustfs backend
+
+# Modo B (backend no host): recria só o RustFS e reinicia o `pnpm dev` depois de copiar o .env
+docker compose -f infra/docker-compose.dev.yml --env-file .env up -d --force-recreate rustfs
+cp .env backend/.env
+```
+
+Os ficheiros enviados pela aplicação ficam no bucket `srh-documents` (ou o valor de
+`STORAGE_BUCKET`).
 
 ## Servidor de Desenvolvimento
 
