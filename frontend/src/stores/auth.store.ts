@@ -49,7 +49,8 @@ function loadPersistedState(): PersistedAuth {
     sessionTimeoutMinutes: DEFAULT_SESSION_TIMEOUT_MINUTES,
   };
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY);
+    const raw = sessionStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<PersistedAuth>;
       setAccessToken(parsed.accessToken ?? null);
@@ -63,7 +64,7 @@ function loadPersistedState(): PersistedAuth {
 
 function savePersistedState(state: PersistedAuth): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
     // ignore
   }
@@ -83,7 +84,7 @@ function sessionStateFrom(response: LoginSuccessResponse): PersistedAuth {
 
 function clearPersistedState(): void {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
   } catch {
     // ignore
   }

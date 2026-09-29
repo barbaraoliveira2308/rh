@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="980" viewBox="0 0 1600 980" role="img" aria-labelledby="title desc">
+  <title id="title">Arquitetura atual do HR Suite</title>
+  <desc id="desc">Diagrama das camadas frontend, backend NestJS, módulos de negócio, serviços transversais e infraestrutura.</desc>
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#1f2933" flood-opacity="0.14"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#69757a"/>
+    </marker>
+    <style>
+      .title { font: 700 30px 'Segoe UI', Arial, sans-serif; fill: #263238; }
+      .subtitle { font: 400 16px 'Segoe UI', Arial, sans-serif; fill: #667277; }
+      .layer { font: 700 16px 'Segoe UI', Arial, sans-serif; fill: #4b5558; letter-spacing: 1.6px; }
+      .group { font: 700 18px 'Segoe UI', Arial, sans-serif; fill: #263238; }
+      .label { font: 600 15px 'Segoe UI', Arial, sans-serif; fill: #263238; }
+      .small { font: 400 13px 'Segoe UI', Arial, sans-serif; fill: #667277; }
+      .box { stroke: #c7ced0; stroke-width: 1.5; rx: 10; }
+      .arrow { stroke: #69757a; stroke-width: 2.2; fill: none; marker-end: url(#arrow); }
+      .dashed { stroke-dasharray: 7 6; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="980" fill="#f4f6f6"/>
+  <rect x="48" y="34" width="1504" height="912" rx="18" fill="#ffffff" stroke="#d6dcde" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="88" y="92" class="title">HR Suite · Arquitetura atual</text>
+  <text x="88" y="122" class="subtitle">Monorepo pnpm · React/Vite · NestJS/TypeORM · PostgreSQL · serviços Docker</text>
+
+  <text x="88" y="174" class="layer">EXPERIÊNCIA</text>
+  <rect x="88" y="195" width="1424" height="116" rx="12" fill="#eef3f3" stroke="#c8d4d5"/>
+  <rect x="116" y="220" width="250" height="66" class="box" fill="#ffffff"/>
+  <text x="241" y="248" text-anchor="middle" class="group">React 18 + Vite</text>
+  <text x="241" y="271" text-anchor="middle" class="small">SPA · Tailwind · MUI</text>
+  <rect x="406" y="220" width="250" height="66" class="box" fill="#ffffff"/>
+  <text x="531" y="248" text-anchor="middle" class="group">React Router</text>
+  <text x="531" y="271" text-anchor="middle" class="small">rotas e lazy loading</text>
+  <rect x="696" y="220" width="250" height="66" class="box" fill="#ffffff"/>
+  <text x="821" y="248" text-anchor="middle" class="group">TanStack Query</text>
+  <text x="821" y="271" text-anchor="middle" class="small">cache e mutations API</text>
+  <rect x="986" y="220" width="250" height="66" class="box" fill="#ffffff"/>
+  <text x="1111" y="248" text-anchor="middle" class="group">Zustand + Axios</text>
+  <text x="1111" y="271" text-anchor="middle" class="small">sessão e cliente HTTP</text>
+  <rect x="1276" y="220" width="208" height="66" class="box" fill="#ffffff"/>
+  <text x="1380" y="248" text-anchor="middle" class="group">Playwright</text>
+  <text x="1380" y="271" text-anchor="middle" class="small">testes E2E</text>
+
+  <path d="M800 311 L800 360" class="arrow"/>
+  <text x="818" y="342" class="small">HTTP /api · JWT Bearer</text>
+
+  <text x="88" y="395" class="layer">APLICAÇÃO</text>
+  <rect x="88" y="416" width="1424" height="300" rx="12" fill="#f5f2ed" stroke="#ded4c5"/>
+  <text x="116" y="449" class="group">Backend NestJS</text>
+  <text x="116" y="474" class="small">Controllers · Guards · Services · TypeORM · EventEmitter2 · Swagger dev/staging</text>
+
+  <rect x="116" y="500" width="920" height="184" rx="10" fill="#fffdf9" stroke="#dfd7ca"/>
+  <text x="140" y="529" class="label">Módulos de negócio</text>
+  <g class="small">
+    <rect x="140" y="548" width="132" height="34" rx="7" fill="#edf3f3" stroke="#c8d4d5"/><text x="206" y="570" text-anchor="middle">Auth · RBAC</text>
+    <rect x="286" y="548" width="132" height="34" rx="7" fill="#edf3f3" stroke="#c8d4d5"/><text x="352" y="570" text-anchor="middle">Users · Teams</text>
+    <rect x="432" y="548" width="132" height="34" rx="7" fill="#edf3f3" stroke="#c8d4d5"/><text x="498" y="570" text-anchor="middle">Projects · Clients</text>
+    <rect x="578" y="548" width="132" height="34" rx="7" fill="#edf3f3" stroke="#c8d4d5"/><text x="644" y="570" text-anchor="middle">Timesheets</text>
+    <rect x="724" y="548" width="132" height="34" rx="7" fill="#edf3f3" stroke="#c8d4d5"/><text x="790" y="570" text-anchor="middle">Absences</text>
+    <rect x="870" y="548" width="62" height="34" rx="7" fill="#edf3f3" stroke="#c8d4d5"/><text x="901" y="570" text-anchor="middle">RH</text>
+    <rect x="140" y="602" width="132" height="34" rx="7" fill="#edf3f3" stroke="#c8d4d5"/><text x="206" y="624" text-anchor="middle">Expenses</text>
+    <rect x="286" y="602" width="132" height="34" rx="7" fill="#edf3f3" stroke="#c8d4d5"/><text x="352" y="624" text-anchor="middle">Calendar</text>
+    <rect x="432" y="602" width="132" height="34" rx="7" fill="#edf3f3" stroke="#c8d4d5"/><text x="498" y="624" text-anchor="middle">Policies</text>
+    <rect x="578" y="602" width="132" height="34" rx="7" fill="#edf3f3" stroke="#c8d4d5"/><text x="644" y="624" text-anchor="middle">Helpdesk</text>
+    <rect x="724" y="602" width="132" height="34" rx="7" fill="#edf3f3" stroke="#c8d4d5"/><text x="790" y="624" text-anchor="middle">Reports</text>
+    <rect x="870" y="602" width="62" height="34" rx="7" fill="#edf3f3" stroke="#c8d4d5"/><text x="901" y="624" text-anchor="middle">GDPR</text>
+    <rect x="140" y="656" width="132" height="20" rx="7" fill="#edf3f3" stroke="#c8d4d5"/><text x="206" y="670" text-anchor="middle">Training</text>
+    <rect x="286" y="656" width="132" height="20" rx="7" fill="#edf3f3" stroke="#c8d4d5"/><text x="352" y="670" text-anchor="middle">Workflow</text>
+    <rect x="432" y="656" width="132" height="20" rx="7" fill="#edf3f3" stroke="#c8d4d5"/><text x="498" y="670" text-anchor="middle">Notifications</text>
+    <rect x="578" y="656" width="132" height="20" rx="7" fill="#edf3f3" stroke="#c8d4d5"/><text x="644" y="670" text-anchor="middle">Analytics</text>
+    <rect x="724" y="656" width="132" height="20" rx="7" fill="#edf3f3" stroke="#c8d4d5"/><text x="790" y="670" text-anchor="middle">Admin</text>
+    <rect x="870" y="656" width="62" height="20" rx="7" fill="#edf3f3" stroke="#c8d4d5"/><text x="901" y="670" text-anchor="middle">Audit</text>
+  </g>
+
+  <rect x="1060" y="500" width="424" height="184" rx="10" fill="#fffdf9" stroke="#dfd7ca"/>
+  <text x="1084" y="529" class="label">Serviços transversais</text>
+  <rect x="1084" y="550" width="174" height="40" rx="8" fill="#eee8de" stroke="#d8cdbc"/><text x="1171" y="575" text-anchor="middle" class="label">JWT + RBAC</text>
+  <rect x="1274" y="550" width="174" height="40" rx="8" fill="#eee8de" stroke="#d8cdbc"/><text x="1361" y="575" text-anchor="middle" class="label">Cache Redis</text>
+  <rect x="1084" y="610" width="174" height="40" rx="8" fill="#eee8de" stroke="#d8cdbc"/><text x="1171" y="635" text-anchor="middle" class="label">Storage S3</text>
+  <rect x="1274" y="610" width="174" height="40" rx="8" fill="#eee8de" stroke="#d8cdbc"/><text x="1361" y="635" text-anchor="middle" class="label">Eventos / Jobs</text>
+
+  <path d="M340 716 L340 773" class="arrow"/>
+  <path d="M620 716 L620 773" class="arrow"/>
+  <path d="M900 716 L900 773" class="arrow"/>
+  <path d="M1180 716 L1180 773" class="arrow"/>
+  <path d="M1380 716 L1380 773" class="arrow"/>
+
+  <text x="88" y="808" class="layer">INFRAESTRUTURA DOCKER</text>
+  <rect x="88" y="829" width="1424" height="82" rx="12" fill="#edf0f1" stroke="#cbd2d4"/>
+  <rect x="116" y="850" width="210" height="42" rx="8" fill="#ffffff" stroke="#c7ced0"/>
+  <text x="221" y="876" text-anchor="middle" class="label">PostgreSQL 16</text>
+  <rect x="354" y="850" width="210" height="42" rx="8" fill="#ffffff" stroke="#c7ced0"/>
+  <text x="459" y="876" text-anchor="middle" class="label">Redis 7</text>
+  <rect x="592" y="850" width="210" height="42" rx="8" fill="#ffffff" stroke="#c7ced0"/>
+  <text x="697" y="876" text-anchor="middle" class="label">RabbitMQ</text>
+  <rect x="830" y="850" width="210" height="42" rx="8" fill="#ffffff" stroke="#c7ced0"/>
+  <text x="935" y="876" text-anchor="middle" class="label">RustFS / S3</text>
+  <rect x="1068" y="850" width="210" height="42" rx="8" fill="#ffffff" stroke="#c7ced0"/>
+  <text x="1173" y="876" text-anchor="middle" class="label">Keycloak</text>
+  <rect x="1306" y="850" width="178" height="42" rx="8" fill="#ffffff" stroke="#c7ced0"/>
+  <text x="1395" y="876" text-anchor="middle" class="label">Mailpit / SMTP</text>
+
+  <path d="M1270 684 C1270 740 1173 790 1173 850" class="arrow dashed"/>
+  <path d="M1360 684 C1360 740 935 790 935 850" class="arrow dashed"/>
+</svg>

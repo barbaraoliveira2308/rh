@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dialog';
 import { useAuthStore } from '@/stores/auth.store';
 import { fetchEmployees } from '@/api/users.api';
+import { PolicyDocument } from '@/components/PolicyDocument';
 import {
   fetchPolicy,
   fetchPolicyVersions,
@@ -213,22 +214,62 @@ export function PolicyDetailPage(): React.JSX.Element {
   }
 
   return (
-    <div>
-      <PageHeader title={policy.title} description={`Categoria: ${policy.category}`} />
+    <div className="space-y-6">
+      <PageHeader
+        title={policy.title}
+        breadcrumb={[{ label: 'Políticas', href: '/policies' }, { label: policy.title }]}
+        description="Documento interno"
+      />
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <StatusBadge label={statusLabels[policy.status]} variant={statusVariants[policy.status]} />
-        <span className="text-sm text-muted-foreground">Versão {policy.version}</span>
-        {policy.publishedAt && (
-          <span className="text-sm text-muted-foreground">
-            · Publicada em {new Date(policy.publishedAt).toLocaleDateString('pt-PT')}
-          </span>
-        )}
-        {authorName && <span className="text-sm text-muted-foreground">· Autor: {authorName}</span>}
-      </div>
+      <Card>
+        <CardContent className="pt-6">
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Categoria
+              </dt>
+              <dd className="mt-1 text-sm font-medium">{policy.category}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Estado
+              </dt>
+              <dd className="mt-1">
+                <StatusBadge
+                  label={statusLabels[policy.status]}
+                  variant={statusVariants[policy.status]}
+                />
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Versão
+              </dt>
+              <dd className="mt-1 text-sm font-medium">{policy.version}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Última edição
+              </dt>
+              <dd className="mt-1 text-sm text-muted-foreground">
+                {new Date(policy.updatedAt).toLocaleDateString('pt-PT')}
+              </dd>
+            </div>
+          </dl>
+          {(policy.publishedAt ?? authorName) && (
+            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 border-t pt-4 text-sm text-muted-foreground">
+              {policy.publishedAt && (
+                <span>Publicada em {new Date(policy.publishedAt).toLocaleDateString('pt-PT')}</span>
+              )}
+              {authorName && <span>Última edição por {authorName}</span>}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {policy.tags && policy.tags.length > 0 && (
-        <div className="mb-4 flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-muted-foreground">Tags:</span>
           {policy.tags.map((tag) => (
             <span
               key={tag}
@@ -241,7 +282,7 @@ export function PolicyDetailPage(): React.JSX.Element {
       )}
 
       {canManage && (
-        <div className="mb-4 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             onClick={() => {
@@ -273,8 +314,32 @@ export function PolicyDetailPage(): React.JSX.Element {
         </div>
       )}
 
-      <Card className="mb-6">
-        <CardContent className="whitespace-pre-wrap pt-6 text-sm">{policy.content}</CardContent>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Conteúdo da política</CardTitle>
+        </CardHeader>
+        <CardContent className="border-t bg-[#e7e8e8] p-3 sm:p-6 md:p-8">
+          <div className="mx-auto w-full max-w-4xl border border-[#d2d4d4] bg-[#fafafa] shadow-[0_10px_28px_rgba(35,42,45,0.12)]">
+            <div className="border-b-4 border-[#4b5558] px-6 py-6 sm:px-12 sm:py-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#687174]">
+                Política interna
+              </p>
+              <h2 className="mt-3 text-2xl font-semibold tracking-normal text-[#252b2d] sm:text-3xl">
+                {policy.title}
+              </h2>
+              <div className="mt-5 grid gap-3 border-t border-[#d7d9d9] pt-4 text-xs uppercase tracking-wide text-[#687174] sm:grid-cols-3">
+                <span>Categoria: {policy.category}</span>
+                <span>Versão: {policy.version}</span>
+                <span>Estado: {statusLabels[policy.status]}</span>
+              </div>
+            </div>
+            <div className="px-6 py-8 sm:px-12 sm:py-12">
+              <div className="text-sm leading-7">
+                <PolicyDocument policy={policy} showHeader={false} variant="sheet" />
+              </div>
+            </div>
+          </div>
+        </CardContent>
       </Card>
 
       {canManage && versions && versions.length > 1 && (

@@ -3,11 +3,13 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { PoliciesService } from './policies.service';
 import { Policy } from './entities/policy.entity';
+import { PolicyAcceptance } from './entities/policy-acceptance.entity';
 import { PolicyStatus } from './entities/policy-status.enum';
 
 describe('PoliciesService', () => {
   let service: PoliciesService;
   let mockPolicyRepo: Record<string, jest.Mock>;
+  let mockAcceptanceRepo: Record<string, jest.Mock>;
   let mockQueryBuilder: Record<string, jest.Mock>;
 
   beforeEach(async () => {
@@ -24,11 +26,18 @@ describe('PoliciesService', () => {
       find: jest.fn(),
       createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
     };
+    mockAcceptanceRepo = {
+      create: jest.fn((data: Partial<PolicyAcceptance>) => data),
+      save: jest.fn((data: Partial<PolicyAcceptance>) => Promise.resolve(data)),
+      findOne: jest.fn(),
+      find: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PoliciesService,
         { provide: getRepositoryToken(Policy), useValue: mockPolicyRepo },
+        { provide: getRepositoryToken(PolicyAcceptance), useValue: mockAcceptanceRepo },
       ],
     }).compile();
 

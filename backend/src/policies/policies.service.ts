@@ -5,12 +5,15 @@ import { Policy } from './entities/policy.entity';
 import { PolicyStatus } from './entities/policy-status.enum';
 import { CreatePolicyDto } from './dto/create-policy.dto';
 import { UpdatePolicyDto } from './dto/update-policy.dto';
+import { PolicyAcceptance } from './entities/policy-acceptance.entity';
 
 @Injectable()
 export class PoliciesService {
   constructor(
     @InjectRepository(Policy)
     private readonly policyRepository: Repository<Policy>,
+    @InjectRepository(PolicyAcceptance)
+    private readonly acceptanceRepository: Repository<PolicyAcceptance>,
   ) {}
 
   async create(dto: CreatePolicyDto, authorId: string): Promise<Policy> {
@@ -104,5 +107,45 @@ export class PoliciesService {
     const policy = await this.findOne(id);
     policy.status = PolicyStatus.ARCHIVED;
     await this.policyRepository.save(policy);
+  }
+
+  async findPendingAcceptances(userId: string): Promise<Policy[]> {
+    return this.policyRepository
+      .createQueryBuilder('policy')
+      .leftJoin(
+        PolicyAcceptance,
+        'acceptance',
+        'acceptance.policy_id = policy.id AND acceptance.user_id = :userId',
+        { userId },
+      )
+      .where('policy.status = :status', { status: PolicyStatus.PUBLISHED })
+      .andWhere('acceptance.id IS NULL')
+      .orderBy('policy.published_at', 'DESC')
+      .getMany();
+  }
+
+  async acceptPolicy(policyId: string, userId: string): Promise<PolicyAcceptance> {
+    const policy = await this.findOne(policyId);
+    if (policy.status !== PolicyStatus.PUBLISHED) {
+      throw new BadRequestException('Apenas políticas publicadas podem ser aceites');
+    }
+
+    const existing = await this.acceptanceRepository.findOne({ where: { userId, policyId } });
+    if (existing) return existing;
+
+    return this.acceptanceRepository.save(
+      this.acceptanceRepository.create({
+        userId,
+        policyId,
+        policyVersion: policy.version,
+      }),
+    );
+  }
+
+  async findAcceptanceLogs(): Promise<PolicyAcceptance[]> {
+    return this.acceptanceRepository.find({
+      relations: { user: true, policy: true },
+      order: { acceptedAt: 'DESC' },
+    });
   }
 }

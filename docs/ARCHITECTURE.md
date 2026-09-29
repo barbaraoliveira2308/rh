@@ -1,65 +1,64 @@
 # Architecture
 
-## Component Diagram
+## Current Architecture
+
+![Arquitetura atual do HR Suite](./architecture-current.png)
+
+O diagrama acima representa o estado atual do sistema: frontend React/Vite, API NestJS,
+módulos de negócio, serviços transversais e infraestrutura Docker. O SVG é vetorial e pode
+ser reutilizado em documentação técnica, apresentações e exportações para PDF.
+
+## Current Component Diagram
 
 ```mermaid
-graph TB
-    subgraph Frontend
-        REACT[React 18 + Vite]
-        TAILWIND[Tailwind CSS]
-        TANSTACK[TanStack Query]
-        ZUSTAND[Zustand]
-        ROUTER[React Router v6]
-        AXIOS[Axios]
+flowchart LR
+    subgraph FE[Frontend React / Vite]
+        APP[App.tsx<br/>ErrorBoundary · Suspense]
+        ROUTES[React Router<br/>PublicRoute · ProtectedRoute]
+        LAYOUTS[Layouts<br/>AuthLayout · AppLayout]
+        PAGES[Páginas lazy-loaded<br/>domínios RH]
+        UI[Components / UI<br/>MUI · Tailwind · shadcn/ui]
+        STATE[Estado<br/>Zustand · React Query]
+        API[API clients<br/>Axios · JWT Bearer]
+        APP --> ROUTES --> LAYOUTS --> PAGES
+        PAGES --> UI
+        PAGES --> STATE
+        STATE --> API
     end
 
-    subgraph Backend
-        NESTJS[NestJS]
-        subgraph Modules
-            AUTH[Auth]
-            USERS[Users]
-            TEAMS[Teams]
-            CLIENTS[Clients]
-            CONTRACTS[Contracts]
-            PROJECTS[Projects]
-            TIMESHEETS[Timesheets]
-            ABSENCES[Absences]
-            EXPENSES[Expenses]
-            ANALYTICS[Analytics]
-            CALENDAR[Calendar]
-            HELPDESK[Helpdesk]
-            POLICIES[Policies]
-            REPORTS[Reports]
-            TRAINING[Training]
-            GDPR[GDPR]
-            NOTIFICATIONS[Notifications]
-            WORKFLOW[Workflow]
-            AUDIT[Audit]
-            DOCUMENTS[Documents]
-        end
-        subgraph CrossCutting
-            RBAC[RBAC]
-            CACHE[Cache / Redis]
-            STORAGE[Storage / RustFS]
-        end
+    SHARED[shared<br/>tipos e constantes]
+
+    subgraph BE[Backend NestJS]
+        HTTP[Controllers / REST API<br/>/api]
+        CORE[Guards · DTOs · Services<br/>TypeORM · EventEmitter2]
+        MODULES[Módulos de negócio<br/>Auth · Users · Teams · Clients · Contracts<br/>Projects · Timesheets · Absences · Expenses<br/>Analytics · Calendar · Capacity · Admin<br/>Announcements · Helpdesk · Policies · Reports<br/>Training · GDPR · Notifications · Workflow<br/>Opportunities · OpenOpportunities · Audit · Documents]
+        CROSS[Serviços transversais<br/>RBAC · Cache · Storage · Auth]
+        HTTP --> CORE --> MODULES
+        CORE --> CROSS
     end
 
-    subgraph Infra
-        PG[(PostgreSQL)]
-        REDIS[(Redis)]
-        RABBIT[RabbitMQ]
-        RUSTFS[RustFS / S3]
+    subgraph INFRA[Infraestrutura Docker]
+        PG[(PostgreSQL 16)]
+        REDIS[(Redis 7)]
+        RABBIT[(RabbitMQ)]
+        RUSTFS[(RustFS / S3)]
+        SMTP[Mailpit / SMTP]
     end
 
-    REACT --> AXIOS
-    AXIOS --> NESTJS
-    NESTJS --> PG
-    NESTJS --> REDIS
-    NESTJS --> RABBIT
-    NESTJS --> RUSTFS
-    CACHE --> REDIS
-    STORAGE --> RUSTFS
+    API -->|HTTP| HTTP
+    SHARED -.-> API
+    SHARED -.-> CORE
+    MODULES -->|persistência| PG
+    CROSS -->|cache / sessões| REDIS
+    CROSS -->|ficheiros| RUSTFS
+    REPORTS[Reports] -.->|jobs assíncronos| RABBIT
+    NOTIFY[Notifications] -.->|email| SMTP
 ```
+
+O frontend está documentado em detalhe no diagrama [frontend-architecture.png](./frontend-architecture.png).
+O login por email/password usa diretamente o módulo de autenticação do backend. Redis é usado por
+cache e sessões, RabbitMQ por relatórios assíncronos, RustFS por armazenamento S3 e Mailpit/SMTP por
+notificações de email.
 
 ## Auth Sequence
 
