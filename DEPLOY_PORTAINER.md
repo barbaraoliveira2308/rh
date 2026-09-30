@@ -192,6 +192,88 @@ Volumes e imagens de outros stacks não são tocados. Se precisares de libertar 
 
 ---
 
+## 7. Runner do GitLab CI
+
+O pipeline de CI (`.gitlab-ci.yml`, ver `CONTRIBUTING.md`) corre num GitLab Runner com o executor
+Docker, instalado como um stack próprio neste mesmo host. O runner arranca um contentor por job
+através do socket do Docker do host (acesso equivalente a root — aceite, a equipa é pequena e todos
+são Owners do projeto).
+
+### Criar o stack
+
+1. No GitLab: **Settings → CI/CD → Runners → New project runner** — sem tags, com **Run untagged
+   jobs** marcado (os jobs do pipeline não têm tags). Copiar o token (`glrt-…`); só é mostrado uma
+   vez.
+2. No Portainer: **Stacks → Add stack**, nome `gitlab-runner`, **Web editor**:
+
+```yaml
+services:
+  gitlab-runner:
+    # Fixar na versão do GitLab (19.4 à data de escrita — ver https://git.redstout.com/help)
+    image: gitlab/gitlab-runner:v19.4.0
+    container_name: gitlab-runner
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - gitlab-runner-config:/etc/gitlab-runner
+
+volumes:
+  gitlab-runner-config:
+```
+
+3. Registar, na consola do contentor (**Containers → gitlab-runner → Console**, `/bin/bash`),
+   trocando o token:
+
+```bash
+gitlab-runner register --non-interactive \
+  --url "https://git.redstout.com" \
+  --token "glrt-<token-do-passo-1>" \
+  --executor docker \
+  --docker-image node:20.20.2-alpine \
+  --docker-pull-policy if-not-present \
+  --docker-volumes /cache \
+  --docker-cpus 2 \
+  --docker-memory 4g \
+  --docker-service-cpus 1 \
+  --docker-service-memory 1g \
+  --description "srh-docker-devserver"
+sed -i 's/^concurrent = .*/concurrent = 4/' /etc/gitlab-runner/config.toml
+```
+
+A configuração fica no volume `gitlab-runner-config`: recriar ou atualizar o stack não obriga a
+registar de novo. O runner relê o `config.toml` sozinho ao fim de alguns segundos.
+
+### Recursos
+
+Dimensionado para este host (8 núcleos, 33 GB de RAM), partilhado com o servidor de dev:
+
+| Parâmetro                                           | Valor            | Porquê                                                                    |
+| --------------------------------------------------- | ---------------- | ------------------------------------------------------------------------- |
+| `concurrent`                                        | 4                | Jobs em simultâneo; um pipeline demora ≈ 3–4 min                          |
+| CPU / memória por job                               | 2 / 4 GB         | 4 × 4 GB + serviços + servidor de dev ≈ 23 GB no pior caso                |
+| CPU / memória por serviço (Postgres, Redis dos e2e) | 1 / 1 GB         | Chega para a base de dados de teste                                       |
+| `pull_policy`                                       | `if-not-present` | Poupa descargas do Docker Hub; as imagens estão fixadas em versões exatas |
+
+### Operação
+
+- **Ver o que um job está a fazer:** no GitLab, **Build → Pipelines** → pipeline → job (log em tempo
+  real). No Portainer, os jobs aparecem como contentores `runner-…`; **Stats** mostra CPU e memória.
+- **Espaço em disco:** o runner guarda imagens e volumes de cache `runner-…` (cache do pnpm, ≈ 110 MB
+  por versão do lockfile e por job em paralelo) que nada limpa automaticamente — crescimento estimado
+  de alguns GB por ano, aceite. Se faltar espaço: remover os volumes `runner-…` e as imagens sem uso
+  (**Volumes** e **Images → Unused**); são só cache e voltam a ser criados.
+- **Atualizar o runner:** mudar a tag da imagem no stack para a versão nova do GitLab e **Update the
+  stack**.
+
+### Troubleshooting do runner
+
+| Sintoma                                                       | Causa provável                                   | Correção                                                                                                                      |
+| ------------------------------------------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Jobs ficam em _pending_                                       | Runner offline, ou sem **Run untagged jobs**     | Ver o estado em **Settings → CI/CD → Runners**; ver os logs do contentor `gitlab-runner`                                      |
+| `test:e2e` com `Exceeded timeout … for a hook`                | Host sobrecarregado durante o pipeline (`R-070`) | Baixar `concurrent` para 3: `sed -i 's/^concurrent = .*/concurrent = 3/' /etc/gitlab-runner/config.toml` na consola do runner |
+| Job falha com `Job failed (system failure)` / `AlreadyExists` | Falha do Docker/runner, não do código            | O pipeline repete estes jobs sozinho (até 2 vezes); se for frequente, alinhar a versão do runner com a do GitLab              |
+| Job termina com código 137                                    | Memória esgotada no job                          | Subir `memory` no `config.toml` (ex. `"6g"`)                                                                                  |
+
 ## Limitações conhecidas
 
 - **Sem TLS/HTTPS.** A aplicação é servida em HTTP simples na porta 8888. Não a exponhas à internet

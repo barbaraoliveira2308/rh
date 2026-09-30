@@ -69,7 +69,8 @@ Configurar as credenciais em `backend/.env.test`.
 
 ## CI
 
-O pipeline de CI é o `.gitlab-ci.yml` (GitLab CI, requer um runner com o executor Docker). Corre em
+O pipeline de CI é o `.gitlab-ci.yml` (GitLab CI, requer um runner com o executor Docker — instalação
+e operação em [DEPLOY_PORTAINER.md](DEPLOY_PORTAINER.md#7-runner-do-gitlab-ci)). Corre em
 todos os merge requests e em cada push para `develop` e `main`:
 
 | Stage    | Job                   | O que faz                                                       | Bloqueia |

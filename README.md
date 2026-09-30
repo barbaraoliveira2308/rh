@@ -174,6 +174,29 @@ automaticamente a cada push para `develop` (alguns minutos depois). Inclui os da
 Mailpit, que captura todos os emails. Configuração, acesso e operação em
 [DEPLOY_PORTAINER.md](DEPLOY_PORTAINER.md).
 
+## CI/CD
+
+O pipeline de CI é o [`.gitlab-ci.yml`](.gitlab-ci.yml) e corre num GitLab Runner próprio (ver
+[DEPLOY_PORTAINER.md](DEPLOY_PORTAINER.md#7-runner-do-gitlab-ci)):
+
+- **Em cada merge request e push para `develop`/`main`:** lint, formatação, build do backend e do
+  frontend, testes unitários e testes e2e do backend (PostgreSQL + Redis) — um MR só é integrado com
+  estes jobs verdes. SAST, deteção de segredos, análise de IaC e `pnpm audit` só reportam.
+- **Todas as segundas-feiras às 03:00:** o mesmo pipeline no `develop` e o Renovate, que abre MRs de
+  atualização de dependências e imagens (majors só depois de aprovados no issue "Dependency
+  Dashboard").
+
+Reproduzir localmente os primeiros jobs antes de abrir um MR:
+
+```bash
+pnpm run lint:ci
+pnpm run format:check
+```
+
+Detalhe dos jobs, do Renovate e da configuração no GitLab em
+[CONTRIBUTING.md](CONTRIBUTING.md#ci). Build de imagens, releases e deploy automático ainda não
+fazem parte do pipeline.
+
 ## Produção
 
 ```bash
@@ -329,6 +352,7 @@ Para a caixa de entrada/aprovações, entra como `mariana.ferreira` — tem iten
 ├── docs/             # ARCHITECTURE.md, AUDIT_PROCESS.md + openapi.json gerado
 ├── images/           # Recursos visuais
 ├── .gitlab-ci.yml    # Pipeline de CI (GitLab)
+├── renovate.json     # Configuração do Renovate (atualização de dependências)
 ├── PROJECT_STATE.md  # Estado actual do projecto
 └── AGENTS.md         # Instruções para agentes de IA
 ```
@@ -338,6 +362,7 @@ Para a caixa de entrada/aprovações, entra como `mariana.ferreira` — tem iten
 - [Especificações Técnicas](./specs/README.md)
 - Documentação OpenAPI — servida em http://localhost:3000/api/docs e escrita em
   `docs/openapi.json` ao arrancar o backend em dev/staging (ficheiro gerado, não versionado)
+- [Contribuir, CI e Renovate](./CONTRIBUTING.md)
 - [Estado do Projecto](./PROJECT_STATE.md)
 - [Arquitectura](./docs/ARCHITECTURE.md)
 - [Processo de Auditoria](./docs/AUDIT_PROCESS.md)
