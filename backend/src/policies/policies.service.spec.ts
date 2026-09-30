@@ -5,17 +5,22 @@ import { PoliciesService } from './policies.service';
 import { Policy } from './entities/policy.entity';
 import { PolicyAcceptance } from './entities/policy-acceptance.entity';
 import { PolicyStatus } from './entities/policy-status.enum';
+import { User } from '../auth/entities/user.entity';
+import { NotificationsService } from '../notifications/services/notifications.service';
 
 describe('PoliciesService', () => {
   let service: PoliciesService;
   let mockPolicyRepo: Record<string, jest.Mock>;
   let mockAcceptanceRepo: Record<string, jest.Mock>;
+  let mockUserRepo: Record<string, jest.Mock>;
+  let mockNotificationsService: Record<string, jest.Mock>;
   let mockQueryBuilder: Record<string, jest.Mock>;
 
   beforeEach(async () => {
     mockQueryBuilder = {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue([]),
     };
@@ -31,6 +36,14 @@ describe('PoliciesService', () => {
       save: jest.fn((data: Partial<PolicyAcceptance>) => Promise.resolve(data)),
       findOne: jest.fn(),
       find: jest.fn(),
+      createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
+    };
+    mockUserRepo = {
+      find: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn(),
+    };
+    mockNotificationsService = {
+      sendInApp: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -38,6 +51,8 @@ describe('PoliciesService', () => {
         PoliciesService,
         { provide: getRepositoryToken(Policy), useValue: mockPolicyRepo },
         { provide: getRepositoryToken(PolicyAcceptance), useValue: mockAcceptanceRepo },
+        { provide: getRepositoryToken(User), useValue: mockUserRepo },
+        { provide: NotificationsService, useValue: mockNotificationsService },
       ],
     }).compile();
 
@@ -243,6 +258,75 @@ describe('PoliciesService', () => {
       expect(mockPolicyRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({ status: PolicyStatus.ARCHIVED }),
       );
+    });
+  });
+
+  describe('findPendingAcceptanceUsers', () => {
+    it('devolve lista vazia quando não há políticas publicadas', async () => {
+      mockPolicyRepo.find.mockResolvedValue([]);
+
+      const result = await service.findPendingAcceptanceUsers();
+
+      expect(result).toEqual([]);
+      expect(mockUserRepo.find).not.toHaveBeenCalled();
+    });
+
+    it('lista utilizadores ativos com políticas por aceitar', async () => {
+      mockPolicyRepo.find.mockResolvedValue([
+        { id: 'pol-1', title: 'Política A', version: 1 },
+        { id: 'pol-2', title: 'Política B', version: 2 },
+      ]);
+      mockUserRepo.find.mockResolvedValue([
+        { id: 'user-1', email: 'a@x.com', username: 'a' },
+        { id: 'user-2', email: 'b@x.com', username: 'b' },
+      ]);
+      mockAcceptanceRepo.find.mockResolvedValue([{ userId: 'user-1', policyId: 'pol-1' }]);
+
+      const result = await service.findPendingAcceptanceUsers();
+
+      expect(result).toEqual([
+        expect.objectContaining({
+          userId: 'user-1',
+          pendingPolicies: [expect.objectContaining({ id: 'pol-2' })],
+        }),
+        expect.objectContaining({
+          userId: 'user-2',
+          pendingPolicies: [
+            expect.objectContaining({ id: 'pol-1' }),
+            expect.objectContaining({ id: 'pol-2' }),
+          ],
+        }),
+      ]);
+    });
+  });
+
+  describe('remindUser', () => {
+    it('deve lançar NotFoundException se o utilizador não existir', async () => {
+      mockUserRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.remindUser('missing')).rejects.toThrow(NotFoundException);
+    });
+
+    it('deve lançar BadRequestException se não houver políticas pendentes', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ id: 'user-1' });
+      mockQueryBuilder.getMany.mockResolvedValue([]);
+
+      await expect(service.remindUser('user-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('deve enviar notificação in-app quando há políticas pendentes', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ id: 'user-1' });
+      mockQueryBuilder.getMany.mockResolvedValue([{ id: 'pol-1', title: 'Política A' }]);
+
+      const result = await service.remindUser('user-1');
+
+      expect(mockNotificationsService.sendInApp).toHaveBeenCalledWith(
+        'user-1',
+        'policy.acceptance.reminder',
+        expect.any(String),
+        expect.stringContaining('Política A'),
+      );
+      expect(result).toEqual({ pendingCount: 1 });
     });
   });
 });

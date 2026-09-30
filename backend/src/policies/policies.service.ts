@@ -1,11 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Policy } from './entities/policy.entity';
 import { PolicyStatus } from './entities/policy-status.enum';
 import { CreatePolicyDto } from './dto/create-policy.dto';
 import { UpdatePolicyDto } from './dto/update-policy.dto';
 import { PolicyAcceptance } from './entities/policy-acceptance.entity';
+import { PendingAcceptanceUserDto } from './dto/pending-acceptance-user.dto';
+import { User } from '../auth/entities/user.entity';
+import { NotificationsService } from '../notifications/services/notifications.service';
 
 @Injectable()
 export class PoliciesService {
@@ -14,6 +17,9 @@ export class PoliciesService {
     private readonly policyRepository: Repository<Policy>,
     @InjectRepository(PolicyAcceptance)
     private readonly acceptanceRepository: Repository<PolicyAcceptance>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(dto: CreatePolicyDto, authorId: string): Promise<Policy> {
@@ -147,5 +153,62 @@ export class PoliciesService {
       relations: { user: true, policy: true },
       order: { acceptedAt: 'DESC' },
     });
+  }
+
+  async findPendingAcceptanceUsers(): Promise<PendingAcceptanceUserDto[]> {
+    const publishedPolicies = await this.policyRepository.find({
+      where: { status: PolicyStatus.PUBLISHED },
+    });
+    if (publishedPolicies.length === 0) return [];
+
+    const activeUsers = await this.userRepository.find({ where: { isActive: true } });
+    if (activeUsers.length === 0) return [];
+
+    const acceptances = await this.acceptanceRepository.find({
+      where: { policyId: In(publishedPolicies.map((p) => p.id)) },
+    });
+    const acceptedKeys = new Set(acceptances.map((a) => `${a.userId}:${a.policyId}`));
+
+    const result: PendingAcceptanceUserDto[] = [];
+    for (const user of activeUsers) {
+      const pendingPolicies = publishedPolicies.filter(
+        (policy) => !acceptedKeys.has(`${user.id}:${policy.id}`),
+      );
+      if (pendingPolicies.length > 0) {
+        result.push({
+          userId: user.id,
+          email: user.email,
+          username: user.username,
+          pendingPolicies: pendingPolicies.map((policy) => ({
+            id: policy.id,
+            title: policy.title,
+            version: policy.version,
+          })),
+        });
+      }
+    }
+    return result;
+  }
+
+  async remindUser(userId: string): Promise<{ pendingCount: number }> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('Utilizador não encontrado');
+    }
+
+    const pendingPolicies = await this.findPendingAcceptances(userId);
+    if (pendingPolicies.length === 0) {
+      throw new BadRequestException('Utilizador não tem políticas pendentes de aceite');
+    }
+
+    const titles = pendingPolicies.map((policy) => policy.title).join(', ');
+    await this.notificationsService.sendInApp(
+      userId,
+      'policy.acceptance.reminder',
+      'Políticas pendentes de aceite',
+      `Tem ${String(pendingPolicies.length)} política(s) por ler e aceitar: ${titles}`,
+    );
+
+    return { pendingCount: pendingPolicies.length };
   }
 }
