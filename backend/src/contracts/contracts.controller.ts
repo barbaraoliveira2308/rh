@@ -58,6 +58,15 @@ export class ContractsController {
     return contracts.map((contract) => maskContractValue(contract, isAdmin));
   }
 
+  @Get('contracts/me')
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
+  @ApiOperation({ summary: 'Listar contratos do colaborador autenticado' })
+  @HttpCode(HttpStatus.OK)
+  async findMine(@Req() req: Request): Promise<Contract[]> {
+    const user = req.user as JwtPayload;
+    return this.contractsService.findForUser(user.sub);
+  }
+
   @Get('contracts/:id')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
   @ApiOperation({ summary: 'Obter contrato por ID' })
@@ -85,6 +94,20 @@ export class ContractsController {
   @HttpCode(HttpStatus.OK)
   async update(@Param('id') id: string, @Body() dto: UpdateContractDto): Promise<Contract> {
     return this.contractsService.update(id, dto);
+  }
+
+  @Patch('contracts/me/:id')
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
+  @Audit('Updated', 'Contract')
+  @ApiOperation({ summary: 'Atualizar contrato próprio (admin ou gestor)' })
+  @HttpCode(HttpStatus.OK)
+  async updateMine(
+    @Param('id') id: string,
+    @Body() dto: UpdateContractDto,
+    @Req() req: Request,
+  ): Promise<Contract> {
+    const user = req.user as JwtPayload;
+    return this.contractsService.updateForUser(user.sub, id, dto);
   }
 
   @Post('contracts/:id/renew')

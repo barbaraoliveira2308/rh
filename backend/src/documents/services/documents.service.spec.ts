@@ -5,6 +5,7 @@ import { NotFoundException, BadRequestException, ForbiddenException } from '@nes
 import { DocumentsService } from './documents.service';
 import { Document } from '../entities/document.entity';
 import { Employee } from '../../users/entities/employee.entity';
+import { Course } from '../../training/entities/course.entity';
 import { StorageService } from '../../storage/services/storage.service';
 import { AdminService } from '../../admin/admin.service';
 import { RoleEnum } from '../../rbac/enums/role.enum';
@@ -13,6 +14,7 @@ describe('DocumentsService', () => {
   let service: DocumentsService;
   let mockDocumentRepo: Record<string, jest.Mock>;
   let mockEmployeeRepo: Record<string, jest.Mock>;
+  let mockCourseRepo: Record<string, jest.Mock>;
   let mockStorageService: Record<string, jest.Mock>;
   let mockAdminService: Record<string, jest.Mock>;
 
@@ -28,6 +30,7 @@ describe('DocumentsService', () => {
       find: jest.fn().mockResolvedValue([]),
       findOne: jest.fn(),
     };
+    mockCourseRepo = { findOne: jest.fn() };
     mockStorageService = {
       upload: jest.fn().mockResolvedValue('documents/u-1/key'),
       getObjectStream: jest.fn(),
@@ -42,6 +45,7 @@ describe('DocumentsService', () => {
         DocumentsService,
         { provide: getRepositoryToken(Document), useValue: mockDocumentRepo },
         { provide: getRepositoryToken(Employee), useValue: mockEmployeeRepo },
+        { provide: getRepositoryToken(Course), useValue: mockCourseRepo },
         { provide: StorageService, useValue: mockStorageService },
         { provide: AdminService, useValue: mockAdminService },
       ],
@@ -77,6 +81,27 @@ describe('DocumentsService', () => {
           sizeBytes: 1024,
           ownerId: 'e-1',
           uploadedBy: 'u-1',
+        }),
+      );
+    });
+
+    it('deve guardar um material público vinculado ao curso', async () => {
+      const file = {
+        originalname: 'curso.png',
+        mimetype: 'image/png',
+        size: 512,
+        buffer: Buffer.from('imagem'),
+      } as Express.Multer.File;
+      mockCourseRepo.findOne.mockResolvedValue({ id: 'course-1' });
+
+      const result = await service.uploadCourseAsset(file, 'course-1', 'employee-1');
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          courseId: 'course-1',
+          category: 'training',
+          isPublic: true,
+          ownerId: null,
         }),
       );
     });

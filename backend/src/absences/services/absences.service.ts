@@ -19,6 +19,7 @@ import { AbsenceApprovedEvent } from '../events/absence-approved.event';
 import { AbsenceRejectedEvent } from '../events/absence-rejected.event';
 import { AbsenceCancelledEvent } from '../events/absence-cancelled.event';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
+import { EmployeeProfileDetails } from '../../users/entities/employee-profile-details.entity';
 import { CalendarService } from '../../calendar/services/calendar.service';
 import { RbacService } from '../../rbac/services/rbac.service';
 import { AdminService } from '../../admin/admin.service';
@@ -38,6 +39,8 @@ export class AbsencesService {
     private readonly balanceRepository: Repository<LeaveBalance>,
     @InjectRepository(Employee)
     private readonly employeeRepository: Repository<Employee>,
+    @InjectRepository(EmployeeProfileDetails)
+    private readonly employeeProfileDetailsRepository: Repository<EmployeeProfileDetails>,
     private readonly eventEmitter: EventEmitter2,
     private readonly calendarService: CalendarService,
     private readonly rbacService: RbacService,
@@ -48,7 +51,11 @@ export class AbsencesService {
     return this.typeRepository.find({ where: { isActive: true }, order: { name: 'ASC' } });
   }
 
-  async create(dto: CreateAbsenceDto, employeeId: string): Promise<AbsenceRequest> {
+  async create(
+    dto: CreateAbsenceDto,
+    employeeId: string,
+    autoApprove = false,
+  ): Promise<AbsenceRequest> {
     const employee = await this.employeeRepository.findOne({
       where: { id: employeeId },
     });
@@ -173,6 +180,10 @@ export class AbsencesService {
       }
     }
 
+    if (autoApprove) {
+      return this.approve(saved.id, employeeId, true);
+    }
+
     this.eventEmitter.emit(
       'absence.requested',
       new AbsenceRequestedEvent(saved.id, employeeId, dto.absenceTypeId),
@@ -273,7 +284,11 @@ export class AbsencesService {
     return request;
   }
 
-  async approve(absenceId: string, approverId: string): Promise<AbsenceRequest> {
+  async approve(
+    absenceId: string,
+    approverId: string,
+    autoApproved = false,
+  ): Promise<AbsenceRequest> {
     const request = await this.requestRepository.findOne({
       where: { id: absenceId },
       relations: ['absenceType'],
@@ -287,7 +302,9 @@ export class AbsencesService {
       throw new BadRequestException('Apenas pedidos pendentes podem ser aprovados');
     }
 
-    await this.validateApprover(request.employeeId, approverId);
+    if (!autoApproved) {
+      await this.validateApprover(request.employeeId, approverId);
+    }
 
     request.status = AbsenceStatus.APPROVED;
     const saved = await this.requestRepository.save(request);
@@ -531,7 +548,13 @@ export class AbsencesService {
       throw new NotFoundException('Colaborador não encontrado');
     }
 
-    if (employee.managerId !== approverId) {
+    const profileDetails = await this.employeeProfileDetailsRepository.findOne({
+      where: { employeeId },
+      select: ['absenceApproverId'],
+    });
+    const configuredApproverId = profileDetails?.absenceApproverId ?? employee.managerId;
+
+    if (configuredApproverId !== approverId) {
       throw new ForbiddenException('Apenas o manager direto ou admin pode aprovar/rejeitar');
     }
   }
