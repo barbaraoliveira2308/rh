@@ -15,6 +15,8 @@ import { RetentionAction } from '../entities/retention-action.enum';
 import { SecurityIncidentSeverity } from '../entities/security-incident-severity.enum';
 import { SecurityIncidentStatus } from '../entities/security-incident-status.enum';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
+import { EmployeeProfileDetails } from '../../users/entities/employee-profile-details.entity';
+import { DocumentsService } from '../../documents/services/documents.service';
 import { User } from '../../auth/entities/user.entity';
 import { AuditLog } from '../../audit/entities/audit-log.entity';
 import { RecordConsentDto } from '../dto/record-consent.dto';
@@ -51,6 +53,8 @@ export class GdprService {
     private readonly incidentRepository: Repository<SecurityIncident>,
     @InjectRepository(Employee)
     private readonly employeeRepository: Repository<Employee>,
+    @InjectRepository(EmployeeProfileDetails)
+    private readonly employeeProfileDetailsRepository: Repository<EmployeeProfileDetails>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @InjectRepository(AuditLog)
@@ -58,6 +62,7 @@ export class GdprService {
     private readonly dataSource: DataSource,
     private readonly eventEmitter: EventEmitter2,
     private readonly adminService: AdminService,
+    private readonly documentsService: DocumentsService,
   ) {
     const smtpHost = process.env.SMTP_HOST;
     const smtpPort = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587;
@@ -268,6 +273,9 @@ export class GdprService {
     }
 
     const anonymizedPrefix = 'anon-' + employeeId.slice(0, 8);
+
+    await this.employeeProfileDetailsRepository.delete({ employeeId });
+    await this.documentsService.purgeOwnedByEmployee(employeeId);
 
     employee.firstName = anonymizedPrefix;
     employee.lastName = 'anonimized';

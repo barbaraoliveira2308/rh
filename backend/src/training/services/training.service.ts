@@ -22,6 +22,7 @@ import { CreateReviewDto } from '../dto/create-review.dto';
 import { UpdateReviewDto } from '../dto/update-review.dto';
 import { CreateCompetencyDto } from '../dto/create-competency.dto';
 import { AssessCompetencyDto } from '../dto/assess-competency.dto';
+import { UpdateCourseDto } from '../dto/update-course.dto';
 
 export interface CompetencyMatrixItem {
   employeeId: string;
@@ -91,6 +92,20 @@ export class TrainingService {
     }
 
     return course;
+  }
+
+  async updateCourse(id: string, dto: UpdateCourseDto): Promise<Course> {
+    const course = await this.findOneCourse(id);
+    Object.assign(course, dto);
+    return this.courseRepository.save(course);
+  }
+
+  async findEnrollmentsByEmployee(employeeId: string): Promise<CourseEnrollment[]> {
+    return this.enrollmentRepository.find({
+      where: { employeeId },
+      relations: ['course'],
+      order: { updatedAt: 'DESC' },
+    });
   }
 
   async enroll(employeeId: string, courseId: string): Promise<CourseEnrollment> {

@@ -1,10 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { Employee, EmployeeStatus } from '../entities/employee.entity';
 import { Department } from '../entities/department.entity';
 import { JobTitle } from '../entities/job-title.entity';
+import { EmployeeProfileDetails } from '../entities/employee-profile-details.entity';
 import { EmployeeRepository } from '../entities/employee.repository';
 import { DepartmentRepository } from '../entities/department.repository';
 
@@ -48,6 +49,12 @@ describe('UsersService', () => {
     findOneBy: jest.fn(),
   };
 
+  const mockProfileDetailsRepository = {
+    findOne: jest.fn(),
+    create: jest.fn((data: Partial<EmployeeProfileDetails>) => data),
+    save: jest.fn((data: Partial<EmployeeProfileDetails>) => Promise.resolve(data)),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -67,6 +74,10 @@ describe('UsersService', () => {
         {
           provide: getRepositoryToken(JobTitle),
           useValue: mockJobTitleRepository,
+        },
+        {
+          provide: getRepositoryToken(EmployeeProfileDetails),
+          useValue: mockProfileDetailsRepository,
         },
       ],
     }).compile();
@@ -110,6 +121,77 @@ describe('UsersService', () => {
     };
     return Object.assign(base, overrides);
   };
+
+  describe('findByUserId', () => {
+    it('deve devolver o perfil sem carregar a conta nem dados sensíveis do gestor', async () => {
+      const employee = makeEmployee({
+        id: 'employee-1',
+        userId: 'user-1',
+        manager: makeEmployee({
+          id: 'manager-1',
+          firstName: 'Gestor',
+          lastName: 'Exemplo',
+          nif: '123456789',
+          iban: 'PT50000000000000000000000',
+        }),
+      });
+      mockEmployeeRepository.findOne.mockResolvedValue(employee);
+      mockProfileDetailsRepository.findOne.mockResolvedValue(null);
+
+      const result = await service.findByUserId('user-1');
+
+      expect(result.manager).toEqual({
+        id: 'manager-1',
+        firstName: 'Gestor',
+        lastName: 'Exemplo',
+      });
+      expect(result.manager).not.toHaveProperty('nif');
+      expect(result.manager).not.toHaveProperty('iban');
+      expect(mockEmployeeRepository.findOne).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+        relations: ['department', 'jobTitle', 'manager'],
+      });
+    });
+
+    it('deve persistir detalhes pessoais e ignorar campos laborais de utilizador comum', async () => {
+      const employee = makeEmployee({ id: 'employee-1', userId: 'user-1' });
+      mockEmployeeRepository.findOne
+        .mockResolvedValueOnce({ id: employee.id })
+        .mockResolvedValueOnce(employee)
+        .mockResolvedValueOnce(employee)
+        .mockResolvedValueOnce(employee);
+      mockProfileDetailsRepository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+      mockProfileDetailsRepository.save.mockImplementation(
+        (details: Partial<EmployeeProfileDetails>) => Promise.resolve(details),
+      );
+
+      await service.updateMyProfile(
+        'user-1',
+        { firstName: 'Novo nome', employeeNumber: 'ALTERADO', preferredName: 'Nome social' },
+        false,
+      );
+
+      expect(mockEmployeeRepository.update).toHaveBeenCalledWith(
+        'employee-1',
+        expect.objectContaining({ firstName: 'Novo nome' }),
+      );
+      expect(mockEmployeeRepository.update).not.toHaveBeenCalledWith(
+        'employee-1',
+        expect.objectContaining({ employeeNumber: 'ALTERADO' }),
+      );
+      expect(mockProfileDetailsRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ employeeId: 'employee-1', preferredName: 'Nome social' }),
+      );
+    });
+
+    it('deve falhar quando a conta não tem colaborador associado', async () => {
+      mockEmployeeRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.findByUserId('user-without-employee')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
 
   describe('getOrganizationChart', () => {
     it('should return empty array when no employees exist', async () => {

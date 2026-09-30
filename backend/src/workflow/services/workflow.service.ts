@@ -9,6 +9,7 @@ import { WorkflowItemStatus } from '../entities/workflow-item-status.enum';
 import { WorkflowItemPriority } from '../entities/workflow-item-priority.enum';
 import { TimesheetPeriod } from '../../timesheets/entities/timesheet-period.entity';
 import { AbsenceRequest } from '../../absences/entities/absence-request.entity';
+import { EmployeeProfileDetails } from '../../users/entities/employee-profile-details.entity';
 import { ExpenseReport } from '../../expenses/entities/expense-report.entity';
 import { TimesheetsService } from '../../timesheets/services/timesheets.service';
 import { AbsencesService } from '../../absences/services/absences.service';
@@ -36,6 +37,8 @@ export class WorkflowService {
     private readonly timesheetPeriodRepository: Repository<TimesheetPeriod>,
     @InjectRepository(AbsenceRequest)
     private readonly absenceRequestRepository: Repository<AbsenceRequest>,
+    @InjectRepository(EmployeeProfileDetails)
+    private readonly employeeProfileDetailsRepository: Repository<EmployeeProfileDetails>,
     @InjectRepository(ExpenseReport)
     private readonly expenseReportRepository: Repository<ExpenseReport>,
     private readonly timesheetsService: TimesheetsService,
@@ -288,8 +291,12 @@ export class WorkflowService {
 
     if (!request) return;
 
-    const managerId = request.employee.managerId;
-    if (!managerId) return;
+    const profileDetails = await this.employeeProfileDetailsRepository.findOne({
+      where: { employeeId: event.employeeId },
+      select: ['absenceApproverId'],
+    });
+    const approverId = profileDetails?.absenceApproverId ?? request.employee.managerId;
+    if (!approverId) return;
 
     const existing = await this.workflowItemRepository.findOne({
       where: {
@@ -312,7 +319,7 @@ export class WorkflowService {
       referenceId: event.absenceId,
       referenceType: 'AbsenceRequest',
       requesterId: event.employeeId,
-      assigneeId: managerId,
+      assigneeId: approverId,
       status: WorkflowItemStatus.PENDING,
       requestedAt: event.occurredAt,
       dueDate,

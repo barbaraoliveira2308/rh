@@ -46,6 +46,23 @@ export class TeamsService {
     });
   }
 
+  async findForUser(userId: string): Promise<TeamMember[]> {
+    const employee = await this.employeeRepository.findOne({
+      where: { userId },
+      select: ['id'],
+    });
+
+    if (!employee) {
+      throw new NotFoundException('Colaborador não encontrado');
+    }
+
+    return this.teamMemberRepository.find({
+      where: { employeeId: employee.id, endDate: IsNull() },
+      relations: ['team', 'team.department', 'team.leader'],
+      order: { startDate: 'ASC' },
+    });
+  }
+
   async findOne(id: string): Promise<Team> {
     const team = await this.teamRepository.findOne({
       where: { id },

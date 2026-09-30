@@ -105,7 +105,14 @@ export class CalendarService {
       where.holidayDate = Between(String(year) + '-01-01', String(year) + '-12-31');
     }
 
-    return this.holidayRepository.find({ where, order: { holidayDate: 'ASC' } });
+    let holidays = await this.holidayRepository.find({ where, order: { holidayDate: 'ASC' } });
+
+    if (year && resolvedCountryCode === 'PT' && holidays.length === 0) {
+      await this.importPortugalHolidays(year);
+      holidays = await this.holidayRepository.find({ where, order: { holidayDate: 'ASC' } });
+    }
+
+    return holidays;
   }
 
   async createHoliday(dto: CreatePublicHolidayDto): Promise<PublicHoliday> {

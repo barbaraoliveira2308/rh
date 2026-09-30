@@ -85,7 +85,9 @@ export class AbsencesController {
   async create(@Body() dto: CreateAbsenceDto, @Req() req: Request): Promise<AbsenceRequest> {
     const user = req.user as JwtPayload;
     const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
-    return this.absencesService.create(dto, employeeId);
+    const autoApprove =
+      user.roles.includes(RoleEnum.ADMIN) || user.roles.includes(RoleEnum.MANAGER);
+    return this.absencesService.create(dto, employeeId, autoApprove);
   }
 
   @Get('absences/types')
