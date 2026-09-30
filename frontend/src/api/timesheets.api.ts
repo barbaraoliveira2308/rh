@@ -9,7 +9,9 @@ import type {
 } from '@/types/timesheets';
 
 export async function fetchTimesheets(filters?: TimesheetFilters): Promise<TimesheetPeriod[]> {
-  const response = await apiClient.get<TimesheetPeriod[]>('/timesheets', { params: filters });
+  const { employeeId, ...queryFilters } = filters ?? {};
+  const params = employeeId ? { ...queryFilters, employee_id: employeeId } : queryFilters;
+  const response = await apiClient.get<TimesheetPeriod[]>('/timesheets', { params });
   return response.data;
 }
 

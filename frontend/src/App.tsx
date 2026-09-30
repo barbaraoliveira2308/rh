@@ -29,6 +29,9 @@ const UsersListPage = React.lazy(() =>
 const UserDetailPage = React.lazy(() =>
   import('@/pages/UserDetailPage').then((m) => ({ default: m.UserDetailPage })),
 );
+const ProfilePage = React.lazy(() =>
+  import('@/pages/ProfilePage').then((m) => ({ default: m.ProfilePage })),
+);
 const UserNewPage = React.lazy(() =>
   import('@/pages/UserNewPage').then((m) => ({ default: m.UserNewPage })),
 );
@@ -181,6 +184,7 @@ export function App(): React.JSX.Element {
                 }
               >
                 <Route path="/" element={<DashboardPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/announcements" element={<AnnouncementsPage />} />
                 <Route path="/users" element={<UsersListPage />} />
                 <Route path="/users/new" element={<UserNewPage />} />

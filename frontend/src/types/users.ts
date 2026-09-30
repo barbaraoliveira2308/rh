@@ -40,6 +40,90 @@ export interface Employee {
   manager?: Employee | null;
 }
 
+export interface EmployeeProfileDetails {
+  id: string;
+  employeeId: string;
+  preferredName: string | null;
+  pronouns: string | null;
+  hideBirthday: boolean;
+  idDocumentType: string | null;
+  idDocumentNumber: string | null;
+  idDocumentExpiry: string | null;
+  socialSecurityNumber: string | null;
+  retirementRegime: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  postalCode: string | null;
+  province: string | null;
+  country: string | null;
+  disabilityPercentage: number | null;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  bankAccountFormat: string | null;
+  swiftBic: string | null;
+  irsPercentage: number | null;
+  absenceApproverId: string | null;
+  absenceApprover: Pick<Employee, 'id' | 'firstName' | 'lastName'> | null;
+}
+
+export type SelfEmployeeProfile = Omit<Employee, 'department' | 'jobTitle' | 'manager' | 'user'> & {
+  department: Pick<Department, 'id' | 'name'> | null;
+  jobTitle: Pick<JobTitle, 'id' | 'name'> | null;
+  manager: Pick<Employee, 'id' | 'firstName' | 'lastName'> | null;
+  profileDetails: EmployeeProfileDetails | null;
+};
+
+export type UpdateMyProfileRequest = Partial<
+  Pick<
+    Employee,
+    | 'employeeNumber'
+    | 'firstName'
+    | 'lastName'
+    | 'email'
+    | 'personalEmail'
+    | 'phone'
+    | 'nif'
+    | 'birthDate'
+    | 'address'
+    | 'nationality'
+    | 'gender'
+    | 'photoUrl'
+    | 'departmentId'
+    | 'jobTitleId'
+    | 'managerId'
+    | 'employmentStartDate'
+    | 'employmentEndDate'
+    | 'status'
+    | 'workLocation'
+    | 'iban'
+  >
+> &
+  Partial<
+    Pick<
+      EmployeeProfileDetails,
+      | 'preferredName'
+      | 'pronouns'
+      | 'hideBirthday'
+      | 'idDocumentType'
+      | 'idDocumentNumber'
+      | 'idDocumentExpiry'
+      | 'socialSecurityNumber'
+      | 'retirementRegime'
+      | 'addressLine2'
+      | 'city'
+      | 'postalCode'
+      | 'province'
+      | 'country'
+      | 'disabilityPercentage'
+      | 'emergencyContactName'
+      | 'emergencyContactPhone'
+      | 'bankAccountFormat'
+      | 'swiftBic'
+      | 'irsPercentage'
+      | 'absenceApproverId'
+    >
+  >;
+
 export interface Department {
   id: string;
   name: string;
