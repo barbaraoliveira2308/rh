@@ -10,7 +10,9 @@ import type {
 } from '@/types/absences';
 
 export async function fetchAbsences(filters?: AbsenceFilters): Promise<AbsenceRequest[]> {
-  const response = await apiClient.get<AbsenceRequest[]>('/absences', { params: filters });
+  const { employeeId, ...queryFilters } = filters ?? {};
+  const params = employeeId ? { ...queryFilters, employee_id: employeeId } : queryFilters;
+  const response = await apiClient.get<AbsenceRequest[]>('/absences', { params });
   return response.data;
 }
 

@@ -13,6 +13,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { FormField } from '@/components/FormField';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DateTextField } from '@/components/DateTextField';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -451,21 +452,19 @@ function ReportFilterFields({
     <>
       <div className="space-y-2">
         <Label>De</Label>
-        <Input
-          type="date"
+        <DateTextField
           value={filters.from}
-          onChange={(e) => {
-            onChange('from', e.target.value);
+          onChange={(isoDate) => {
+            onChange('from', isoDate);
           }}
         />
       </div>
       <div className="space-y-2">
         <Label>Até</Label>
-        <Input
-          type="date"
+        <DateTextField
           value={filters.to}
-          onChange={(e) => {
-            onChange('to', e.target.value);
+          onChange={(isoDate) => {
+            onChange('to', isoDate);
           }}
         />
       </div>

@@ -8,6 +8,7 @@ import type {
   CompetencyMatrixItem,
   NineBoxItem,
   CreateCourseRequest,
+  UpdateCourseRequest,
   CreateReviewRequest,
   UpdateReviewRequest,
   CreateCompetencyRequest,
@@ -21,6 +22,16 @@ export async function fetchCourses(): Promise<Course[]> {
 
 export async function createCourse(data: CreateCourseRequest): Promise<Course> {
   const response = await apiClient.post<Course>('/training/courses', data);
+  return response.data;
+}
+
+export async function updateCourse(id: string, data: UpdateCourseRequest): Promise<Course> {
+  const response = await apiClient.patch<Course>(`/training/courses/${id}`, data);
+  return response.data;
+}
+
+export async function fetchMyEnrollments(): Promise<CourseEnrollment[]> {
+  const response = await apiClient.get<CourseEnrollment[]>('/training/me');
   return response.data;
 }
 

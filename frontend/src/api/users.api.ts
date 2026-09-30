@@ -1,10 +1,12 @@
 import apiClient from './client';
 import type {
   Employee,
+  SelfEmployeeProfile,
   EmployeeFilters,
   EmployeeListResponse,
   CreateEmployeeRequest,
   UpdateEmployeeRequest,
+  UpdateMyProfileRequest,
   Department,
   JobTitle,
   OrgChartNode,
@@ -17,6 +19,16 @@ export async function fetchEmployees(filters?: EmployeeFilters): Promise<Employe
 
 export async function fetchEmployee(id: string): Promise<Employee> {
   const response = await apiClient.get<Employee>(`/users/${id}`);
+  return response.data;
+}
+
+export async function fetchMyEmployee(): Promise<SelfEmployeeProfile> {
+  const response = await apiClient.get<SelfEmployeeProfile>('/users/me');
+  return response.data;
+}
+
+export async function updateMyEmployee(data: UpdateMyProfileRequest): Promise<SelfEmployeeProfile> {
+  const response = await apiClient.patch<SelfEmployeeProfile>('/users/me', data);
   return response.data;
 }
 

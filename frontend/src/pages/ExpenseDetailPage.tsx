@@ -6,6 +6,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DateTextField } from '@/components/DateTextField';
 import { Label } from '@/components/ui/label';
 import {
   Dialog,
@@ -373,13 +374,7 @@ export function ExpenseDetailPage(): React.JSX.Element {
                 </div>
                 <div>
                   <Label>Data</Label>
-                  <Input
-                    type="date"
-                    value={newItemDate}
-                    onChange={(event) => {
-                      setNewItemDate(event.target.value);
-                    }}
-                  />
+                  <DateTextField value={newItemDate} onChange={setNewItemDate} />
                 </div>
                 <div className="flex items-end">
                   <Button
