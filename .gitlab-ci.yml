@@ -36,7 +36,7 @@ default:
 # Base comum dos jobs Node. A versão do pnpm vem do campo `packageManager` do package.json
 # (via corepack); a imagem acompanha a dos Dockerfiles.
 .node:
-  image: node:20-alpine
+  image: node:20.20.2-alpine
   cache:
     key:
       files:
@@ -97,9 +97,9 @@ test:e2e:
   stage: test
   needs: []
   services:
-    - name: postgres:16-alpine
+    - name: postgres:16.15-alpine
       alias: postgres
-    - name: redis:7-alpine
+    - name: redis:7.4.11-alpine
       alias: redis
   variables:
     # Lidas pelo contentor do Postgres; têm de coincidir com backend/.env.test.
