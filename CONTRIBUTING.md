@@ -82,7 +82,42 @@ todos os merge requests e em cada push para `develop` e `main`:
 | `test`   | `test:e2e`            | testes e2e do backend com PostgreSQL + Redis (`services:`)      | Sim      |
 | `test`   | `audit`               | `pnpm audit --prod --audit-level high`                          | Não      |
 | `test`   | SAST/Secret Detection | templates do GitLab (`backend/.env.test` excluído de propósito) | Não      |
+| `test`   | `kics-iac-sast`       | análise dos Dockerfiles e composes (template SAST-IaC)          | Não      |
+| `test`   | `renovate`            | só no pipeline agendado — ver abaixo                            | Não      |
 
 Antes de abrir um MR, `pnpm run lint:ci` e `pnpm run format:check` reproduzem localmente os dois
 primeiros jobs. Os testes e2e do frontend (Playwright) ainda não correm no CI (`R-066`), nem a
 verificação de migrações face às entidades (`R-069`).
+
+Os relatórios de segurança (SAST, Secret Detection, IaC) são ficheiros JSON nos artefactos de cada
+job; não bloqueiam o MR.
+
+### Pipeline semanal e Renovate
+
+Todas as segundas-feiras às 03:00 corre um pipeline agendado no `develop`: os mesmos jobs acima
+(apanha vulnerabilidades novas em código que não mudou) e ainda o `renovate`, que abre MRs de
+atualização de dependências npm contra o `develop`:
+
+- minor e patch agrupados num único MR (`chore(deps): update all non-major dependencies`);
+- cada major num MR próprio; os overrides do `pnpm` nunca sobem de major;
+- nada é integrado automaticamente — cada MR passa pelo pipeline e é revisto por uma pessoa;
+- no máximo 10 MRs do Renovate abertos em simultâneo; o issue "Dependency Dashboard" lista o resto.
+
+A configuração do repositório está em `renovate.json`; as opções globais (branch base, sem MR de
+onboarding) estão no job `renovate` do `.gitlab-ci.yml`.
+
+**Configuração (uma vez, no GitLab):**
+
+1. **Token:** _Settings → Access tokens → Add new token_ — nome `renovate`, role **Developer**,
+   scopes **`api`** e **`write_repository`**, com data de expiração (máximo permitido pela
+   instância). Copiar o valor.
+2. **Variável:** _Settings → CI/CD → Variables → Add variable_ — chave `RENOVATE_TOKEN`, valor do
+   passo 1, **Masked** e **Protected** (o `develop` tem de ser um branch protegido).
+3. **Agendamento:** _Build → Pipeline schedules → New schedule_ — descrição `Semanal`, padrão
+   `0 3 * * 1`, fuso horário `Lisbon`, branch `develop`, ativo.
+4. **Teste:** na lista de agendamentos, _Run schedule pipeline_ (▶) — confirmar que o job
+   `renovate` corre e que aparecem os MRs e o issue "Dependency Dashboard".
+
+Sem a variável `RENOVATE_TOKEN`, o pipeline agendado corre na mesma, só sem o job `renovate`.
+Quando o token expirar, o job deixa de conseguir autenticar-se: criar um novo e atualizar a
+variável.

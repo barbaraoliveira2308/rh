@@ -4,10 +4,15 @@
 # Requer um GitLab Runner com o executor Docker (os testes e2e usam `services:`).
 # Nota: a verificação de "migration drift" (entidades vs. migrações) fica de fora de propósito
 # — ver R-069 em specs/GLOBAL-TASKS-RISKS.md.
+#
+# Pipeline semanal (P-103): um pipeline agendado no `develop` corre todos os jobs abaixo e
+# ainda o `renovate` (atualizações de dependências). O agendamento é criado no GitLab — ver
+# CONTRIBUTING.md, secção "CI".
 
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    # Inclui os pipelines agendados, que correm no `develop`.
     - if: $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"
 
 stages:
@@ -16,6 +21,7 @@ stages:
 
 include:
   - template: Security/SAST.gitlab-ci.yml
+  - template: Security/SAST-IaC.gitlab-ci.yml
   - template: Security/Secret-Detection.gitlab-ci.yml
 
 variables:
@@ -122,3 +128,30 @@ audit:
     - corepack enable
   script:
     - pnpm audit --prod --audit-level high
+
+# ─── renovate (só no pipeline agendado) ─────────────────────────────────────────
+
+# Abre MRs de atualização de dependências contra o `develop`. A configuração do repositório está
+# no renovate.json; aqui ficam só as opções globais. O branch por omissão do projeto é o `main`,
+# pelo que o Renovate é apontado ao `develop` e lê a configuração de lá, sem MR de onboarding.
+# Requer a variável de CI/CD `RENOVATE_TOKEN` (project access token, role Developer).
+renovate:
+  stage: test
+  needs: []
+  # Versão exata: com o `pull_policy: if-not-present` do runner, uma tag móvel nunca se atualizava.
+  image: renovate/renovate:44.124.1
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $RENOVATE_TOKEN
+  # Um push para o `develop` a meio da execução não deve interromper o Renovate.
+  interruptible: false
+  variables:
+    RENOVATE_PLATFORM: gitlab
+    RENOVATE_ENDPOINT: $CI_API_V4_URL
+    RENOVATE_REPOSITORIES: $CI_PROJECT_PATH
+    RENOVATE_BASE_BRANCH_PATTERNS: '["develop"]'
+    RENOVATE_USE_BASE_BRANCH_CONFIG: merge
+    RENOVATE_ONBOARDING: 'false'
+    RENOVATE_REQUIRE_CONFIG: optional
+    LOG_LEVEL: info
+  script:
+    - renovate

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "group:allNonMajor"],
+  "enabledManagers": ["npm"],
+  "labels": ["dependencies"],
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "prHourlyLimit": 0,
+  "prConcurrentLimit": 10,
+  "packageRules": [
+    {
+      "description": "Os overrides fixam uma versão corrigida dentro do mesmo major para dependências transitivas antigas; subir-lhes o major forçaria esse major em todos os consumidores",
+      "matchDepTypes": ["pnpm.overrides"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    }
+  ]
+}
