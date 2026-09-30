@@ -32,6 +32,12 @@ variables:
 
 default:
   interruptible: true
+  # Repete automaticamente os jobs que falham por problemas do runner/Docker (não do código).
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
 
 # Base comum dos jobs Node. A versão do pnpm vem do campo `packageManager` do package.json
 # (via corepack); a imagem acompanha a dos Dockerfiles.
