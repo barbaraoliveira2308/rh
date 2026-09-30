@@ -95,13 +95,22 @@ job; não bloqueiam o MR.
 ### Pipeline semanal e Renovate
 
 Todas as segundas-feiras às 03:00 corre um pipeline agendado no `develop`: os mesmos jobs acima
-(apanha vulnerabilidades novas em código que não mudou) e ainda o `renovate`, que abre MRs de
-atualização de dependências npm contra o `develop`:
+(apanha vulnerabilidades novas em código que não mudou) e ainda o `renovate`, que trata as
+dependências npm e as imagens Docker (Dockerfiles, composes e `.gitlab-ci.yml`) contra o `develop`:
 
 - minor e patch agrupados num único MR (`chore(deps): update all non-major dependencies`);
-- cada major num MR próprio; os overrides do `pnpm` nunca sobem de major;
+- **majors não abrem MR**: ficam listados no issue **"Dependency Dashboard"** (secção "Pending
+  Approval"); marcar a caixa de um major faz o Renovate criar o MR na execução seguinte (ou logo, ao
+  correr o agendamento à mão). Subscrever as notificações desse issue para saber de majors novos;
+- os MRs de major do `postgres` e do `rabbitmq` trazem um aviso: **não integrar sem procedimento de
+  migração** — não arrancam sobre os volumes de dados existentes, embora o pipeline passe;
+- os overrides do `pnpm` nunca sobem de major; `mailpit:latest` e `nginx:stable-alpine` não são
+  seguidos (tags sem versão);
 - nada é integrado automaticamente — cada MR passa pelo pipeline e é revisto por uma pessoa;
-- no máximo 10 MRs do Renovate abertos em simultâneo; o issue "Dependency Dashboard" lista o resto.
+- no máximo 10 MRs do Renovate abertos em simultâneo.
+
+O issue "Dependency Dashboard" precisa das Issues ativas no projeto (_Settings → General →
+Visibility, project features, permissions_).
 
 A configuração do repositório está em `renovate.json`; as opções globais (branch base, sem MR de
 onboarding) estão no job `renovate` do `.gitlab-ci.yml`.
