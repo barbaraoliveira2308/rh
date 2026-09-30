@@ -1,0 +1,124 @@
+# Pipeline de CI (P-102): verificações de qualidade e testes em cada merge request e em cada
+# push para `develop`/`main`. Build de imagens, releases e deploy ficam para uma fase futura.
+#
+# Requer um GitLab Runner com o executor Docker (os testes e2e usam `services:`).
+# Nota: a verificação de "migration drift" (entidades vs. migrações) fica de fora de propósito
+# — ver R-069 em specs/GLOBAL-TASKS-RISKS.md.
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"
+
+stages:
+  - verify
+  - test
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
+variables:
+  # Corre os jobs de SAST/Secret Detection também nos pipelines de merge request.
+  AST_ENABLE_MR_PIPELINES: 'true'
+  # Chaves RSA de teste versionadas de propósito para a suite e2e — não são segredos reais.
+  SECRET_DETECTION_EXCLUDED_PATHS: 'backend/.env.test'
+
+default:
+  interruptible: true
+
+# Base comum dos jobs Node. A versão do pnpm vem do campo `packageManager` do package.json
+# (via corepack); a imagem acompanha a dos Dockerfiles.
+.node:
+  image: node:20-alpine
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - .pnpm-store/
+  before_script:
+    - corepack enable
+    - pnpm config set store-dir .pnpm-store
+    - pnpm install --frozen-lockfile
+
+# ─── verify ────────────────────────────────────────────────────────────────────
+
+lint:
+  extends: .node
+  stage: verify
+  script:
+    - pnpm run lint:ci
+
+format:
+  extends: .node
+  stage: verify
+  script:
+    - pnpm run format:check
+
+build:backend:
+  extends: .node
+  stage: verify
+  script:
+    - pnpm --filter @bridge351/srh-backend run build
+
+build:frontend:
+  extends: .node
+  stage: verify
+  script:
+    - pnpm --filter @bridge351/srh-frontend run build
+
+# ─── test ──────────────────────────────────────────────────────────────────────
+
+test:unit:
+  extends: .node
+  stage: test
+  needs: []
+  script:
+    - pnpm --filter @bridge351/srh-backend run test:ci
+  coverage: '/Lines\s*:\s*(\d+(?:\.\d+)?)%/'
+  artifacts:
+    when: always
+    expire_in: 1 week
+    reports:
+      junit: backend/junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: backend/coverage/cobertura-coverage.xml
+
+test:e2e:
+  extends: .node
+  stage: test
+  needs: []
+  services:
+    - name: postgres:16-alpine
+      alias: postgres
+    - name: redis:7-alpine
+      alias: redis
+  variables:
+    # Lidas pelo contentor do Postgres; têm de coincidir com backend/.env.test.
+    POSTGRES_DB: srh_test
+    POSTGRES_USER: srh_user
+    POSTGRES_PASSWORD: srh_dev_pass
+  script:
+    # Nada carrega o backend/.env.test automaticamente: exportado aqui, com os hosts dos serviços.
+    - set -a && . backend/.env.test && set +a
+    - export POSTGRES_HOST=postgres REDIS_HOST=redis
+    - pnpm --filter @bridge351/srh-backend run schema:create
+    - pnpm --filter @bridge351/srh-backend run test:e2e --ci --reporters=default --reporters=jest-junit
+  artifacts:
+    when: always
+    expire_in: 1 week
+    reports:
+      junit: backend/junit.xml
+
+audit:
+  extends: .node
+  stage: test
+  needs: []
+  # Só reporta: há vulnerabilidades conhecidas por tratar.
+  allow_failure: true
+  before_script:
+    - corepack enable
+  script:
+    - pnpm audit --prod --audit-level high

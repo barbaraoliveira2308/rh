@@ -69,8 +69,20 @@ Configurar as credenciais em `backend/.env.test`.
 
 ## CI
 
-O workflow de CI (`.github/workflows/ci.yml`) executa:
+O pipeline de CI é o `.gitlab-ci.yml` (GitLab CI, requer um runner com o executor Docker). Corre em
+todos os merge requests e em cada push para `develop` e `main`:
 
-1. `lint` — lint de todo o monorepo + build backend
-2. `backend-e2e` — testes e2e do backend com PostgreSQL + Redis
-3. `frontend-e2e` — build frontend + Playwright tests
+| Stage    | Job                   | O que faz                                                       | Bloqueia |
+| -------- | --------------------- | --------------------------------------------------------------- | -------- |
+| `verify` | `lint`                | `pnpm run lint:ci` (ESLint sem `--fix`)                         | Sim      |
+| `verify` | `format`              | `pnpm run format:check`                                         | Sim      |
+| `verify` | `build:backend`       | build do backend                                                | Sim      |
+| `verify` | `build:frontend`      | typecheck + build do frontend                                   | Sim      |
+| `test`   | `test:unit`           | testes unitários do backend, com relatório JUnit e cobertura    | Sim      |
+| `test`   | `test:e2e`            | testes e2e do backend com PostgreSQL + Redis (`services:`)      | Sim      |
+| `test`   | `audit`               | `pnpm audit --prod --audit-level high`                          | Não      |
+| `test`   | SAST/Secret Detection | templates do GitLab (`backend/.env.test` excluído de propósito) | Não      |
+
+Antes de abrir um MR, `pnpm run lint:ci` e `pnpm run format:check` reproduzem localmente os dois
+primeiros jobs. Os testes e2e do frontend (Playwright) ainda não correm no CI (`R-066`), nem a
+verificação de migrações face às entidades (`R-069`).
