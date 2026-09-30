@@ -23,13 +23,17 @@ import { PoliciesService } from './policies.service';
 import { CreatePolicyDto } from './dto/create-policy.dto';
 import { UpdatePolicyDto } from './dto/update-policy.dto';
 import { PolicyStatus } from './entities/policy-status.enum';
+import { AuditService } from '../audit/services/audit.service';
 
 @ApiTags('Policies')
 @Controller('policies')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class PoliciesController {
-  constructor(private readonly policiesService: PoliciesService) {}
+  constructor(
+    private readonly policiesService: PoliciesService,
+    private readonly auditService: AuditService,
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -61,6 +65,33 @@ export class PoliciesController {
   @ApiOperation({ summary: 'Consultar logs de aceite de políticas' })
   async acceptanceLogs() {
     return this.policiesService.findAcceptanceLogs();
+  }
+
+  @Get('acceptance/pending-users')
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
+  @ApiOperation({
+    summary: 'Listar utilizadores com políticas publicadas ainda por aceitar (admin, gestor)',
+  })
+  async pendingAcceptanceUsers(@Req() req: Request) {
+    const user = req.user as JwtPayload;
+    const pendingUsers = await this.policiesService.findPendingAcceptanceUsers();
+    this.auditService.log({
+      userId: user.sub,
+      action: 'PolicyAcceptancePendingReviewed',
+      entityType: 'PolicyAcceptance',
+      entityId: user.sub,
+      newValues: { pendingUsersCount: pendingUsers.length },
+      module: 'policies',
+    });
+    return pendingUsers;
+  }
+
+  @Post('acceptance/remind/:userId')
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Enviar lembrete de aceite pendente a um utilizador (admin, gestor)' })
+  async remindAcceptance(@Param('userId') userId: string) {
+    return this.policiesService.remindUser(userId);
   }
 
   @Get(':id')

@@ -5,6 +5,7 @@ import type {
   CreatePolicyRequest,
   UpdatePolicyRequest,
   PolicyAcceptanceLog,
+  PendingAcceptanceUser,
 } from '@/types/policies';
 
 export async function fetchPolicies(filters?: PolicyFilters): Promise<Policy[]> {
@@ -52,5 +53,19 @@ export async function acceptPolicy(id: string): Promise<void> {
 
 export async function fetchPolicyAcceptanceLogs(): Promise<PolicyAcceptanceLog[]> {
   const response = await apiClient.get<PolicyAcceptanceLog[]>('/policies/acceptance/logs');
+  return response.data;
+}
+
+export async function fetchPendingAcceptanceUsers(): Promise<PendingAcceptanceUser[]> {
+  const response = await apiClient.get<PendingAcceptanceUser[]>(
+    '/policies/acceptance/pending-users',
+  );
+  return response.data;
+}
+
+export async function remindPolicyAcceptance(userId: string): Promise<{ pendingCount: number }> {
+  const response = await apiClient.post<{ pendingCount: number }>(
+    `/policies/acceptance/remind/${userId}`,
+  );
   return response.data;
 }

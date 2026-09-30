@@ -48,3 +48,16 @@ export interface PolicyAcceptanceLog {
   user: { username: string; email: string };
   policy: { title: string; category: string };
 }
+
+export interface PendingPolicySummary {
+  id: string;
+  title: string;
+  version: number;
+}
+
+export interface PendingAcceptanceUser {
+  userId: string;
+  email: string;
+  username: string;
+  pendingPolicies: PendingPolicySummary[];
+}
