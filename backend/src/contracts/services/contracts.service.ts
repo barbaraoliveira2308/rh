@@ -3,7 +3,6 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
@@ -71,23 +70,6 @@ export class ContractsService {
     });
   }
 
-  async findForUser(userId: string): Promise<Contract[]> {
-    const employee = await this.employeeRepository.findOne({
-      where: { userId },
-      select: ['id'],
-    });
-
-    if (!employee) {
-      throw new NotFoundException('Colaborador não encontrado');
-    }
-
-    return this.contractRepository.find({
-      where: { employeeId: employee.id },
-      relations: ['legalEntity'],
-      order: { createdAt: 'DESC' },
-    });
-  }
-
   async findOne(id: string): Promise<Contract> {
     const contract = await this.contractRepository.findOne({
       where: { id },
@@ -101,30 +83,6 @@ export class ContractsService {
 
   async update(id: string, dto: UpdateContractDto): Promise<Contract> {
     await this.findOne(id);
-    await this.contractRepository.update(id, dto);
-    return this.findOne(id);
-  }
-
-  async updateForUser(userId: string, id: string, dto: UpdateContractDto): Promise<Contract> {
-    const employee = await this.employeeRepository.findOne({
-      where: { userId },
-      select: ['id'],
-    });
-    if (!employee) {
-      throw new NotFoundException('Colaborador não encontrado');
-    }
-
-    const contract = await this.contractRepository.findOne({
-      where: { id },
-      select: ['id', 'employeeId'],
-    });
-    if (!contract) {
-      throw new NotFoundException('Contrato não encontrado');
-    }
-    if (contract.employeeId !== employee.id) {
-      throw new ForbiddenException('Só pode editar os seus próprios contratos');
-    }
-
     await this.contractRepository.update(id, dto);
     return this.findOne(id);
   }

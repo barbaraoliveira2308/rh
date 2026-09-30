@@ -72,29 +72,6 @@ describe('TrainingService', () => {
     expect(courseRepository.save).toHaveBeenCalled();
   });
 
-  it('should update a course', async () => {
-    const course = Object.assign(new Course(), { id: 'course-1', name: 'Curso antigo' });
-    courseRepository.findOne.mockResolvedValue(course);
-
-    await service.updateCourse('course-1', { name: 'Curso atualizado' });
-
-    expect(courseRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'course-1', name: 'Curso atualizado' }),
-    );
-  });
-
-  it('should list enrollments for the requested employee with course details', async () => {
-    enrollmentRepository.find.mockResolvedValue([]);
-
-    await service.findEnrollmentsByEmployee('emp-1');
-
-    expect(enrollmentRepository.find).toHaveBeenCalledWith({
-      where: { employeeId: 'emp-1' },
-      relations: ['course'],
-      order: { updatedAt: 'DESC' },
-    });
-  });
-
   it('should enroll an active employee', async () => {
     const employee = new Employee();
     employee.id = 'emp-1';

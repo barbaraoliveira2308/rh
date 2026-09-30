@@ -12,12 +12,10 @@ import { SecurityIncidentStatus } from '../entities/security-incident-status.enu
 import { SecurityIncidentSeverity } from '../entities/security-incident-severity.enum';
 import { DataSubjectRequestType } from '../entities/data-subject-request-type.enum';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
-import { EmployeeProfileDetails } from '../../users/entities/employee-profile-details.entity';
 import { User } from '../../auth/entities/user.entity';
 import { AuditLog } from '../../audit/entities/audit-log.entity';
 import { AdminService } from '../../admin/admin.service';
 import { PersonalDataExportedEvent } from '../events/personal-data-exported.event';
-import { DocumentsService } from '../../documents/services/documents.service';
 
 function createMockQueryBuilder(
   overrides: Record<string, jest.Mock> = {},
@@ -41,7 +39,6 @@ const createMockRepository = (): {
   save: jest.Mock;
   create: jest.Mock;
   count: jest.Mock;
-  delete: jest.Mock;
   createQueryBuilder: jest.Mock;
 } => ({
   findOne: jest.fn(),
@@ -49,7 +46,6 @@ const createMockRepository = (): {
   save: jest.fn().mockImplementation((entity: unknown) => Promise.resolve(entity)),
   create: jest.fn().mockImplementation((dto: unknown) => dto),
   count: jest.fn().mockResolvedValue(0),
-  delete: jest.fn().mockResolvedValue({ affected: 1 }),
   createQueryBuilder: jest.fn().mockReturnValue(createMockQueryBuilder()),
 });
 
@@ -77,8 +73,6 @@ describe('GdprService', () => {
   let incidentRepository: ReturnType<typeof createMockRepository>;
   let retentionRepository: ReturnType<typeof createMockRepository>;
   let consentRepository: ReturnType<typeof createMockRepository>;
-  let profileDetailsRepository: ReturnType<typeof createMockRepository>;
-  const documentsService = { purgeOwnedByEmployee: jest.fn().mockResolvedValue(undefined) };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -89,13 +83,11 @@ describe('GdprService', () => {
         { provide: getRepositoryToken(RetentionPolicy), useValue: createMockRepository() },
         { provide: getRepositoryToken(SecurityIncident), useValue: createMockRepository() },
         { provide: getRepositoryToken(Employee), useValue: createMockRepository() },
-        { provide: getRepositoryToken(EmployeeProfileDetails), useValue: createMockRepository() },
         { provide: getRepositoryToken(User), useValue: createMockRepository() },
         { provide: getRepositoryToken(AuditLog), useValue: createMockRepository() },
         { provide: DataSource, useValue: mockDataSource },
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: AdminService, useValue: mockAdminService },
-        { provide: DocumentsService, useValue: documentsService },
       ],
     }).compile();
 
@@ -107,7 +99,6 @@ describe('GdprService', () => {
     incidentRepository = module.get(getRepositoryToken(SecurityIncident));
     retentionRepository = module.get(getRepositoryToken(RetentionPolicy));
     consentRepository = module.get(getRepositoryToken(ConsentRecord));
-    profileDetailsRepository = module.get(getRepositoryToken(EmployeeProfileDetails));
 
     jest.clearAllMocks();
   });
@@ -152,8 +143,6 @@ describe('GdprService', () => {
     expect(result.iban).toBeNull();
     expect(result.workLocation).toBeNull();
     expect(result.status).toBe(EmployeeStatus.INACTIVE);
-    expect(profileDetailsRepository.delete).toHaveBeenCalledWith({ employeeId });
-    expect(documentsService.purgeOwnedByEmployee).toHaveBeenCalledWith(employeeId);
 
     expect(userRepository.save).toHaveBeenCalled();
     expect(auditLogRepository.save).toHaveBeenCalledWith(
@@ -182,13 +171,11 @@ describe('GdprService', () => {
         { provide: getRepositoryToken(RetentionPolicy), useValue: retentionRepository },
         { provide: getRepositoryToken(SecurityIncident), useValue: createMockRepository() },
         { provide: getRepositoryToken(Employee), useValue: createMockRepository() },
-        { provide: getRepositoryToken(EmployeeProfileDetails), useValue: createMockRepository() },
         { provide: getRepositoryToken(User), useValue: createMockRepository() },
         { provide: getRepositoryToken(AuditLog), useValue: createMockRepository() },
         { provide: DataSource, useValue: mockDataSource },
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: AdminService, useValue: mockAdminService },
-        { provide: DocumentsService, useValue: documentsService },
       ],
     }).compile();
 
@@ -222,13 +209,11 @@ describe('GdprService', () => {
         { provide: getRepositoryToken(RetentionPolicy), useValue: retentionRepository },
         { provide: getRepositoryToken(SecurityIncident), useValue: createMockRepository() },
         { provide: getRepositoryToken(Employee), useValue: employeeRepository },
-        { provide: getRepositoryToken(EmployeeProfileDetails), useValue: createMockRepository() },
         { provide: getRepositoryToken(User), useValue: userRepository },
         { provide: getRepositoryToken(AuditLog), useValue: auditLogRepository },
         { provide: DataSource, useValue: mockDataSource },
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: AdminService, useValue: mockAdminService },
-        { provide: DocumentsService, useValue: documentsService },
       ],
     }).compile();
 
@@ -255,13 +240,11 @@ describe('GdprService', () => {
         { provide: getRepositoryToken(RetentionPolicy), useValue: retentionRepository },
         { provide: getRepositoryToken(SecurityIncident), useValue: createMockRepository() },
         { provide: getRepositoryToken(Employee), useValue: employeeRepository },
-        { provide: getRepositoryToken(EmployeeProfileDetails), useValue: createMockRepository() },
         { provide: getRepositoryToken(User), useValue: createMockRepository() },
         { provide: getRepositoryToken(AuditLog), useValue: createMockRepository() },
         { provide: DataSource, useValue: mockDataSource },
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: AdminService, useValue: mockAdminService },
-        { provide: DocumentsService, useValue: documentsService },
       ],
     }).compile();
 

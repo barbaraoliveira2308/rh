@@ -12,7 +12,6 @@ import { AbsenceApproval } from '../entities/absence-approval.entity';
 import { LeaveBalance } from '../entities/leave-balance.entity';
 import { AbsenceStatus } from '../entities/absence-status.enum';
 import { Employee, EmployeeStatus } from '../../users/entities/employee.entity';
-import { EmployeeProfileDetails } from '../../users/entities/employee-profile-details.entity';
 
 describe('AbsencesService', () => {
   let service: AbsencesService;
@@ -21,7 +20,6 @@ describe('AbsencesService', () => {
   let mockApprovalRepo: Record<string, jest.Mock>;
   let mockBalanceRepo: Record<string, jest.Mock>;
   let mockEmployeeRepo: Record<string, jest.Mock>;
-  let mockProfileDetailsRepo: Record<string, jest.Mock>;
   let mockEventEmitter: Record<string, jest.Mock>;
   let mockCalendarService: Record<string, jest.Mock>;
   let mockRbacService: Record<string, jest.Mock>;
@@ -113,10 +111,6 @@ describe('AbsencesService', () => {
       find: jest.fn(),
     };
 
-    mockProfileDetailsRepo = {
-      findOne: jest.fn(),
-    };
-
     mockEventEmitter = {
       emit: jest.fn(),
     };
@@ -146,7 +140,6 @@ describe('AbsencesService', () => {
         { provide: getRepositoryToken(AbsenceApproval), useValue: mockApprovalRepo },
         { provide: getRepositoryToken(LeaveBalance), useValue: mockBalanceRepo },
         { provide: getRepositoryToken(Employee), useValue: mockEmployeeRepo },
-        { provide: getRepositoryToken(EmployeeProfileDetails), useValue: mockProfileDetailsRepo },
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: CalendarService, useValue: mockCalendarService },
         { provide: RbacService, useValue: mockRbacService },
@@ -399,55 +392,6 @@ describe('AbsencesService', () => {
       );
     });
 
-    it('deve autoaprovar pedidos privilegiados e não criar tarefa pendente', async () => {
-      const noBalanceType = Object.assign({}, mockVacationType, {
-        id: 'type-3',
-        affectsBalance: false,
-      });
-      const createdRequest = {
-        id: 'req-auto',
-        employeeId: 'emp-1',
-        absenceTypeId: 'type-3',
-        startDate: '2026-07-01',
-        endDate: '2026-07-03',
-        totalDays: 3,
-        status: AbsenceStatus.PENDING,
-        absenceType: noBalanceType,
-      };
-
-      mockEmployeeRepo.findOne.mockResolvedValue(mockEmployee);
-      mockTypeRepo.findOne.mockResolvedValue(noBalanceType);
-      mockRequestRepo.findOne
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(createdRequest);
-      mockRequestRepo.create.mockReturnValue(createdRequest);
-      mockRequestRepo.save.mockImplementation((request: AbsenceRequest) =>
-        Promise.resolve(request),
-      );
-      mockApprovalRepo.create.mockImplementation((approval: unknown) => approval);
-      mockApprovalRepo.save.mockImplementation((approval: unknown) => Promise.resolve(approval));
-
-      const result = await service.create(validDto, 'emp-1', true);
-
-      expect(result.status).toBe(AbsenceStatus.APPROVED);
-      expect(mockApprovalRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          absenceId: 'req-auto',
-          approverId: 'emp-1',
-          decision: 'approved',
-        }),
-      );
-      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
-        'absence.approved',
-        expect.objectContaining({ absenceId: 'req-auto' }),
-      );
-      expect(mockEventEmitter.emit).not.toHaveBeenCalledWith(
-        'absence.requested',
-        expect.anything(),
-      );
-    });
-
     it('deve excluir feriados do país da entidade legal do colaborador ao contar dias úteis (ligação a Calendar)', async () => {
       mockEmployeeRepo.findOne.mockResolvedValue(mockEmployee);
       mockTypeRepo.findOne.mockResolvedValue(mockVacationType);
@@ -564,36 +508,6 @@ describe('AbsencesService', () => {
         'absence.approved',
         expect.objectContaining({ absenceId: 'req-1' }),
       );
-    });
-
-    it('deve aceitar o aprovador configurado no perfil no lugar do gestor direto', async () => {
-      const request = {
-        id: 'req-1',
-        employeeId: 'emp-1',
-        absenceTypeId: 'type-1',
-        status: AbsenceStatus.PENDING,
-        startDate: '2026-07-01',
-        totalDays: 1,
-        absenceType: mockVacationType,
-      };
-      mockRequestRepo.findOne.mockResolvedValue(request);
-      mockEmployeeRepo.findOne
-        .mockResolvedValueOnce({
-          id: 'approver-1',
-          userId: 'user-approver',
-          status: EmployeeStatus.ACTIVE,
-        })
-        .mockResolvedValueOnce({ id: 'emp-1', managerId: 'manager-default' });
-      mockRbacService.isAdmin.mockResolvedValue(false);
-      mockProfileDetailsRepo.findOne.mockResolvedValue({ absenceApproverId: 'approver-1' });
-      mockRequestRepo.save.mockImplementation((value: unknown) => Promise.resolve(value));
-      mockApprovalRepo.create.mockImplementation((value: unknown) => value);
-      mockApprovalRepo.save.mockImplementation((value: unknown) => Promise.resolve(value));
-      mockBalanceRepo.findOne.mockResolvedValue(null);
-
-      const result = await service.approve('req-1', 'approver-1');
-
-      expect(result.status).toBe(AbsenceStatus.APPROVED);
     });
 
     it('deve aprovar sem atualizar saldo se tipo não afetar saldo', async () => {

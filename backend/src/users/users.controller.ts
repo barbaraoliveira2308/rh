@@ -16,10 +16,9 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
-import { EmployeeProfile, UsersService } from './services/users.service';
+import { UsersService } from './services/users.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
-import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 import { EmployeeFilterDto } from './dto/employee-filter.dto';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
@@ -59,30 +58,6 @@ export class UsersController {
     @Query() filters: EmployeeFilterDto,
   ): Promise<{ data: Employee[]; total: number; page: number; limit: number }> {
     return this.usersService.findAll(filters);
-  }
-
-  @Get('users/me')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
-  @ApiOperation({ summary: 'Obter o perfil do colaborador autenticado' })
-  @HttpCode(HttpStatus.OK)
-  async findMyProfile(@Req() req: Request): Promise<EmployeeProfile> {
-    const user = req.user as JwtPayload;
-    return this.usersService.findByUserId(user.sub);
-  }
-
-  @Patch('users/me')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
-  @Audit('Updated', 'Employee')
-  @ApiOperation({ summary: 'Atualizar o perfil do colaborador autenticado' })
-  @HttpCode(HttpStatus.OK)
-  async updateMyProfile(
-    @Body() dto: UpdateMyProfileDto,
-    @Req() req: Request,
-  ): Promise<EmployeeProfile> {
-    const user = req.user as JwtPayload;
-    const canEditEmployment =
-      user.roles.includes(RoleEnum.ADMIN) || user.roles.includes(RoleEnum.MANAGER);
-    return this.usersService.updateMyProfile(user.sub, dto, canEditEmployment);
   }
 
   @Get('users/:id')

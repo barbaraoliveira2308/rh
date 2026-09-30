@@ -1,12 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import {
-  NotFoundException,
-  ConflictException,
-  BadRequestException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { ContractsService } from './contracts.service';
 import { Contract, ContractStatus } from '../entities/contract.entity';
 import { ContractRenewal } from '../entities/contract-renewal.entity';
@@ -90,54 +85,6 @@ describe('ContractsService', () => {
       mockContractRepo.findOne.mockResolvedValue(null);
 
       await expect(service.findOne('missing')).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  describe('findForUser', () => {
-    it('deve listar contratos apenas do colaborador associado ao utilizador', async () => {
-      mockEmployeeRepo.findOne.mockResolvedValue({ id: 'employee-1' });
-      mockContractRepo.find.mockResolvedValue([]);
-
-      await service.findForUser('user-1');
-
-      expect(mockEmployeeRepo.findOne).toHaveBeenCalledWith({
-        where: { userId: 'user-1' },
-        select: ['id'],
-      });
-      expect(mockContractRepo.find).toHaveBeenCalledWith({
-        where: { employeeId: 'employee-1' },
-        relations: ['legalEntity'],
-        order: { createdAt: 'DESC' },
-      });
-    });
-
-    it('deve falhar quando o utilizador não tem colaborador associado', async () => {
-      mockEmployeeRepo.findOne.mockResolvedValue(null);
-
-      await expect(service.findForUser('user-without-employee')).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  describe('updateForUser', () => {
-    it('deve impedir a edição de contrato pertencente a outro colaborador', async () => {
-      mockEmployeeRepo.findOne.mockResolvedValue({ id: 'employee-1' });
-      mockContractRepo.findOne.mockResolvedValue({ id: 'contract-2', employeeId: 'employee-2' });
-
-      await expect(
-        service.updateForUser('user-1', 'contract-2', { contractingEntity: 'Outra empresa' }),
-      ).rejects.toThrow(ForbiddenException);
-      expect(mockContractRepo.update).not.toHaveBeenCalled();
-    });
-
-    it('deve atualizar apenas o contrato associado ao próprio colaborador', async () => {
-      const contract = { id: 'contract-1', employeeId: 'employee-1' } as Contract;
-      mockEmployeeRepo.findOne.mockResolvedValue({ id: 'employee-1' });
-      mockContractRepo.findOne.mockResolvedValueOnce(contract).mockResolvedValueOnce(contract);
-      mockContractRepo.update.mockResolvedValue({ affected: 1 });
-
-      await service.updateForUser('user-1', 'contract-1', { monthlyCost: 2500 });
-
-      expect(mockContractRepo.update).toHaveBeenCalledWith('contract-1', { monthlyCost: 2500 });
     });
   });
 

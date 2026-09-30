@@ -11,7 +11,6 @@ import { TimesheetsModule } from '../timesheets/timesheets.module';
 import { AbsencesModule } from '../absences/absences.module';
 import { ExpensesModule } from '../expenses/expenses.module';
 import { CalendarModule } from '../calendar/calendar.module';
-import { EmployeeProfileDetails } from '../users/entities/employee-profile-details.entity';
 
 @Module({
   imports: [
@@ -20,7 +19,6 @@ import { EmployeeProfileDetails } from '../users/entities/employee-profile-detai
       Employee,
       TimesheetPeriod,
       AbsenceRequest,
-      EmployeeProfileDetails,
       ExpenseReport,
     ]),
     TimesheetsModule,

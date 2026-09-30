@@ -7,16 +7,12 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Employee } from '../../users/entities/employee.entity';
-import { Course } from '../../training/entities/course.entity';
 
 export enum DocumentCategory {
   CONTRACT = 'contract',
   ID = 'id',
   TRAINING = 'training',
   ABSENCE = 'absence',
-  DECLARATIONS = 'declarations',
-  PRESENCE = 'presence',
-  MEDICAL_LEAVE = 'medical_leave',
   INSURANCE = 'insurance',
   ONBOARDING = 'onboarding',
   EQUIPMENT = 'equipment',
@@ -56,9 +52,6 @@ export class Document {
   @Column({ name: 'owner_id', type: 'uuid', nullable: true })
   ownerId: string | null;
 
-  @Column({ name: 'course_id', type: 'uuid', nullable: true })
-  courseId: string | null;
-
   @Column({ name: 'is_public', type: 'boolean', default: false })
   isPublic: boolean;
 
@@ -81,8 +74,4 @@ export class Document {
   @ManyToOne(() => Employee, { nullable: false })
   @JoinColumn({ name: 'uploaded_by' })
   uploader: Employee;
-
-  @ManyToOne(() => Course, { nullable: true, onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'course_id' })
-  course: Course | null;
 }

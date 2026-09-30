@@ -19,22 +19,6 @@ import { UpdateDepartmentDto } from '../dto/update-department.dto';
 import { CreateJobTitleDto } from '../dto/create-job-title.dto';
 import { UpdateJobTitleDto } from '../dto/update-job-title.dto';
 import { OrgChartNode } from '../dto/org-chart-node.dto';
-import { EmployeeProfileDetails } from '../entities/employee-profile-details.entity';
-import { UpdateMyProfileDto } from '../dto/update-my-profile.dto';
-
-export type EmployeeProfile = Omit<
-  Employee,
-  'department' | 'jobTitle' | 'manager' | 'user' | 'directReports'
-> & {
-  department: Pick<Department, 'id' | 'name'> | null;
-  jobTitle: Pick<JobTitle, 'id' | 'name'> | null;
-  manager: Pick<Employee, 'id' | 'firstName' | 'lastName'> | null;
-  profileDetails:
-    | (Omit<EmployeeProfileDetails, 'employee' | 'absenceApprover'> & {
-        absenceApprover: Pick<Employee, 'id' | 'firstName' | 'lastName'> | null;
-      })
-    | null;
-};
 
 @Injectable()
 export class UsersService {
@@ -45,8 +29,6 @@ export class UsersService {
     private readonly departmentBaseRepository: Repository<Department>,
     @InjectRepository(JobTitle)
     private readonly jobTitleRepository: Repository<JobTitle>,
-    @InjectRepository(EmployeeProfileDetails)
-    private readonly employeeProfileDetailsRepository: Repository<EmployeeProfileDetails>,
   ) {}
 
   async create(dto: CreateEmployeeDto): Promise<Employee> {
@@ -145,165 +127,6 @@ export class UsersService {
     }
 
     return employee;
-  }
-
-  async findByUserId(userId: string): Promise<EmployeeProfile> {
-    const employee = await this.employeeRepository.findOne({
-      where: { userId },
-      relations: ['department', 'jobTitle', 'manager'],
-    });
-
-    if (!employee) {
-      throw new NotFoundException('Colaborador não encontrado');
-    }
-
-    const details = await this.employeeProfileDetailsRepository.findOne({
-      where: { employeeId: employee.id },
-      relations: ['absenceApprover'],
-    });
-
-    return Object.assign(employee, {
-      department: employee.department
-        ? { id: employee.department.id, name: employee.department.name }
-        : null,
-      jobTitle: employee.jobTitle
-        ? { id: employee.jobTitle.id, name: employee.jobTitle.name }
-        : null,
-      manager: employee.manager
-        ? {
-            id: employee.manager.id,
-            firstName: employee.manager.firstName,
-            lastName: employee.manager.lastName,
-          }
-        : null,
-      profileDetails: details
-        ? Object.assign(details, {
-            absenceApprover: details.absenceApprover
-              ? {
-                  id: details.absenceApprover.id,
-                  firstName: details.absenceApprover.firstName,
-                  lastName: details.absenceApprover.lastName,
-                }
-              : null,
-          })
-        : null,
-    });
-  }
-
-  async updateMyProfile(
-    userId: string,
-    dto: UpdateMyProfileDto,
-    canEditEmployment: boolean,
-  ): Promise<EmployeeProfile> {
-    const employee = await this.employeeRepository.findOne({
-      where: { userId },
-      select: ['id'],
-    });
-
-    if (!employee) {
-      throw new NotFoundException('Colaborador não encontrado');
-    }
-
-    const personalEmployeeFields = [
-      'firstName',
-      'lastName',
-      'personalEmail',
-      'phone',
-      'nif',
-      'birthDate',
-      'address',
-      'nationality',
-      'gender',
-      'iban',
-      'photoUrl',
-    ] as const;
-    const employmentFields = [
-      'employeeNumber',
-      'email',
-      'departmentId',
-      'jobTitleId',
-      'managerId',
-      'employmentStartDate',
-      'employmentEndDate',
-      'status',
-      'workLocation',
-    ] as const;
-    const employeeUpdates = Object.assign(new UpdateEmployeeDto(), {});
-
-    for (const field of personalEmployeeFields) {
-      if (dto[field] !== undefined) {
-        Object.assign(employeeUpdates, { [field]: dto[field] });
-      }
-    }
-
-    if (canEditEmployment) {
-      for (const field of employmentFields) {
-        if (dto[field] !== undefined) {
-          Object.assign(employeeUpdates, { [field]: dto[field] });
-        }
-      }
-    }
-
-    if (Object.keys(employeeUpdates).length > 0) {
-      await this.update(employee.id, employeeUpdates);
-    }
-
-    const detailFields = [
-      'preferredName',
-      'pronouns',
-      'hideBirthday',
-      'idDocumentType',
-      'idDocumentNumber',
-      'idDocumentExpiry',
-      'socialSecurityNumber',
-      'retirementRegime',
-      'addressLine2',
-      'city',
-      'postalCode',
-      'province',
-      'country',
-      'disabilityPercentage',
-      'emergencyContactName',
-      'emergencyContactPhone',
-      'bankAccountFormat',
-      'swiftBic',
-      'irsPercentage',
-    ] as const;
-    const detailUpdates: Record<string, unknown> = {};
-
-    for (const field of detailFields) {
-      if (dto[field] !== undefined) {
-        detailUpdates[field] = dto[field];
-      }
-    }
-
-    if (canEditEmployment && dto.absenceApproverId !== undefined) {
-      if (dto.absenceApproverId) {
-        const approver = await this.employeeRepository.findOne({
-          where: { id: dto.absenceApproverId },
-          select: ['id', 'status'],
-        });
-        if (approver?.status !== EmployeeStatus.ACTIVE) {
-          throw new NotFoundException('Aprovador de ausências não encontrado ou inativo');
-        }
-      }
-      detailUpdates.absenceApproverId = dto.absenceApproverId;
-    }
-
-    if (Object.keys(detailUpdates).length > 0) {
-      const currentDetails = await this.employeeProfileDetailsRepository.findOne({
-        where: { employeeId: employee.id },
-      });
-      const updatedDetails = currentDetails
-        ? Object.assign(currentDetails, detailUpdates)
-        : Object.assign(new EmployeeProfileDetails(), {
-            employeeId: employee.id,
-            ...detailUpdates,
-          });
-      await this.employeeProfileDetailsRepository.save(updatedDetails);
-    }
-
-    return this.findByUserId(userId);
   }
 
   async update(id: string, dto: UpdateEmployeeDto): Promise<Employee> {

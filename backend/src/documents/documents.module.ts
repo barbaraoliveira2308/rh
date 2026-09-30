@@ -4,10 +4,9 @@ import { DocumentsController } from './documents.controller';
 import { DocumentsService } from './services/documents.service';
 import { Document } from './entities/document.entity';
 import { Employee } from '../users/entities/employee.entity';
-import { Course } from '../training/entities/course.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Document, Employee, Course])],
+  imports: [TypeOrmModule.forFeature([Document, Employee])],
   controllers: [DocumentsController],
   providers: [DocumentsService],
   exports: [DocumentsService, TypeOrmModule],

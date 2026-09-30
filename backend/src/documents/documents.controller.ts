@@ -1,6 +1,5 @@
 import {
   Controller,
-  BadRequestException,
   Get,
   Post,
   Delete,
@@ -54,49 +53,6 @@ export class DocumentsController {
     return this.documentsService.upload(file, metadata, employeeId);
   }
 
-  @Post('documents/me')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
-  @ApiOperation({ summary: 'Upload de documento para o próprio perfil' })
-  @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
-  @HttpCode(HttpStatus.CREATED)
-  async uploadMyDocument(
-    @UploadedFile() file: Express.Multer.File | undefined,
-    @Body() metadata: UploadDocumentDto,
-    @Req() req: Request,
-  ): Promise<Document> {
-    const user = req.user as JwtPayload;
-    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
-    if (!file) {
-      throw new BadRequestException('Ficheiro obrigatório');
-    }
-    const ownMetadata = Object.assign(new UploadDocumentDto(), metadata, {
-      ownerId: employeeId,
-      isPublic: false,
-      isTemplate: false,
-    });
-    return this.documentsService.upload(file, ownMetadata, employeeId);
-  }
-
-  @Post('documents/courses/:courseId')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
-  @ApiOperation({ summary: 'Carregar imagem ou material de um curso' })
-  @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
-  @HttpCode(HttpStatus.CREATED)
-  async uploadCourseAsset(
-    @Param('courseId') courseId: string,
-    @UploadedFile() file: Express.Multer.File | undefined,
-    @Req() req: Request,
-  ): Promise<Document> {
-    if (!file) {
-      throw new BadRequestException('Ficheiro obrigatório');
-    }
-    const user = req.user as JwtPayload;
-    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
-    return this.documentsService.uploadCourseAsset(file, courseId, employeeId);
-  }
-
   @Get('documents')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
   @ApiOperation({ summary: 'Listar documentos' })
@@ -105,10 +61,9 @@ export class DocumentsController {
     @Req() req: Request,
     @Query('category') category?: string,
     @Query('ownerId') ownerId?: string,
-    @Query('courseId') courseId?: string,
   ): Promise<Document[]> {
     const user = req.user as JwtPayload;
-    return this.documentsService.findAll({ category, ownerId, courseId }, user.roles, user.sub);
+    return this.documentsService.findAll({ category, ownerId }, user.roles, user.sub);
   }
 
   @Get('documents/:id')

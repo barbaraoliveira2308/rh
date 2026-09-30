@@ -74,32 +74,6 @@ describe('TeamsService', () => {
     });
   });
 
-  describe('findForUser', () => {
-    it('deve listar apenas as equipas do colaborador associado ao utilizador', async () => {
-      mockEmployeeRepo.findOne.mockResolvedValue({ id: 'employee-1' });
-      mockTeamMemberRepo.find.mockResolvedValue([]);
-
-      await service.findForUser('user-1');
-
-      expect(mockEmployeeRepo.findOne).toHaveBeenCalledWith({
-        where: { userId: 'user-1' },
-        select: ['id'],
-      });
-      expect(mockTeamMemberRepo.find).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ employeeId: 'employee-1' }) as Record<string, unknown>,
-          relations: ['team', 'team.department', 'team.leader'],
-        }),
-      );
-    });
-
-    it('deve falhar quando o utilizador não tem colaborador associado', async () => {
-      mockEmployeeRepo.findOne.mockResolvedValue(null);
-
-      await expect(service.findForUser('user-without-employee')).rejects.toThrow(NotFoundException);
-    });
-  });
-
   describe('update', () => {
     it('deve lançar ConflictException se o novo nome já existir noutra equipa', async () => {
       mockTeamRepo.findOne

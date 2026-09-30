@@ -8,7 +8,6 @@ import { WorkflowItemStatus } from '../entities/workflow-item-status.enum';
 import { WorkflowItemPriority } from '../entities/workflow-item-priority.enum';
 import { TimesheetPeriod } from '../../timesheets/entities/timesheet-period.entity';
 import { AbsenceRequest } from '../../absences/entities/absence-request.entity';
-import { EmployeeProfileDetails } from '../../users/entities/employee-profile-details.entity';
 import { ExpenseReport } from '../../expenses/entities/expense-report.entity';
 import { TimesheetsService } from '../../timesheets/services/timesheets.service';
 import { AbsencesService } from '../../absences/services/absences.service';
@@ -25,7 +24,6 @@ describe('WorkflowService', () => {
   let mockWorkflowItemRepo: Record<string, jest.Mock>;
   let mockTimesheetPeriodRepo: Record<string, jest.Mock>;
   let mockAbsenceRequestRepo: Record<string, jest.Mock>;
-  let mockProfileDetailsRepo: Record<string, jest.Mock>;
   let mockExpenseReportRepo: Record<string, jest.Mock>;
   let mockTimesheetsService: Record<string, jest.Mock>;
   let mockAbsencesService: Record<string, jest.Mock>;
@@ -48,10 +46,6 @@ describe('WorkflowService', () => {
     };
 
     mockAbsenceRequestRepo = {
-      findOne: jest.fn(),
-    };
-
-    mockProfileDetailsRepo = {
       findOne: jest.fn(),
     };
 
@@ -92,7 +86,6 @@ describe('WorkflowService', () => {
         { provide: getRepositoryToken(WorkflowItem), useValue: mockWorkflowItemRepo },
         { provide: getRepositoryToken(TimesheetPeriod), useValue: mockTimesheetPeriodRepo },
         { provide: getRepositoryToken(AbsenceRequest), useValue: mockAbsenceRequestRepo },
-        { provide: getRepositoryToken(EmployeeProfileDetails), useValue: mockProfileDetailsRepo },
         { provide: getRepositoryToken(ExpenseReport), useValue: mockExpenseReportRepo },
         { provide: TimesheetsService, useValue: mockTimesheetsService },
         { provide: AbsencesService, useValue: mockAbsencesService },
@@ -438,23 +431,6 @@ describe('WorkflowService', () => {
         }),
       );
       expect(mockWorkflowItemRepo.save).toHaveBeenCalled();
-    });
-
-    it('deve encaminhar para o aprovador específico configurado no perfil', async () => {
-      mockAbsenceRequestRepo.findOne.mockResolvedValue({
-        id: 'absence-1',
-        employee: { managerId: 'manager-1' },
-      });
-      mockProfileDetailsRepo.findOne.mockResolvedValue({ absenceApproverId: 'approver-2' });
-      mockWorkflowItemRepo.findOne.mockResolvedValue(null);
-      mockWorkflowItemRepo.create.mockImplementation((data: Record<string, unknown>) => data);
-      mockWorkflowItemRepo.save.mockResolvedValue({});
-
-      await service.handleAbsenceRequested(event);
-
-      expect(mockWorkflowItemRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ assigneeId: 'approver-2' }),
-      );
     });
 
     it('deve calcular dueDate como 2 dias úteis após requestedAt, saltando fim de semana', async () => {

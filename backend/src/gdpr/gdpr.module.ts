@@ -10,8 +10,6 @@ import { Employee } from '../users/entities/employee.entity';
 import { User } from '../auth/entities/user.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AuditModule } from '../audit/audit.module';
-import { EmployeeProfileDetails } from '../users/entities/employee-profile-details.entity';
-import { DocumentsModule } from '../documents/documents.module';
 
 @Module({
   imports: [
@@ -21,12 +19,10 @@ import { DocumentsModule } from '../documents/documents.module';
       RetentionPolicy,
       SecurityIncident,
       Employee,
-      EmployeeProfileDetails,
       User,
       AuditLog,
     ]),
     AuditModule,
-    DocumentsModule,
   ],
   controllers: [GdprController],
   providers: [GdprService],

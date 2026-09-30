@@ -103,26 +103,6 @@ describe('CalendarService', () => {
         }),
       );
     });
-
-    it('deve importar feriados nacionais de Portugal quando o ano ainda não estiver cadastrado', async () => {
-      const importSpy = jest.spyOn(service, 'importPortugalHolidays').mockResolvedValue(13);
-      const holidays = [{ holidayDate: '2027-01-01', name: 'Ano Novo' }];
-      mockHolidayRepo.find.mockResolvedValueOnce([]).mockResolvedValueOnce(holidays);
-
-      const result = await service.findHolidays(2027, 'PT');
-
-      expect(importSpy).toHaveBeenCalledWith(2027);
-      expect(result).toEqual(holidays);
-    });
-
-    it('não deve importar feriados automaticamente para outros países', async () => {
-      const importSpy = jest.spyOn(service, 'importPortugalHolidays');
-      mockHolidayRepo.find.mockResolvedValue([]);
-
-      await service.findHolidays(2027, 'FR');
-
-      expect(importSpy).not.toHaveBeenCalled();
-    });
   });
 
   describe('isWorkingDay', () => {

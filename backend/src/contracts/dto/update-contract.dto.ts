@@ -36,11 +36,6 @@ export class UpdateContractDto {
   @IsNumber()
   value?: number;
 
-  @ApiPropertyOptional({ description: 'Compensação mensal' })
-  @IsOptional()
-  @IsNumber()
-  monthlyCost?: number;
-
   @ApiPropertyOptional({ description: 'Moeda' })
   @IsOptional()
   @IsString()

@@ -14,7 +14,6 @@ import { StorageService } from '../../storage/services/storage.service';
 import { AdminService } from '../../admin/admin.service';
 import { Employee } from '../../users/entities/employee.entity';
 import { RoleEnum } from '../../rbac/enums/role.enum';
-import { Course } from '../../training/entities/course.entity';
 import type { Readable } from 'stream';
 
 @Injectable()
@@ -26,8 +25,6 @@ export class DocumentsService {
     private readonly documentRepository: Repository<Document>,
     @InjectRepository(Employee)
     private readonly employeeRepository: Repository<Employee>,
-    @InjectRepository(Course)
-    private readonly courseRepository: Repository<Course>,
     private readonly storageService: StorageService,
     private readonly adminService: AdminService,
   ) {}
@@ -36,7 +33,6 @@ export class DocumentsService {
     file: Express.Multer.File,
     metadata: UploadDocumentDto,
     uploadedBy: string,
-    courseId: string | null = null,
   ): Promise<Document> {
     const originalName = file.originalname;
     const ext = originalName.split('.').pop()?.toLowerCase() ?? 'pdf';
@@ -50,7 +46,6 @@ export class DocumentsService {
       storagePath: key,
       fileType: ext as DocumentFileType,
       sizeBytes: file.size,
-      courseId,
       ownerId: metadata.ownerId ?? null,
       isPublic: metadata.isPublic ?? false,
       isTemplate: metadata.isTemplate ?? false,
@@ -58,25 +53,6 @@ export class DocumentsService {
     });
 
     return this.documentRepository.save(document);
-  }
-
-  async uploadCourseAsset(
-    file: Express.Multer.File,
-    courseId: string,
-    uploadedBy: string,
-  ): Promise<Document> {
-    const course = await this.courseRepository.findOne({ where: { id: courseId }, select: ['id'] });
-    if (!course) {
-      throw new NotFoundException('Curso não encontrado');
-    }
-
-    const metadata = Object.assign(new UploadDocumentDto(), {
-      name: file.originalname,
-      category: 'training',
-      isPublic: true,
-      isTemplate: false,
-    });
-    return this.upload(file, metadata, uploadedBy, courseId);
   }
 
   async getFileStream(
@@ -137,13 +113,6 @@ export class DocumentsService {
     await this.documentRepository.remove(document);
   }
 
-  async purgeOwnedByEmployee(employeeId: string): Promise<void> {
-    const documents = await this.documentRepository.find({ where: { ownerId: employeeId } });
-    for (const document of documents) {
-      await this.purge(document.id);
-    }
-  }
-
   @Cron('0 4 * * *')
   async purgeExpiredTrash(): Promise<void> {
     const settings = await this.adminService.getSettings();
@@ -178,7 +147,7 @@ export class DocumentsService {
   }
 
   async findAll(
-    filters: { category?: string; ownerId?: string; courseId?: string } | undefined,
+    filters: { category?: string; ownerId?: string } | undefined,
     roles: string[],
     userId: string,
   ): Promise<Document[]> {
@@ -200,9 +169,6 @@ export class DocumentsService {
     }
     if (filters?.ownerId) {
       base.ownerId = filters.ownerId;
-    }
-    if (filters?.courseId) {
-      base.courseId = filters.courseId;
     }
 
     const where: Record<string, unknown> | Record<string, unknown>[] =

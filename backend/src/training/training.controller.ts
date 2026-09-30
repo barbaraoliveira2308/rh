@@ -15,10 +15,7 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
 import { TrainingService } from './services/training.service';
-import { Course } from './entities/course.entity';
-import { CourseEnrollment } from './entities/course-enrollment.entity';
 import { CreateCourseDto } from './dto/create-course.dto';
-import { UpdateCourseDto } from './dto/update-course.dto';
 import { EnrollEmployeeDto } from './dto/enroll-employee.dto';
 import { CompleteEnrollmentDto } from './dto/complete-enrollment.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
@@ -48,28 +45,12 @@ export class TrainingController {
     return this.trainingService.findCourses();
   }
 
-  @Get('me')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
-  @ApiOperation({ summary: 'Listar cursos em que o colaborador autenticado está inscrito' })
-  async getMyEnrollments(@Req() req: Request): Promise<CourseEnrollment[]> {
-    const user = req.user as JwtPayload;
-    const employeeId = await this.employeeIdentity.resolveEmployeeId(user.sub);
-    return this.trainingService.findEnrollmentsByEmployee(employeeId);
-  }
-
   @Post('courses')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
+  @Roles(RoleEnum.ADMIN)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Criar curso' })
-  async createCourse(@Body() dto: CreateCourseDto): Promise<Course> {
+  async createCourse(@Body() dto: CreateCourseDto) {
     return this.trainingService.createCourse(dto);
-  }
-
-  @Patch('courses/:id')
-  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER)
-  @ApiOperation({ summary: 'Editar curso de formação (admin ou gestor)' })
-  async updateCourse(@Param('id') id: string, @Body() dto: UpdateCourseDto): Promise<Course> {
-    return this.trainingService.updateCourse(id, dto);
   }
 
   @Post('courses/:id/enroll')
