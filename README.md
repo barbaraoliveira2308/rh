@@ -328,7 +328,7 @@ Para a caixa de entrada/aprovações, entra como `mariana.ferreira` — tem iten
 ├── infra/            # Docker Compose (dev/prod)
 ├── docs/             # ARCHITECTURE.md, AUDIT_PROCESS.md + openapi.json gerado
 ├── images/           # Recursos visuais
-├── .github/          # CI/CD workflows
+├── .gitlab-ci.yml    # Pipeline de CI (GitLab)
 ├── PROJECT_STATE.md  # Estado actual do projecto
 └── AGENTS.md         # Instruções para agentes de IA
 ```
