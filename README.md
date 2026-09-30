@@ -186,7 +186,9 @@ O pipeline de CI é o [`.gitlab-ci.yml`](.gitlab-ci.yml) e corre num GitLab Runn
   atualização de dependências e imagens (majors só depois de aprovados no issue "Dependency
   Dashboard").
 
-Reproduzir localmente os primeiros jobs antes de abrir um MR:
+Opcional: para ver em segundos o que os jobs `lint` e `format` vão reportar, sem esperar pelo
+pipeline (o hook de pre-commit já corrige a formatação e trava erros de lint nos ficheiros de cada
+commit, pelo que na maioria dos casos estes jobs passam sem mais nada):
 
 ```bash
 pnpm run lint:ci
