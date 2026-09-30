@@ -32,6 +32,8 @@ export interface Course {
   prerequisiteCourseId: string | null;
 }
 
+export type UpdateCourseRequest = Partial<CreateCourseRequest>;
+
 export interface CourseEnrollment {
   id: string;
   courseId: string;

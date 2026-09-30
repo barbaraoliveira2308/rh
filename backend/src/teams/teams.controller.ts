@@ -42,6 +42,15 @@ export class TeamsController {
     return this.teamsService.findAll();
   }
 
+  @Get('teams/me')
+  @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
+  @ApiOperation({ summary: 'Listar equipas do colaborador autenticado' })
+  @HttpCode(HttpStatus.OK)
+  async findMine(@Req() req: Request): Promise<TeamMember[]> {
+    const user = req.user as JwtPayload;
+    return this.teamsService.findForUser(user.sub);
+  }
+
   @Get('teams/:id')
   @Roles(RoleEnum.ADMIN, RoleEnum.MANAGER, RoleEnum.APPROVER, RoleEnum.EMPLOYEE)
   @ApiOperation({ summary: 'Obter equipa por ID' })

@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   KeyRound,
   Megaphone,
+  UserRound,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: <LayoutDashboard className="h-4 w-4" /> },
+  { label: 'Perfil', href: '/profile', icon: <UserRound className="h-4 w-4" /> },
   { label: 'Colaboradores', href: '/users', icon: <Users className="h-4 w-4" /> },
   { label: 'Organograma', href: '/org-chart', icon: <Network className="h-4 w-4" /> },
   { label: 'Projetos', href: '/projects', icon: <FolderKanban className="h-4 w-4" /> },

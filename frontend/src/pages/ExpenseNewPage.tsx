@@ -5,6 +5,7 @@ import { Plus, Trash2, AlertTriangle } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DateTextField } from '@/components/DateTextField';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -176,25 +177,11 @@ export function ExpenseNewPage(): React.JSX.Element {
               </div>
               <div>
                 <Label htmlFor="periodStart">Início do Período</Label>
-                <Input
-                  id="periodStart"
-                  type="date"
-                  value={periodStart}
-                  onChange={(e) => {
-                    setPeriodStart(e.target.value);
-                  }}
-                />
+                <DateTextField id="periodStart" value={periodStart} onChange={setPeriodStart} />
               </div>
               <div>
                 <Label htmlFor="periodEnd">Fim do Período</Label>
-                <Input
-                  id="periodEnd"
-                  type="date"
-                  value={periodEnd}
-                  onChange={(e) => {
-                    setPeriodEnd(e.target.value);
-                  }}
-                />
+                <DateTextField id="periodEnd" value={periodEnd} onChange={setPeriodEnd} />
               </div>
               <div className="sm:col-span-2">
                 <Label htmlFor="notes">Notas (opcional)</Label>
@@ -291,11 +278,10 @@ export function ExpenseNewPage(): React.JSX.Element {
                         </div>
                         <div>
                           <Label>Data</Label>
-                          <Input
-                            type="date"
+                          <DateTextField
                             value={item.expenseDate}
-                            onChange={(e) => {
-                              updateItem(item.tempId, 'expenseDate', e.target.value);
+                            onChange={(isoDate) => {
+                              updateItem(item.tempId, 'expenseDate', isoDate);
                             }}
                           />
                         </div>
