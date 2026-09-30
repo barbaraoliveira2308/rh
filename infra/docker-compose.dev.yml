@@ -97,7 +97,7 @@ services:
       retries: 3
 
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:v1.31.3
     container_name: srh-mailpit-dev
     restart: unless-stopped
     ports:

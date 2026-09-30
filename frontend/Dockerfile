@@ -19,7 +19,7 @@ ENV VITE_API_URL=$VITE_API_URL
 
 RUN pnpm --filter @bridge351/srh-frontend run build
 
-FROM nginx:stable-alpine AS runner
+FROM nginx:1.30.5-alpine AS runner
 COPY --from=builder /app/frontend/dist /usr/share/nginx/html
 COPY --from=builder /app/frontend/nginx.conf /etc/nginx/conf.d/default.conf
 

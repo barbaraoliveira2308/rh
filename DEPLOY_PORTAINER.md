@@ -23,11 +23,11 @@ Diferenças face a produção (`DEPLOY_UBUNTU.md`):
   cada deploy (ver "Espaço em disco").
 
 O armazenamento de ficheiros usa, aqui como em produção e no dev local, o **RustFS**
-(`rustfs/rustfs:1.0.0`, Apache-2.0), compatível com S3, que substituiu o MinIO (projeto
+(`rustfs/rustfs`, Apache-2.0), compatível com S3, que substituiu o MinIO (projeto
 descontinuado). O bucket é criado pelo serviço one-shot `createbuckets`, com a AWS CLI
-(`public.ecr.aws/aws-cli/aws-cli:2.37.4`, descarregada do registo público da AWS e não do Docker Hub).
-Para mudar de versão, altera a tag nos três composes e volta a validar upload, download e remoção de
-documentos.
+(`public.ecr.aws/aws-cli/aws-cli`, descarregada do registo público da AWS e não do Docker Hub). As
+versões estão fixadas nos composes e são atualizadas pelo Renovate (ver `CONTRIBUTING.md`); ao
+integrar uma atualização do RustFS, volta a validar upload, download e remoção de documentos.
 
 > **Migração do MinIO (uma vez):** os dados do MinIO não são migrados — o RustFS arranca com um
 > volume novo (`rustfs-data`) e o bucket é recriado vazio. Depois do primeiro deploy com o RustFS,
@@ -185,7 +185,7 @@ sido recriados, e termina:
 
 Para isso o contentor monta `/var/run/docker.sock`, o que lhe dá controlo total do Docker do host
 (equivale a acesso root). Só corre os dois comandos acima, a partir da imagem oficial
-`docker:29.8.1-cli`, e termina.
+`docker:<versão>-cli` fixada no compose, e termina.
 
 Volumes e imagens de outros stacks não são tocados. Se precisares de libertar mais espaço, usa
 **Images → Unused → Remove** no Portainer.
@@ -203,15 +203,15 @@ Volumes e imagens de outros stacks não são tocados. Se precisares de libertar 
 
 ## Troubleshooting
 
-| Sintoma                                              | Causa provável                                                                                                                                                         | Correção                                                                                                                                |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| O stack não é criado: erro ao clonar                 | Token sem `read_repository`, expirado, ou Portainer sem acesso ao GitLab                                                                                               | Rever o passo 2 e a conectividade para `git.redstout.com`                                                                               |
-| O stack não é criado: `build` não suportado          | O ambiente é Swarm                                                                                                                                                     | Usar um ambiente Docker Standalone                                                                                                      |
-| Porta já em uso ao fazer deploy                      | Outro serviço usa a 8888 ou a 8025 no host                                                                                                                             | Libertar a porta (mudar as portas implica alterar `infra/docker-compose.devserver.yml` no repositório)                                  |
-| Login falha com erro 500 genérico                    | Chaves `JWT_*` em falta ou inválidas                                                                                                                                   | Gerar de novo (passo 3), atualizar as variáveis e **Update the stack**                                                                  |
-| Backend reinicia sem nunca ficar pronto              | Falha numa migração ou num seed                                                                                                                                        | Ver os logs do `srh-backend-devserver`; o erro está logo antes do reinício                                                              |
-| `password authentication failed for user "srh_user"` | `POSTGRES_PASSWORD` mudou depois do primeiro deploy                                                                                                                    | Repor o valor antigo, ou repor a base de dados do zero                                                                                  |
-| `srh-prune-devserver` com código de saída ≠ 0        | Sem acesso ao socket do Docker, ou erro do Docker durante a limpeza                                                                                                    | Ver os logs do contentor; a aplicação não é afetada, só a limpeza                                                                       |
-| Build falha com `toomanyrequests`                    | Limite de downloads anónimos do Docker Hub: como a cache de build é apagada, cada deploy volta a descarregar as imagens base (`node:20-alpine`, `nginx:stable-alpine`) | Em **Registries**, adicionar uma conta do Docker Hub (as imagens passam a ser descarregadas autenticadas) e fazer **Pull and redeploy** |
-| Push para `develop` não gera deploy                  | GitOps updates desligado, ou ainda dentro do intervalo de polling                                                                                                      | Confirmar a configuração no stack; forçar com **Pull and redeploy**                                                                     |
-| Upload de documento falha                            | O `createbuckets` não criou o bucket                                                                                                                                   | Ver os logs do `srh-createbuckets-devserver` e fazer **Update the stack**                                                               |
+| Sintoma                                              | Causa provável                                                                                                                                 | Correção                                                                                                                                |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| O stack não é criado: erro ao clonar                 | Token sem `read_repository`, expirado, ou Portainer sem acesso ao GitLab                                                                       | Rever o passo 2 e a conectividade para `git.redstout.com`                                                                               |
+| O stack não é criado: `build` não suportado          | O ambiente é Swarm                                                                                                                             | Usar um ambiente Docker Standalone                                                                                                      |
+| Porta já em uso ao fazer deploy                      | Outro serviço usa a 8888 ou a 8025 no host                                                                                                     | Libertar a porta (mudar as portas implica alterar `infra/docker-compose.devserver.yml` no repositório)                                  |
+| Login falha com erro 500 genérico                    | Chaves `JWT_*` em falta ou inválidas                                                                                                           | Gerar de novo (passo 3), atualizar as variáveis e **Update the stack**                                                                  |
+| Backend reinicia sem nunca ficar pronto              | Falha numa migração ou num seed                                                                                                                | Ver os logs do `srh-backend-devserver`; o erro está logo antes do reinício                                                              |
+| `password authentication failed for user "srh_user"` | `POSTGRES_PASSWORD` mudou depois do primeiro deploy                                                                                            | Repor o valor antigo, ou repor a base de dados do zero                                                                                  |
+| `srh-prune-devserver` com código de saída ≠ 0        | Sem acesso ao socket do Docker, ou erro do Docker durante a limpeza                                                                            | Ver os logs do contentor; a aplicação não é afetada, só a limpeza                                                                       |
+| Build falha com `toomanyrequests`                    | Limite de downloads anónimos do Docker Hub: como a cache de build é apagada, cada deploy volta a descarregar as imagens base (`node`, `nginx`) | Em **Registries**, adicionar uma conta do Docker Hub (as imagens passam a ser descarregadas autenticadas) e fazer **Pull and redeploy** |
+| Push para `develop` não gera deploy                  | GitOps updates desligado, ou ainda dentro do intervalo de polling                                                                              | Confirmar a configuração no stack; forçar com **Pull and redeploy**                                                                     |
+| Upload de documento falha                            | O `createbuckets` não criou o bucket                                                                                                           | Ver os logs do `srh-createbuckets-devserver` e fazer **Update the stack**                                                               |

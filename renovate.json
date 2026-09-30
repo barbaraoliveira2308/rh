@@ -1,7 +1,17 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended", "group:allNonMajor"],
-  "enabledManagers": ["npm", "dockerfile", "docker-compose", "gitlabci"],
+  "enabledManagers": ["npm", "dockerfile", "docker-compose", "gitlabci", "custom.regex"],
+  "customManagers": [
+    {
+      "description": "Versão do pnpm nos Dockerfiles (corepack prepare), para acompanhar o packageManager do package.json",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)Dockerfile[^/]*$/"],
+      "matchStrings": ["corepack prepare pnpm@(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "depNameTemplate": "pnpm",
+      "datasourceTemplate": "npm"
+    }
+  ],
   "labels": ["dependencies"],
   "semanticCommits": "enabled",
   "semanticCommitType": "chore",
@@ -19,6 +29,12 @@
       "matchDepTypes": ["pnpm.overrides"],
       "matchUpdateTypes": ["major"],
       "enabled": false
+    },
+    {
+      "description": "Só a linha estável do nginx (minor par, ex. 1.30.x), como a antiga tag stable-alpine; os minors ímpares são a linha mainline",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["nginx"],
+      "allowedVersions": "/^\\d+\\.\\d*[02468]\\.\\d+/"
     },
     {
       "description": "Majors do Postgres e do RabbitMQ não arrancam sobre os volumes de dados existentes",

@@ -104,8 +104,11 @@ dependências npm e as imagens Docker (Dockerfiles, composes e `.gitlab-ci.yml`)
   correr o agendamento à mão). Subscrever as notificações desse issue para saber de majors novos;
 - os MRs de major do `postgres` e do `rabbitmq` trazem um aviso: **não integrar sem procedimento de
   migração** — não arrancam sobre os volumes de dados existentes, embora o pipeline passe;
-- os overrides do `pnpm` nunca sobem de major; `mailpit:latest` e `nginx:stable-alpine` não são
-  seguidos (tags sem versão);
+- os overrides do `pnpm` nunca sobem de major; o `nginx` só segue a linha estável (minor par);
+  a versão do pnpm nos Dockerfiles (`corepack prepare pnpm@…`) sobe no mesmo MR que o
+  `packageManager` do `package.json`;
+- todas as imagens têm de ter uma tag com versão (nunca `latest`, `stable` ou semelhantes), senão
+  o Renovate não as consegue seguir
 - nada é integrado automaticamente — cada MR passa pelo pipeline e é revisto por uma pessoa;
 - no máximo 10 MRs do Renovate abertos em simultâneo.
 
