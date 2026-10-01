@@ -133,5 +133,20 @@ onboarding) estão no job `renovate` do `.gitlab-ci.yml`.
    `renovate` corre e que aparecem os MRs e o issue "Dependency Dashboard".
 
 Sem a variável `RENOVATE_TOKEN`, o pipeline agendado corre na mesma, só sem o job `renovate`.
+
+**`ERROR: Repository is not found` no job `renovate`, com um token válido:** o nginx à frente de
+`git.redstout.com` está a descodificar `%2F` nos URLs (descoberto em P-104/02). O Renovate pede o
+projeto pelo caminho codificado (`projects/bridge351%2Fsrh`), que chega ao GitLab como
+`projects/bridge351/srh` e dá 404 com qualquer token; pelo número (`projects/13`) funciona.
+Confirmar com:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -H "PRIVATE-TOKEN: <token>" \
+  "https://git.redstout.com/api/v4/projects/bridge351%2Fsrh"   # tem de dar 200
+```
+
+A correção é no nginx (administrador do servidor): `proxy_pass` sem caminho depois do endereço,
+para o pedido passar sem alterações. Até lá, apagar a variável `RENOVATE_TOKEN` desativa o job sem
+deixar o pipeline semanal vermelho.
 Quando o token expirar, o job deixa de conseguir autenticar-se: criar um novo e atualizar a
 variável.
