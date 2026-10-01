@@ -1,0 +1,12 @@
+# Dashboards versionados no repositório (infra/observability/grafana/dashboards/).
+# Alterações feitas na interface do Grafana não são guardadas: editar o JSON e fazer redeploy.
+apiVersion: 1
+
+providers:
+  - name: SRH CI
+    folder: SRH CI
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/dashboards

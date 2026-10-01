@@ -2,7 +2,7 @@ name: srh-prod
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.15-alpine
     container_name: srh-postgres-prod
     restart: unless-stopped
     ports:
@@ -25,7 +25,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.11-alpine
     container_name: srh-redis-prod
     restart: unless-stopped
     ports:
@@ -86,7 +86,7 @@ services:
       "
 
   rabbitmq:
-    image: rabbitmq:3-management-alpine
+    image: rabbitmq:3.13.7-management-alpine
     container_name: srh-rabbitmq-prod
     restart: unless-stopped
     ports:

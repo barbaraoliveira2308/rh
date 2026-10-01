@@ -69,8 +69,69 @@ Configurar as credenciais em `backend/.env.test`.
 
 ## CI
 
-O workflow de CI (`.github/workflows/ci.yml`) executa:
+O pipeline de CI é o `.gitlab-ci.yml` (GitLab CI, requer um runner com o executor Docker — instalação
+e operação em [DEPLOY_PORTAINER.md](DEPLOY_PORTAINER.md#7-runner-do-gitlab-ci)). Corre em
+todos os merge requests e em cada push para `develop` e `main`:
 
-1. `lint` — lint de todo o monorepo + build backend
-2. `backend-e2e` — testes e2e do backend com PostgreSQL + Redis
-3. `frontend-e2e` — build frontend + Playwright tests
+| Stage    | Job                   | O que faz                                                                           | Bloqueia |
+| -------- | --------------------- | ----------------------------------------------------------------------------------- | -------- |
+| `verify` | `lint`                | `pnpm run lint:ci` (ESLint sem `--fix`)                                             | Sim      |
+| `verify` | `format`              | `pnpm run format:check`                                                             | Sim      |
+| `verify` | `build:backend`       | build do backend                                                                    | Sim      |
+| `verify` | `build:frontend`      | typecheck + build do frontend                                                       | Sim      |
+| `test`   | `test:unit`           | testes unitários do backend, com relatório JUnit e cobertura                        | Sim      |
+| `test`   | `test:e2e`            | testes e2e do backend com PostgreSQL + Redis (`services:`)                          | Sim      |
+| `test`   | `audit`               | `pnpm audit --prod --audit-level high`                                              | Não      |
+| `test`   | SAST/Secret Detection | templates do GitLab (`backend/.env.test` excluído de propósito)                     | Não      |
+| `test`   | `kics-iac-sast`       | análise dos Dockerfiles e composes (template SAST-IaC)                              | Não      |
+| `test`   | `renovate`            | só no pipeline agendado — ver abaixo                                                | Não      |
+| `.post`  | `collect-metrics`     | só no `develop`: grava os resultados para o Grafana (DEPLOY_PORTAINER.md, secção 8) | Não      |
+
+Antes de abrir um MR, `pnpm run lint:ci` e `pnpm run format:check` reproduzem localmente os dois
+primeiros jobs. Os testes e2e do frontend (Playwright) ainda não correm no CI (`R-066`), nem a
+verificação de migrações face às entidades (`R-069`).
+
+Os relatórios de segurança (SAST, Secret Detection, IaC) são ficheiros JSON nos artefactos de cada
+job; não bloqueiam o MR.
+
+### Pipeline semanal e Renovate
+
+Todas as segundas-feiras às 03:00 corre um pipeline agendado no `develop`: os mesmos jobs acima
+(apanha vulnerabilidades novas em código que não mudou) e ainda o `renovate`, que trata as
+dependências npm e as imagens Docker (Dockerfiles, composes e `.gitlab-ci.yml`) contra o `develop`:
+
+- minor e patch agrupados num único MR (`chore(deps): update all non-major dependencies`);
+- **majors não abrem MR**: ficam listados no issue **"Dependency Dashboard"** (secção "Pending
+  Approval"); marcar a caixa de um major faz o Renovate criar o MR na execução seguinte (ou logo, ao
+  correr o agendamento à mão). Subscrever as notificações desse issue para saber de majors novos;
+- os MRs de major do `postgres` e do `rabbitmq` trazem um aviso: **não integrar sem procedimento de
+  migração** — não arrancam sobre os volumes de dados existentes, embora o pipeline passe;
+- os overrides do `pnpm` nunca sobem de major; o `nginx` só segue a linha estável (minor par);
+  a versão do pnpm nos Dockerfiles (`corepack prepare pnpm@…`) sobe no mesmo MR que o
+  `packageManager` do `package.json`;
+- todas as imagens têm de ter uma tag com versão (nunca `latest`, `stable` ou semelhantes), senão
+  o Renovate não as consegue seguir
+- nada é integrado automaticamente — cada MR passa pelo pipeline e é revisto por uma pessoa;
+- no máximo 10 MRs do Renovate abertos em simultâneo.
+
+O issue "Dependency Dashboard" precisa das Issues ativas no projeto (_Settings → General →
+Visibility, project features, permissions_).
+
+A configuração do repositório está em `renovate.json`; as opções globais (branch base, sem MR de
+onboarding) estão no job `renovate` do `.gitlab-ci.yml`.
+
+**Configuração (uma vez, no GitLab):**
+
+1. **Token:** _Settings → Access tokens → Add new token_ — nome `renovate`, role **Developer**,
+   scopes **`api`** e **`write_repository`**, com data de expiração (máximo permitido pela
+   instância). Copiar o valor.
+2. **Variável:** _Settings → CI/CD → Variables → Add variable_ — chave `RENOVATE_TOKEN`, valor do
+   passo 1, **Masked** e **Protected** (o `develop` tem de ser um branch protegido).
+3. **Agendamento:** _Build → Pipeline schedules → New schedule_ — descrição `Semanal`, padrão
+   `0 3 * * 1`, fuso horário `Lisbon`, branch `develop`, ativo.
+4. **Teste:** na lista de agendamentos, _Run schedule pipeline_ (▶) — confirmar que o job
+   `renovate` corre e que aparecem os MRs e o issue "Dependency Dashboard".
+
+Sem a variável `RENOVATE_TOKEN`, o pipeline agendado corre na mesma, só sem o job `renovate`.
+Quando o token expirar, o job deixa de conseguir autenticar-se: criar um novo e atualizar a
+variável.

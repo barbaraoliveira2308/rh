@@ -8,6 +8,7 @@
     "dev": "pnpm -r run dev",
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
+    "lint:ci": "pnpm -r run lint:ci",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,yml,yaml,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,yml,yaml,md}\"",
     "prepare": "husky"

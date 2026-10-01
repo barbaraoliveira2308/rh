@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:20.20.2-alpine AS builder
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
 WORKDIR /app
@@ -16,7 +16,7 @@ COPY shared/. ./shared/
 
 RUN pnpm --filter @bridge351/srh-backend run build
 
-FROM node:20-alpine AS runner
+FROM node:20.20.2-alpine AS runner
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
 WORKDIR /app

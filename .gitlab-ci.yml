@@ -1,0 +1,223 @@
+# Pipeline de CI (P-102): verificações de qualidade e testes em cada merge request e em cada
+# push para `develop`/`main`. Build de imagens, releases e deploy ficam para uma fase futura.
+#
+# Requer um GitLab Runner com o executor Docker (os testes e2e usam `services:`).
+# Nota: a verificação de "migration drift" (entidades vs. migrações) fica de fora de propósito
+# — ver R-069 em specs/GLOBAL-TASKS-RISKS.md.
+#
+# Pipeline semanal (P-103): um pipeline agendado no `develop` corre todos os jobs abaixo e
+# ainda o `renovate` (atualizações de dependências). O agendamento é criado no GitLab — ver
+# CONTRIBUTING.md, secção "CI".
+#
+# Métricas (P-104): em cada pipeline do `develop`, o job `collect-metrics` grava os resultados
+# (jobs, testes, cobertura, achados de segurança) na base de dados lida pelo Grafana — ver
+# DEPLOY_PORTAINER.md, secção "8. Métricas do CI (Grafana)".
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    # Inclui os pipelines agendados, que correm no `develop`.
+    - if: $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"
+
+stages:
+  - verify
+  - test
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/SAST-IaC.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
+variables:
+  # Corre os jobs de SAST/Secret Detection também nos pipelines de merge request.
+  AST_ENABLE_MR_PIPELINES: 'true'
+  # Chaves RSA de teste versionadas de propósito para a suite e2e — não são segredos reais.
+  SECRET_DETECTION_EXCLUDED_PATHS: 'backend/.env.test'
+
+default:
+  interruptible: true
+  # Repete automaticamente os jobs que falham por problemas do runner/Docker (não do código).
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+
+# Base comum dos jobs Node. A versão do pnpm vem do campo `packageManager` do package.json
+# (via corepack); a imagem acompanha a dos Dockerfiles.
+.node:
+  image: node:20.20.2-alpine
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - .pnpm-store/
+  before_script:
+    - corepack enable
+    - pnpm config set store-dir .pnpm-store
+    - pnpm install --frozen-lockfile
+
+# ─── verify ────────────────────────────────────────────────────────────────────
+
+lint:
+  extends: .node
+  stage: verify
+  script:
+    - pnpm run lint:ci
+
+format:
+  extends: .node
+  stage: verify
+  script:
+    - pnpm run format:check
+
+build:backend:
+  extends: .node
+  stage: verify
+  script:
+    - pnpm --filter @bridge351/srh-backend run build
+
+build:frontend:
+  extends: .node
+  stage: verify
+  script:
+    - pnpm --filter @bridge351/srh-frontend run build
+
+# ─── test ──────────────────────────────────────────────────────────────────────
+
+test:unit:
+  extends: .node
+  stage: test
+  needs: []
+  variables:
+    # Nome próprio: o collect-metrics recebe os relatórios dos dois jobs de testes na mesma pasta.
+    JEST_JUNIT_OUTPUT_NAME: junit-unit.xml
+  script:
+    - pnpm --filter @bridge351/srh-backend run test:ci
+  coverage: '/Lines\s*:\s*(\d+(?:\.\d+)?)%/'
+  artifacts:
+    when: always
+    expire_in: 1 week
+    # `paths` além de `reports`: os ficheiros de `reports` não passam para os jobs seguintes.
+    paths:
+      - backend/junit-unit.xml
+      - backend/coverage/cobertura-coverage.xml
+    reports:
+      junit: backend/junit-unit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: backend/coverage/cobertura-coverage.xml
+
+test:e2e:
+  extends: .node
+  stage: test
+  needs: []
+  services:
+    - name: postgres:16.15-alpine
+      alias: postgres
+    - name: redis:7.4.11-alpine
+      alias: redis
+  variables:
+    # Lidas pelo contentor do Postgres; têm de coincidir com backend/.env.test.
+    POSTGRES_DB: srh_test
+    POSTGRES_USER: srh_user
+    POSTGRES_PASSWORD: srh_dev_pass
+    JEST_JUNIT_OUTPUT_NAME: junit-e2e.xml
+  script:
+    # Nada carrega o backend/.env.test automaticamente: exportado aqui, com os hosts dos serviços.
+    - set -a && . backend/.env.test && set +a
+    - export POSTGRES_HOST=postgres REDIS_HOST=redis
+    - pnpm --filter @bridge351/srh-backend run schema:create
+    - pnpm --filter @bridge351/srh-backend run test:e2e --ci --reporters=default --reporters=jest-junit
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - backend/junit-e2e.xml
+    reports:
+      junit: backend/junit-e2e.xml
+
+audit:
+  extends: .node
+  stage: test
+  needs: []
+  # Só reporta: há vulnerabilidades conhecidas por tratar.
+  allow_failure: true
+  before_script:
+    - corepack enable
+  script:
+    # Versão JSON para o collect-metrics; a segunda chamada dá o relatório legível e o resultado.
+    - pnpm audit --prod --json > audit.json || true
+    - pnpm audit --prod --audit-level high
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - audit.json
+
+# Relatórios dos templates de segurança também como artefactos normais, para o collect-metrics.
+# O Semgrep e o KICS escrevem ambos gl-sast-report.json: cada um guarda uma cópia com nome próprio.
+semgrep-sast:
+  after_script:
+    - cp gl-sast-report.json gl-sast-semgrep-report.json || true
+  artifacts:
+    paths:
+      - gl-sast-semgrep-report.json
+
+kics-iac-sast:
+  after_script:
+    - cp gl-sast-report.json gl-sast-iac-report.json || true
+  artifacts:
+    paths:
+      - gl-sast-iac-report.json
+
+secret_detection:
+  artifacts:
+    paths:
+      - gl-secret-detection-report.json
+
+# ─── renovate (só no pipeline agendado) ─────────────────────────────────────────
+
+# Abre MRs de atualização de dependências contra o `develop`. A configuração do repositório está
+# no renovate.json; aqui ficam só as opções globais. O branch por omissão do projeto é o `main`,
+# pelo que o Renovate é apontado ao `develop` e lê a configuração de lá, sem MR de onboarding.
+# Requer a variável de CI/CD `RENOVATE_TOKEN` (project access token, role Developer).
+renovate:
+  stage: test
+  needs: []
+  # Versão exata: com o `pull_policy: if-not-present` do runner, uma tag móvel nunca se atualizava.
+  image: renovate/renovate:44.124.1
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $RENOVATE_TOKEN
+  # Um push para o `develop` a meio da execução não deve interromper o Renovate.
+  interruptible: false
+  variables:
+    RENOVATE_PLATFORM: gitlab
+    RENOVATE_ENDPOINT: $CI_API_V4_URL
+    RENOVATE_REPOSITORIES: $CI_PROJECT_PATH
+    RENOVATE_BASE_BRANCH_PATTERNS: '["develop"]'
+    RENOVATE_USE_BASE_BRANCH_CONFIG: merge
+    RENOVATE_ONBOARDING: 'false'
+    RENOVATE_REQUIRE_CONFIG: optional
+    LOG_LEVEL: info
+  script:
+    - renovate
+
+# ─── métricas (só no develop) ──────────────────────────────────────────────────
+
+# Grava os resultados deste pipeline na base de dados das métricas (Grafana). Corre por último
+# (.post), mesmo que outros jobs tenham falhado, e recebe os artefactos de todos eles. Nunca
+# bloqueia: se a base de dados estiver em baixo, o pipeline continua verde.
+# Requer as variáveis de CI/CD `METRICS_DB_URL` e `METRICS_GITLAB_TOKEN` (ver DEPLOY_PORTAINER.md).
+collect-metrics:
+  stage: .post
+  image: postgres:16.15-alpine
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop" && $METRICS_DB_URL && $METRICS_GITLAB_TOKEN
+      when: always
+  allow_failure: true
+  before_script:
+    - apk add --no-cache jq curl > /dev/null
+  script:
+    - sh scripts/ci/collect-metrics.sh

@@ -98,9 +98,7 @@ export class CreateAuthTables1720000000000 implements MigrationInterface {
           { name: 'action', type: 'varchar', length: '50', isNullable: false },
           { name: 'description', type: 'text', isNullable: true },
         ],
-        uniques: [
-          { name: 'uq_permissions_resource_action', columnNames: ['resource', 'action'] },
-        ],
+        uniques: [{ name: 'uq_permissions_resource_action', columnNames: ['resource', 'action'] }],
       }),
       true,
     );

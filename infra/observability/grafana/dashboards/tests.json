@@ -1,0 +1,287 @@
+{
+  "uid": "srh-ci-tests",
+  "title": "SRH CI — Testes e cobertura",
+  "description": "Resultados dos testes do backend (unitários e e2e) e cobertura, por execução do pipeline no develop.",
+  "tags": ["srh", "ci"],
+  "editable": false,
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": true
+  },
+  "refresh": "",
+  "templating": {
+    "list": [
+      {
+        "name": "run",
+        "label": "Execução",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "srh-ci"
+        },
+        "query": "SELECT pipeline_id AS __value, to_char(started_at AT TIME ZONE 'Europe/Lisbon', 'YYYY-MM-DD HH24:MI') || ' · #' || pipeline_id || ' · ' || left(coalesce(commit_title, ''), 60) AS __text FROM ci.runs ORDER BY pipeline_id DESC",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "definition": "SELECT pipeline_id AS __value, to_char(started_at AT TIME ZONE 'Europe/Lisbon', 'YYYY-MM-DD HH24:MI') || ' · #' || pipeline_id || ' · ' || left(coalesce(commit_title, ''), 60) AS __text FROM ci.runs ORDER BY pipeline_id DESC"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Execução selecionada",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "srh-ci"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "srh-ci"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT (SELECT total FROM ci.tests WHERE pipeline_id = $run AND suite = 'unit') AS \"Unitários\", (SELECT failures + errors FROM ci.tests WHERE pipeline_id = $run AND suite = 'unit') AS \"Unitários falhados\", (SELECT total FROM ci.tests WHERE pipeline_id = $run AND suite = 'e2e') AS \"E2E\", (SELECT failures + errors FROM ci.tests WHERE pipeline_id = $run AND suite = 'e2e') AS \"E2E falhados\", (SELECT line_pct FROM ci.coverage WHERE pipeline_id = $run) AS \"Cobertura de linhas\""
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 5
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "vertical"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "—"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Cobertura de linhas"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Unitários falhados"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "E2E falhados"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "table",
+      "title": "Histórico",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "srh-ci"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "srh-ci"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT r.started_at AS \"Data\", r.pipeline_id AS \"Pipeline\", left(r.commit_title, 80) AS \"Commit\", u.total AS \"Unitários\", u.failures + u.errors AS \"Unit. falhados\", e.total AS \"E2E\", e.failures + e.errors AS \"E2E falhados\", c.line_pct AS \"Cobertura (%)\", r.pipeline_url AS url FROM ci.runs r LEFT JOIN ci.tests u ON u.pipeline_id = r.pipeline_id AND u.suite = 'unit' LEFT JOIN ci.tests e ON e.pipeline_id = r.pipeline_id AND e.suite = 'e2e' LEFT JOIN ci.coverage c ON c.pipeline_id = r.pipeline_id ORDER BY r.pipeline_id DESC"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 16
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Data"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 150
+              },
+              {
+                "id": "unit",
+                "value": "time:YYYY-MM-DD HH:mm"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Pipeline"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Commit"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 420
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Pipeline"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Abrir pipeline no GitLab",
+                    "url": "${__data.fields.url}",
+                    "targetBlank": true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "url"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "description": "Uma linha por pipeline do develop. Células vazias: o job desses testes não correu ou não produziu relatório."
+    }
+  ],
+  "links": [
+    {
+      "title": "Dashboards do CI",
+      "type": "dashboards",
+      "tags": ["ci"],
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": false
+    }
+  ]
+}

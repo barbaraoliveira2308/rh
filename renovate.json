@@ -1,0 +1,49 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "group:allNonMajor"],
+  "enabledManagers": ["npm", "dockerfile", "docker-compose", "gitlabci", "custom.regex"],
+  "customManagers": [
+    {
+      "description": "Versão do pnpm nos Dockerfiles (corepack prepare), para acompanhar o packageManager do package.json",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)Dockerfile[^/]*$/"],
+      "matchStrings": ["corepack prepare pnpm@(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "depNameTemplate": "pnpm",
+      "datasourceTemplate": "npm"
+    }
+  ],
+  "labels": ["dependencies"],
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "prHourlyLimit": 0,
+  "prConcurrentLimit": 10,
+  "packageRules": [
+    {
+      "description": "Majors só aparecem no issue Dependency Dashboard; o MR é criado quando alguém marca a caixa",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Os overrides fixam uma versão corrigida dentro do mesmo major para dependências transitivas antigas; subir-lhes o major forçaria esse major em todos os consumidores",
+      "matchDepTypes": ["pnpm.overrides"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      "description": "Só a linha estável do nginx (minor par, ex. 1.30.x), como a antiga tag stable-alpine; os minors ímpares são a linha mainline",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["nginx"],
+      "allowedVersions": "/^\\d+\\.\\d*[02468]\\.\\d+/"
+    },
+    {
+      "description": "Majors do Postgres e do RabbitMQ não arrancam sobre os volumes de dados existentes",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["postgres", "rabbitmq"],
+      "matchUpdateTypes": ["major"],
+      "prBodyNotes": [
+        "⚠️ **Não integrar sem um procedimento de migração.** Um major do Postgres ou do RabbitMQ não arranca sobre o volume de dados existente: o pipeline passa (o CI usa sempre uma base de dados vazia), mas o servidor de dev e os ambientes locais deixam de arrancar depois do merge. Preparar primeiro o procedimento (ex.: `pg_dumpall` com a versão antiga, volume novo, restauro) e executá-lo em cada ambiente."
+      ]
+    }
+  ]
+}

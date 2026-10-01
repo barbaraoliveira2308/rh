@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-  Res,
-  HttpCode,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Res, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { Response } from 'express';
 import { AuditService } from './services/audit.service';
@@ -28,9 +20,7 @@ export class AuditController {
   @Get()
   @ApiOperation({ summary: 'Listar logs de auditoria (admin only)' })
   @HttpCode(HttpStatus.OK)
-  async findAll(
-    @Query() filters: AuditFiltersDto,
-  ): Promise<PaginatedResult<AuditLog>> {
+  async findAll(@Query() filters: AuditFiltersDto): Promise<PaginatedResult<AuditLog>> {
     return this.auditService.findAll(filters);
   }
 
@@ -38,10 +28,7 @@ export class AuditController {
   @ApiOperation({ summary: 'Exportar logs de auditoria (CSV)' })
   @ApiQuery({ name: 'format', required: false, enum: ExportFormat })
   @HttpCode(HttpStatus.OK)
-  async export(
-    @Query() filters: AuditFiltersDto,
-    @Res() res: Response,
-  ): Promise<void> {
+  async export(@Query() filters: AuditFiltersDto, @Res() res: Response): Promise<void> {
     const logs = await this.auditService.findAllForExport(filters);
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -50,7 +37,8 @@ export class AuditController {
       `attachment; filename="audit-logs-${new Date().toISOString().split('T')[0]}.csv"`,
     );
 
-    const header = 'id,user_id,action,entity_type,entity_id,ip_address,timestamp,module,correlation_id\n';
+    const header =
+      'id,user_id,action,entity_type,entity_id,ip_address,timestamp,module,correlation_id\n';
     const rows = logs
       .map(
         (log) =>
