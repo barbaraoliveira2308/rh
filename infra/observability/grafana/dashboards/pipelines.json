@@ -1,0 +1,450 @@
+{
+  "uid": "srh-ci-pipelines",
+  "title": "SRH CI — Pipelines",
+  "description": "Estado e duração de cada pipeline do develop, e dos seus jobs.",
+  "tags": ["srh", "ci"],
+  "editable": false,
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": true
+  },
+  "refresh": "",
+  "templating": {
+    "list": [
+      {
+        "name": "run",
+        "label": "Execução",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "srh-ci"
+        },
+        "query": "SELECT pipeline_id AS __value, to_char(started_at AT TIME ZONE 'Europe/Lisbon', 'YYYY-MM-DD HH24:MI') || ' · #' || pipeline_id || ' · ' || left(coalesce(commit_title, ''), 60) AS __text FROM ci.runs ORDER BY pipeline_id DESC",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "definition": "SELECT pipeline_id AS __value, to_char(started_at AT TIME ZONE 'Europe/Lisbon', 'YYYY-MM-DD HH24:MI') || ' · #' || pipeline_id || ' · ' || left(coalesce(commit_title, ''), 60) AS __text FROM ci.runs ORDER BY pipeline_id DESC"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "table",
+      "title": "Execuções",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "srh-ci"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "srh-ci"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT r.started_at AS \"Data\", r.pipeline_id AS \"Pipeline\", r.source AS \"Origem\", left(r.commit_title, 80) AS \"Commit\", r.status AS \"Estado\", r.duration_s AS \"Duração\", string_agg(j.name, ', ' ORDER BY j.name) FILTER (WHERE j.status = 'failed') AS \"Jobs falhados\", r.pipeline_url AS url FROM ci.runs r LEFT JOIN ci.jobs j USING (pipeline_id) GROUP BY r.pipeline_id ORDER BY r.pipeline_id DESC"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 14
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Data"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 150
+              },
+              {
+                "id": "unit",
+                "value": "time:YYYY-MM-DD HH:mm"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Pipeline"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Origem"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Commit"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 420
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Estado"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 140
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Duração"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Pipeline"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Abrir pipeline no GitLab",
+                    "url": "${__data.fields.url}",
+                    "targetBlank": true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "url"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Estado"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "success": {
+                        "text": "OK",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "success_with_warnings": {
+                        "text": "OK com avisos",
+                        "color": "orange",
+                        "index": 1
+                      },
+                      "failed": {
+                        "text": "Falhou",
+                        "color": "red",
+                        "index": 2
+                      },
+                      "canceled": {
+                        "text": "Cancelado",
+                        "color": "gray",
+                        "index": 3
+                      },
+                      "skipped": {
+                        "text": "Não correu",
+                        "color": "gray",
+                        "index": 4
+                      },
+                      "manual": {
+                        "text": "Manual",
+                        "color": "gray",
+                        "index": 5
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Duração"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dthms"
+              }
+            ]
+          }
+        ]
+      },
+      "description": "Duração até ao fim dos outros jobs (o collect-metrics corre por último). \"OK com avisos\" = só falharam jobs que podem falhar (ex.: audit)."
+    },
+    {
+      "type": "table",
+      "title": "Jobs da execução selecionada",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "srh-ci"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "srh-ci"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT stage AS \"Stage\", name AS \"Job\", status AS \"Estado\", CASE WHEN allow_failure THEN 'sim' ELSE 'não' END AS \"Pode falhar\", duration_s AS \"Duração\", web_url AS url FROM ci.jobs WHERE pipeline_id = $run ORDER BY job_id"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 24,
+        "h": 12
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Stage"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 120
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Job"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 220
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Estado"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 140
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Pode falhar"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 120
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Job"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Abrir job no GitLab",
+                    "url": "${__data.fields.url}",
+                    "targetBlank": true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "url"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Estado"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "success": {
+                        "text": "OK",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "success_with_warnings": {
+                        "text": "OK com avisos",
+                        "color": "orange",
+                        "index": 1
+                      },
+                      "failed": {
+                        "text": "Falhou",
+                        "color": "red",
+                        "index": 2
+                      },
+                      "canceled": {
+                        "text": "Cancelado",
+                        "color": "gray",
+                        "index": 3
+                      },
+                      "skipped": {
+                        "text": "Não correu",
+                        "color": "gray",
+                        "index": 4
+                      },
+                      "manual": {
+                        "text": "Manual",
+                        "color": "gray",
+                        "index": 5
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Duração"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dthms"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "links": [
+    {
+      "title": "Dashboards do CI",
+      "type": "dashboards",
+      "tags": ["ci"],
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": false
+    }
+  ]
+}

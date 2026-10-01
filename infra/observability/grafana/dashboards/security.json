@@ -1,0 +1,533 @@
+{
+  "uid": "srh-ci-security",
+  "title": "SRH CI — Segurança",
+  "description": "Achados dos scanners de segurança (SAST, segredos, IaC, dependências) por execução do pipeline no develop.",
+  "tags": ["srh", "ci"],
+  "editable": false,
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": true
+  },
+  "refresh": "",
+  "templating": {
+    "list": [
+      {
+        "name": "run",
+        "label": "Execução",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "srh-ci"
+        },
+        "query": "SELECT pipeline_id AS __value, to_char(started_at AT TIME ZONE 'Europe/Lisbon', 'YYYY-MM-DD HH24:MI') || ' · #' || pipeline_id || ' · ' || left(coalesce(commit_title, ''), 60) AS __text FROM ci.runs ORDER BY pipeline_id DESC",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "definition": "SELECT pipeline_id AS __value, to_char(started_at AT TIME ZONE 'Europe/Lisbon', 'YYYY-MM-DD HH24:MI') || ' · #' || pipeline_id || ' · ' || left(coalesce(commit_title, ''), 60) AS __text FROM ci.runs ORDER BY pipeline_id DESC"
+      },
+      {
+        "name": "scanner",
+        "label": "Scanner",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "srh-ci"
+        },
+        "query": "SELECT DISTINCT scanner FROM ci.findings ORDER BY 1",
+        "definition": "SELECT DISTINCT scanner FROM ci.findings ORDER BY 1",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "severity",
+        "label": "Severidade",
+        "type": "custom",
+        "query": "Critical,High,Medium,Low,Info,Unknown",
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Achados na execução selecionada",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "srh-ci"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "srh-ci"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT count(*) FILTER (WHERE severity = 'Critical') AS \"Critical\", count(*) FILTER (WHERE severity = 'High') AS \"High\", count(*) FILTER (WHERE severity = 'Medium') AS \"Medium\", count(*) FILTER (WHERE severity = 'Low') AS \"Low\", count(*) FILTER (WHERE severity IN ('Info', 'Unknown')) AS \"Info\" FROM ci.findings WHERE pipeline_id = $run AND scanner IN (${scanner:sqlstring}) AND severity IN (${severity:sqlstring})"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 5
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "vertical"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "—"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Critical"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "High"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Medium"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Low"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Info"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "table",
+      "title": "Por scanner",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "srh-ci"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "srh-ci"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT scanner AS \"Scanner\", count(*) FILTER (WHERE severity = 'Critical') AS \"Critical\", count(*) FILTER (WHERE severity = 'High') AS \"High\", count(*) FILTER (WHERE severity = 'Medium') AS \"Medium\", count(*) FILTER (WHERE severity = 'Low') AS \"Low\", count(*) FILTER (WHERE severity IN ('Info', 'Unknown')) AS \"Info\", count(*) AS \"Total\" FROM ci.findings WHERE pipeline_id = $run AND scanner IN (${scanner:sqlstring}) AND severity IN (${severity:sqlstring}) GROUP BY scanner ORDER BY scanner"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 6
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Scanner"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "table",
+      "title": "Achados",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "srh-ci"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "srh-ci"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT scanner AS \"Scanner\", severity AS \"Severidade\", rule AS \"Regra\", title AS \"Descrição\", location AS \"Local\", line AS \"Linha\", url FROM ci.findings WHERE pipeline_id = $run AND scanner IN (${scanner:sqlstring}) AND severity IN (${severity:sqlstring}) ORDER BY array_position(ARRAY['Critical','High','Medium','Low','Info','Unknown']::text[], severity), scanner, location, line"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 24,
+        "h": 14
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Scanner"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Severidade"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Regra"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 320
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Linha"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Regra"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Abrir referência",
+                    "url": "${__data.fields.url}",
+                    "targetBlank": true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "url"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Severidade"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "Critical": {
+                        "color": "dark-red",
+                        "index": 0
+                      },
+                      "High": {
+                        "color": "red",
+                        "index": 1
+                      },
+                      "Medium": {
+                        "color": "orange",
+                        "index": 2
+                      },
+                      "Low": {
+                        "color": "yellow",
+                        "index": 3
+                      },
+                      "Info": {
+                        "color": "blue",
+                        "index": 4
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "description": "Clicar na regra abre a referência (CVE, advisory ou documentação da regra), quando existe."
+    },
+    {
+      "type": "table",
+      "title": "Histórico — achados por execução",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "srh-ci"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "srh-ci"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT r.started_at AS \"Data\", r.pipeline_id AS \"Pipeline\", left(r.commit_title, 80) AS \"Commit\", count(f.id) FILTER (WHERE f.severity = 'Critical') AS \"Critical\", count(f.id) FILTER (WHERE f.severity = 'High') AS \"High\", count(f.id) FILTER (WHERE f.severity = 'Medium') AS \"Medium\", count(f.id) FILTER (WHERE f.severity = 'Low') AS \"Low\", count(f.id) FILTER (WHERE f.severity IN ('Info', 'Unknown')) AS \"Info\", count(f.id) AS \"Total\", r.pipeline_url AS url FROM ci.runs r LEFT JOIN ci.findings f USING (pipeline_id) GROUP BY r.pipeline_id ORDER BY r.pipeline_id DESC"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 24,
+        "h": 10
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Data"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 150
+              },
+              {
+                "id": "unit",
+                "value": "time:YYYY-MM-DD HH:mm"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Pipeline"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Commit"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 330
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Pipeline"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Abrir pipeline no GitLab",
+                    "url": "${__data.fields.url}",
+                    "targetBlank": true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "url"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "description": "Todos os scanners e severidades, independentemente dos filtros acima."
+    }
+  ],
+  "links": [
+    {
+      "title": "Dashboards do CI",
+      "type": "dashboards",
+      "tags": ["ci"],
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": false
+    }
+  ]
+}

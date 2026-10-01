@@ -185,6 +185,10 @@ O pipeline de CI é o [`.gitlab-ci.yml`](.gitlab-ci.yml) e corre num GitLab Runn
 - **Todas as segundas-feiras às 03:00:** o mesmo pipeline no `develop` e o Renovate, que abre MRs de
   atualização de dependências e imagens (majors só depois de aprovados no issue "Dependency
   Dashboard").
+- **Métricas:** cada pipeline do `develop` grava os resultados (jobs, testes, cobertura, achados de
+  segurança) numa base de dados lida pelo Grafana, em `http://<host-do-servidor-de-dev>:3300/`
+  (leitura sem login; ver
+  [DEPLOY_PORTAINER.md](DEPLOY_PORTAINER.md#8-métricas-do-ci-grafana)).
 
 Opcional: para ver em segundos o que os jobs `lint` e `format` vão reportar, sem esperar pelo
 pipeline (o hook de pre-commit já corrige a formatação e trava erros de lint nos ficheiros de cada

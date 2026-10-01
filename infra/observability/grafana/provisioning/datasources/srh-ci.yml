@@ -1,0 +1,17 @@
+# Base de dados das métricas do CI (serviço metrics-db do mesmo stack), só de leitura.
+apiVersion: 1
+
+datasources:
+  - name: SRH CI
+    uid: srh-ci
+    type: grafana-postgresql-datasource
+    url: metrics-db:5432
+    user: metrics_reader
+    isDefault: true
+    editable: false
+    jsonData:
+      database: srh_metrics
+      sslmode: disable
+      postgresVersion: 1600
+    secureJsonData:
+      password: $METRICS_READER_PASSWORD

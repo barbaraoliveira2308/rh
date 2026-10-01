@@ -8,6 +8,10 @@
 # Pipeline semanal (P-103): um pipeline agendado no `develop` corre todos os jobs abaixo e
 # ainda o `renovate` (atualizações de dependências). O agendamento é criado no GitLab — ver
 # CONTRIBUTING.md, secção "CI".
+#
+# Métricas (P-104): em cada pipeline do `develop`, o job `collect-metrics` grava os resultados
+# (jobs, testes, cobertura, achados de segurança) na base de dados lida pelo Grafana — ver
+# DEPLOY_PORTAINER.md, secção "8. Métricas do CI (Grafana)".
 
 workflow:
   rules:
@@ -86,14 +90,21 @@ test:unit:
   extends: .node
   stage: test
   needs: []
+  variables:
+    # Nome próprio: o collect-metrics recebe os relatórios dos dois jobs de testes na mesma pasta.
+    JEST_JUNIT_OUTPUT_NAME: junit-unit.xml
   script:
     - pnpm --filter @bridge351/srh-backend run test:ci
   coverage: '/Lines\s*:\s*(\d+(?:\.\d+)?)%/'
   artifacts:
     when: always
     expire_in: 1 week
+    # `paths` além de `reports`: os ficheiros de `reports` não passam para os jobs seguintes.
+    paths:
+      - backend/junit-unit.xml
+      - backend/coverage/cobertura-coverage.xml
     reports:
-      junit: backend/junit.xml
+      junit: backend/junit-unit.xml
       coverage_report:
         coverage_format: cobertura
         path: backend/coverage/cobertura-coverage.xml
@@ -112,6 +123,7 @@ test:e2e:
     POSTGRES_DB: srh_test
     POSTGRES_USER: srh_user
     POSTGRES_PASSWORD: srh_dev_pass
+    JEST_JUNIT_OUTPUT_NAME: junit-e2e.xml
   script:
     # Nada carrega o backend/.env.test automaticamente: exportado aqui, com os hosts dos serviços.
     - set -a && . backend/.env.test && set +a
@@ -121,8 +133,10 @@ test:e2e:
   artifacts:
     when: always
     expire_in: 1 week
+    paths:
+      - backend/junit-e2e.xml
     reports:
-      junit: backend/junit.xml
+      junit: backend/junit-e2e.xml
 
 audit:
   extends: .node
@@ -133,7 +147,35 @@ audit:
   before_script:
     - corepack enable
   script:
+    # Versão JSON para o collect-metrics; a segunda chamada dá o relatório legível e o resultado.
+    - pnpm audit --prod --json > audit.json || true
     - pnpm audit --prod --audit-level high
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - audit.json
+
+# Relatórios dos templates de segurança também como artefactos normais, para o collect-metrics.
+# O Semgrep e o KICS escrevem ambos gl-sast-report.json: cada um guarda uma cópia com nome próprio.
+semgrep-sast:
+  after_script:
+    - cp gl-sast-report.json gl-sast-semgrep-report.json || true
+  artifacts:
+    paths:
+      - gl-sast-semgrep-report.json
+
+kics-iac-sast:
+  after_script:
+    - cp gl-sast-report.json gl-sast-iac-report.json || true
+  artifacts:
+    paths:
+      - gl-sast-iac-report.json
+
+secret_detection:
+  artifacts:
+    paths:
+      - gl-secret-detection-report.json
 
 # ─── renovate (só no pipeline agendado) ─────────────────────────────────────────
 
@@ -161,3 +203,21 @@ renovate:
     LOG_LEVEL: info
   script:
     - renovate
+
+# ─── métricas (só no develop) ──────────────────────────────────────────────────
+
+# Grava os resultados deste pipeline na base de dados das métricas (Grafana). Corre por último
+# (.post), mesmo que outros jobs tenham falhado, e recebe os artefactos de todos eles. Nunca
+# bloqueia: se a base de dados estiver em baixo, o pipeline continua verde.
+# Requer as variáveis de CI/CD `METRICS_DB_URL` e `METRICS_GITLAB_TOKEN` (ver DEPLOY_PORTAINER.md).
+collect-metrics:
+  stage: .post
+  image: postgres:16.15-alpine
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop" && $METRICS_DB_URL && $METRICS_GITLAB_TOKEN
+      when: always
+  allow_failure: true
+  before_script:
+    - apk add --no-cache jq curl > /dev/null
+  script:
+    - sh scripts/ci/collect-metrics.sh
