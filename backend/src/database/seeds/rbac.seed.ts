@@ -72,8 +72,8 @@ export async function run(dataSource: DataSource): Promise<void> {
   const userRoleRepo = dataSource.getRepository(UserRole);
   const employeeRepo = dataSource.getRepository(Employee);
 
-  const existingRoles = await roleRepo.find();
-  if (existingRoles.length > 0) {
+  const existingAdminRole = await roleRepo.findOneBy({ name: 'admin' });
+  if (existingAdminRole) {
     return;
   }
 
