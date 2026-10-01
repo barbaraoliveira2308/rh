@@ -73,20 +73,22 @@ O pipeline de CI é o `.gitlab-ci.yml` (GitLab CI, requer um runner com o execut
 e operação em [DEPLOY_PORTAINER.md](DEPLOY_PORTAINER.md#7-runner-do-gitlab-ci)). Corre em
 todos os merge requests e em cada push para `develop` e `main`:
 
-| Stage    | Job                   | O que faz                                                                                            | Bloqueia |
-| -------- | --------------------- | ---------------------------------------------------------------------------------------------------- | -------- |
-| `verify` | `lint`                | `pnpm run lint:ci` (ESLint sem `--fix`)                                                              | Sim      |
-| `verify` | `format`              | `pnpm run format:check`                                                                              | Sim      |
-| `verify` | `build:backend`       | build do backend                                                                                     | Sim      |
-| `verify` | `build:frontend`      | typecheck + build do frontend                                                                        | Sim      |
-| `verify` | `versions`            | Node no major esperado (20) e pnpm igual ao `packageManager`, no CI e em todas as imagens declaradas | Sim      |
-| `test`   | `test:unit`           | testes unitários do backend, com relatório JUnit e cobertura                                         | Sim      |
-| `test`   | `test:e2e`            | testes e2e do backend com PostgreSQL + Redis (`services:`)                                           | Sim      |
-| `test`   | `audit`               | `pnpm audit --prod --audit-level high`                                                               | Não      |
-| `test`   | SAST/Secret Detection | templates do GitLab (`backend/.env.test` excluído de propósito)                                      | Não      |
-| `test`   | `kics-iac-sast`       | análise dos Dockerfiles e composes (template SAST-IaC)                                               | Não      |
-| `test`   | `renovate`            | só no pipeline agendado — ver abaixo                                                                 | Não      |
-| `.post`  | `collect-metrics`     | só no `develop`: grava os resultados para o Grafana (DEPLOY_PORTAINER.md, secção 8)                  | Não      |
+| Stage    | Job                   | O que faz                                                                                                                                                         | Bloqueia           |
+| -------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `verify` | `lint`                | `pnpm run lint:ci` (ESLint sem `--fix`)                                                                                                                           | Sim                |
+| `verify` | `format`              | `pnpm run format:check`                                                                                                                                           | Sim                |
+| `verify` | `build:backend`       | build do backend                                                                                                                                                  | Sim                |
+| `verify` | `build:frontend`      | typecheck + build do frontend                                                                                                                                     | Sim                |
+| `verify` | `versions`            | Node no major esperado (20) e pnpm igual ao `packageManager`, no CI e em todas as imagens declaradas                                                              | Sim                |
+| `test`   | `test:unit`           | testes unitários do backend, com relatório JUnit e cobertura                                                                                                      | Sim                |
+| `test`   | `test:e2e`            | testes e2e do backend com PostgreSQL + Redis (`services:`)                                                                                                        | Sim                |
+| `test`   | `audit`               | `pnpm audit --prod --audit-level high`                                                                                                                            | Não                |
+| `test`   | SAST/Secret Detection | templates do GitLab (`backend/.env.test` excluído de propósito)                                                                                                   | Não                |
+| `test`   | `kics-iac-sast`       | análise dos Dockerfiles e composes (template SAST-IaC)                                                                                                            | Não                |
+| `test`   | `renovate`            | só no pipeline agendado — ver abaixo                                                                                                                              | Não                |
+| `images` | `build-images`        | só em pushes para o `develop`, depois de verificações e testes verdes: constrói o backend e o frontend e envia-os para o registry (DEPLOY_PORTAINER.md, secção 9) | Sim (no `develop`) |
+| `deploy` | `deploy:devserver`    | só em pushes para o `develop`: pede ao Portainer o redeploy do servidor de dev com as imagens novas                                                               | Sim (no `develop`) |
+| `.post`  | `collect-metrics`     | só no `develop`: grava os resultados para o Grafana (DEPLOY_PORTAINER.md, secção 8)                                                                               | Não                |
 
 Antes de abrir um MR, `pnpm run lint:ci` e `pnpm run format:check` reproduzem localmente os dois
 primeiros jobs. Os testes e2e do frontend (Playwright) ainda não correm no CI (`R-066`), nem a

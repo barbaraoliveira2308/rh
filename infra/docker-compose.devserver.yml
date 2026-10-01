@@ -4,8 +4,9 @@
 # - só o frontend (8888) e a UI do Mailpit (8025) são publicados no host;
 # - o Mailpit captura todos os emails (nada é enviado para fora);
 # - o backend corre também o seed de dados de demo a cada arranque;
-# - `pull_policy: build` força o rebuild das imagens em cada redeploy do Portainer;
-# - o serviço one-shot `prune` limpa imagens antigas e a cache de build no fim de cada deploy.
+# - o backend e o frontend vêm prontos do GitLab Container Registry (`${SRH_REGISTRY_IMAGE}/…:develop`),
+#   construídos pelo CI (P-106); o Portainer já não constrói imagens — só as descarrega;
+# - o serviço one-shot `prune` limpa imagens antigas e a cache de build antiga no fim de cada deploy.
 # Sem bind mounts de ficheiros do repositório: o Portainer corre o stack a partir do seu próprio
 # clone. A única exceção é o socket do Docker do host (caminho absoluto), usado pelo `prune`.
 name: srh-devserver
@@ -117,10 +118,9 @@ services:
       - '8025:8025'
 
   backend:
-    build:
-      context: ..
-      dockerfile: backend/Dockerfile
-    pull_policy: build
+    # Construída e enviada pelo job build-images do CI; SRH_REGISTRY_IMAGE é uma variável do stack.
+    image: ${SRH_REGISTRY_IMAGE:?definir SRH_REGISTRY_IMAGE nas variáveis do stack}/backend:develop
+    pull_policy: always
     container_name: srh-backend-devserver
     restart: unless-stopped
     expose:
@@ -188,12 +188,9 @@ services:
         condition: service_started
 
   frontend:
-    build:
-      context: ..
-      dockerfile: frontend/Dockerfile
-      args:
-        VITE_API_URL: /api
-    pull_policy: build
+    # Construída com VITE_API_URL=/api pelo job build-images do CI.
+    image: ${SRH_REGISTRY_IMAGE:?definir SRH_REGISTRY_IMAGE nas variáveis do stack}/frontend:develop
+    pull_policy: always
     container_name: srh-frontend-devserver
     restart: unless-stopped
     ports:
@@ -208,10 +205,10 @@ services:
 
   # Serviço one-shot: corre no fim de cada deploy, depois de o backend e o frontend terem sido
   # recriados (as imagens antigas já não estão em uso), e termina.
-  # - `image prune`: só imagens sem tag deste stack (label do Compose). Com o image store do
-  #   containerd (Docker 29) o Docker já as apaga sozinho; fica como rede de segurança.
-  # - `builder prune -a`: TODA a cache de build do host, incluindo a de outros stacks — cada
-  #   deploy passa a buildar de raiz (mais lento), em troca de a cache nunca acumular.
+  # - `image prune`: versões anteriores das imagens do CI (label srh.ci-image), sem tag e já sem
+  #   contentores. O job build-images faz o mesmo; isto é uma rede de segurança.
+  # - `builder prune --filter until=168h`: só a cache de build sem uso há mais de 7 dias. A cache
+  #   recente fica: é ela que torna rápidos os builds do CI no mesmo host (P-106).
   # ⚠️ O socket do Docker dá a este contentor controlo total do Docker do host (equivale a root).
   prune:
     image: docker:29.8.1-cli
@@ -227,8 +224,8 @@ services:
     entrypoint: ['/bin/sh', '-c']
     command:
       - |
-        docker image prune -f --filter label=com.docker.compose.project=srh-devserver
-        docker builder prune -af
+        docker image prune -f --filter label=srh.ci-image=true
+        docker builder prune -f --filter until=168h
 
 volumes:
   postgres-data:
