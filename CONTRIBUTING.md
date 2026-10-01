@@ -73,23 +73,32 @@ O pipeline de CI é o `.gitlab-ci.yml` (GitLab CI, requer um runner com o execut
 e operação em [DEPLOY_PORTAINER.md](DEPLOY_PORTAINER.md#7-runner-do-gitlab-ci)). Corre em
 todos os merge requests e em cada push para `develop` e `main`:
 
-| Stage    | Job                   | O que faz                                                                           | Bloqueia |
-| -------- | --------------------- | ----------------------------------------------------------------------------------- | -------- |
-| `verify` | `lint`                | `pnpm run lint:ci` (ESLint sem `--fix`)                                             | Sim      |
-| `verify` | `format`              | `pnpm run format:check`                                                             | Sim      |
-| `verify` | `build:backend`       | build do backend                                                                    | Sim      |
-| `verify` | `build:frontend`      | typecheck + build do frontend                                                       | Sim      |
-| `test`   | `test:unit`           | testes unitários do backend, com relatório JUnit e cobertura                        | Sim      |
-| `test`   | `test:e2e`            | testes e2e do backend com PostgreSQL + Redis (`services:`)                          | Sim      |
-| `test`   | `audit`               | `pnpm audit --prod --audit-level high`                                              | Não      |
-| `test`   | SAST/Secret Detection | templates do GitLab (`backend/.env.test` excluído de propósito)                     | Não      |
-| `test`   | `kics-iac-sast`       | análise dos Dockerfiles e composes (template SAST-IaC)                              | Não      |
-| `test`   | `renovate`            | só no pipeline agendado — ver abaixo                                                | Não      |
-| `.post`  | `collect-metrics`     | só no `develop`: grava os resultados para o Grafana (DEPLOY_PORTAINER.md, secção 8) | Não      |
+| Stage    | Job                   | O que faz                                                                                            | Bloqueia |
+| -------- | --------------------- | ---------------------------------------------------------------------------------------------------- | -------- |
+| `verify` | `lint`                | `pnpm run lint:ci` (ESLint sem `--fix`)                                                              | Sim      |
+| `verify` | `format`              | `pnpm run format:check`                                                                              | Sim      |
+| `verify` | `build:backend`       | build do backend                                                                                     | Sim      |
+| `verify` | `build:frontend`      | typecheck + build do frontend                                                                        | Sim      |
+| `verify` | `versions`            | Node no major esperado (20) e pnpm igual ao `packageManager`, no CI e em todas as imagens declaradas | Sim      |
+| `test`   | `test:unit`           | testes unitários do backend, com relatório JUnit e cobertura                                         | Sim      |
+| `test`   | `test:e2e`            | testes e2e do backend com PostgreSQL + Redis (`services:`)                                           | Sim      |
+| `test`   | `audit`               | `pnpm audit --prod --audit-level high`                                                               | Não      |
+| `test`   | SAST/Secret Detection | templates do GitLab (`backend/.env.test` excluído de propósito)                                      | Não      |
+| `test`   | `kics-iac-sast`       | análise dos Dockerfiles e composes (template SAST-IaC)                                               | Não      |
+| `test`   | `renovate`            | só no pipeline agendado — ver abaixo                                                                 | Não      |
+| `.post`  | `collect-metrics`     | só no `develop`: grava os resultados para o Grafana (DEPLOY_PORTAINER.md, secção 8)                  | Não      |
 
 Antes de abrir um MR, `pnpm run lint:ci` e `pnpm run format:check` reproduzem localmente os dois
 primeiros jobs. Os testes e2e do frontend (Playwright) ainda não correm no CI (`R-066`), nem a
 verificação de migrações face às entidades (`R-069`).
+
+**Mudar de versão do Node ou do pnpm** — o job `versions` falha até tudo bater certo:
+
+- Node (novo major): atualizar a imagem `node:` nos 4 Dockerfiles e no `.gitlab-ci.yml` **e** a variável
+  `EXPECTED_NODE_MAJOR` do job `versions`, no mesmo MR. Localmente:
+  `EXPECTED_NODE_MAJOR=20 sh scripts/ci/check-versions.sh`.
+- pnpm: atualizar o `packageManager` do `package.json` e os `corepack prepare pnpm@…` dos Dockerfiles,
+  no mesmo MR (o pnpm do CI vem sempre do `packageManager`).
 
 Os relatórios de segurança (SAST, Secret Detection, IaC) são ficheiros JSON nos artefactos de cada
 job; não bloqueiam o MR.

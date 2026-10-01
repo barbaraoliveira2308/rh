@@ -84,6 +84,21 @@ build:frontend:
   script:
     - pnpm --filter @bridge351/srh-frontend run build
 
+# Node no major esperado e pnpm igual ao `packageManager` do package.json — no CI e nas imagens
+# declaradas (Dockerfiles e este ficheiro). Para mudar de major do Node, atualizar as imagens e
+# EXPECTED_NODE_MAJOR no mesmo MR.
+versions:
+  extends: .node
+  stage: verify
+  variables:
+    EXPECTED_NODE_MAJOR: '20'
+  # Sem `pnpm install`: só precisa do Node e do pnpm (via corepack).
+  cache: []
+  before_script:
+    - corepack enable
+  script:
+    - sh scripts/ci/check-versions.sh
+
 # ─── test ──────────────────────────────────────────────────────────────────────
 
 test:unit:

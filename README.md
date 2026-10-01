@@ -179,8 +179,9 @@ Mailpit, que captura todos os emails. Configuração, acesso e operação em
 O pipeline de CI é o [`.gitlab-ci.yml`](.gitlab-ci.yml) e corre num GitLab Runner próprio (ver
 [DEPLOY_PORTAINER.md](DEPLOY_PORTAINER.md#7-runner-do-gitlab-ci)):
 
-- **Em cada merge request e push para `develop`/`main`:** lint, formatação, build do backend e do
-  frontend, testes unitários e testes e2e do backend (PostgreSQL + Redis) — um MR só é integrado com
+- **Em cada merge request e push para `develop`/`main`:** lint, formatação, versões do Node (20) e
+  do pnpm (`packageManager`), build do backend e do frontend, testes unitários e testes e2e do backend
+  (PostgreSQL + Redis) — um MR só é integrado com
   estes jobs verdes. SAST, deteção de segredos, análise de IaC e `pnpm audit` só reportam.
 - **Todas as segundas-feiras às 03:00:** o mesmo pipeline no `develop` e o Renovate, que abre MRs de
   atualização de dependências e imagens (majors só depois de aprovados no issue "Dependency
