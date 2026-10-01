@@ -96,6 +96,11 @@ job; não bloqueiam o MR.
 
 ### Pipeline semanal e Renovate
 
+> **Estado atual: o Renovate está desativado** (variável `RENOVATE_TOKEN` apagada a 2026-10-01) até
+> o nginx à frente de `git.redstout.com` deixar de descodificar `%2F` — ver `R-071` em
+> `specs/GLOBAL-TASKS-RISKS.md` e o troubleshooting no fim desta secção. O resto do pipeline
+> semanal corre normalmente.
+
 Todas as segundas-feiras às 03:00 corre um pipeline agendado no `develop`: os mesmos jobs acima
 (apanha vulnerabilidades novas em código que não mudou) e ainda o `renovate`, que trata as
 dependências npm e as imagens Docker (Dockerfiles, composes e `.gitlab-ci.yml`) contra o `develop`:
