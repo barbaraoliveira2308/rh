@@ -426,20 +426,23 @@ pedido traz) e falha se mudarem. A autenticação do Git guardada no stack mant�
    PURL=https://<host>:9443   # o endereço do Portainer no browser, sem /#!/…
    PTOKEN=ptr_<token>         # access token do passo 5
    SID=<stack id>; EID=<endpoint id>   # passo 6
-   curl -sk -H "X-API-Key: $PTOKEN" "$PURL/api/stacks/$SID" > stack.json
-   # Parar se a resposta não trouxer as variáveis do stack (reenviar uma lista vazia apagava-as):
-   jq -e '(.Env // []) | length > 0' stack.json > /dev/null || { echo "Sem variáveis — parar"; exit 1; }
-   jq -c '{autoUpdate: null, env: (.Env // []), prune: false,
-           repositoryReferenceName: .GitConfig.ReferenceName,
-           repositoryAuthentication: (.GitConfig.Authentication != null),
-           repositoryUsername: (.GitConfig.Authentication.Username // "")}' stack.json > payload.json
-   curl -sk -o /dev/null -w "HTTP %{http_code}\n" -X POST -H "X-API-Key: $PTOKEN" \
-     -H 'Content-Type: application/json' --data @payload.json "$PURL/api/stacks/$SID/git?endpointId=$EID"
-   curl -sk -H "X-API-Key: $PTOKEN" "$PURL/api/stacks/$SID" | jq -c '{AutoUpdate, vars: (.Env | length)}'
-   rm stack.json payload.json
+
+   # Pára no primeiro erro (ex.: token inválido) e só continua se o stack for o srh-devserver
+   # e tiver variáveis — reenviar uma lista vazia apagava-as.
+   curl -skf -H "X-API-Key: $PTOKEN" "$PURL/api/stacks/$SID" -o stack.json \
+   && jq -e '.Name == "srh-devserver" and ((.Env // []) | length > 0)' stack.json > /dev/null \
+   && jq -c '{autoUpdate: null, env: .Env, prune: false,
+              repositoryReferenceName: .GitConfig.ReferenceName,
+              repositoryAuthentication: (.GitConfig.Authentication != null),
+              repositoryUsername: (.GitConfig.Authentication.Username // "")}' stack.json > payload.json \
+   && curl -skf -o /dev/null -w "HTTP %{http_code}\n" -X POST -H "X-API-Key: $PTOKEN" \
+        -H 'Content-Type: application/json' --data @payload.json "$PURL/api/stacks/$SID/git?endpointId=$EID" \
+   && curl -skf -H "X-API-Key: $PTOKEN" "$PURL/api/stacks/$SID" | jq -c '{Name, AutoUpdate, vars: (.Env | length)}' \
+   || echo "PAROU — passo falhado; o que vem depois dele não foi feito"
+   rm -f stack.json payload.json
    ```
 
-   Esperado: `HTTP 200` e depois `{"AutoUpdate":null,"vars":<o mesmo número de antes>}`. Não reinicia
+   Esperado: `HTTP 200` e depois `{"Name":"srh-devserver","AutoUpdate":null,"vars":<o mesmo número de antes>}`. Uma resposta de erro do Portainer (ex.: token inválido) não tem estes campos — por isso o comando usa `curl -f` e pára. Não reinicia
    os contentores e mantém a autenticação do Git (testado com o Portainer CE 2.45.1). **Não usar o
    botão "Detach from Git"**: converte o stack num stack sem Git e o `deploy:devserver` deixa de
    funcionar.
