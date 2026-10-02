@@ -15,8 +15,8 @@
 #
 # Imagens e servidor de dev (P-106): em cada push para o `develop` (não no agendamento semanal),
 # depois de todas as verificações e testes passarem, `build-images` constrói as imagens no Docker do
-# host e envia-as para o GitLab Container Registry, e `deploy:devserver` pede ao Portainer que
-# atualize o stack do servidor de dev — que deixou de construir imagens.
+# host (o mesmo do servidor de dev; sem registry, que não está acessível — R-072) e
+# `deploy:devserver` pede ao Portainer que atualize o stack — que deixou de construir imagens.
 
 workflow:
   rules:
@@ -229,14 +229,15 @@ renovate:
 # ─── imagens e servidor de dev (só em pushes para o develop) ──────────────────────
 
 # Constrói as imagens no Docker do host (o runner monta /var/run/docker.sock), com a cache de
-# build mantida entre pipelines, e envia-as para o registry do projeto: tags `develop` e SHA.
+# build mantida entre pipelines: `srh-local/{backend,frontend}`, tags `develop` e SHA. O servidor de
+# dev, no mesmo host, usa-as diretamente.
 # Só corre se todas as verificações e testes passaram (ver `needs`); jobs que só reportam
 # (audit, SAST, …) não contam.
 build-images:
   stage: images
   image: docker:29.8.1-cli
   rules:
-    - if: $CI_COMMIT_BRANCH == "develop" && $CI_PIPELINE_SOURCE != "schedule" && $CI_REGISTRY
+    - if: $CI_COMMIT_BRANCH == "develop" && $CI_PIPELINE_SOURCE != "schedule"
   needs:
     - { job: lint, artifacts: false }
     - { job: format, artifacts: false }
@@ -248,15 +249,15 @@ build-images:
   script:
     - sh scripts/ci/build-images.sh
 
-# Pede ao Portainer um "Pull and redeploy" do stack srh-devserver (API do Portainer CE, que não
-# tem webhooks). O Portainer responde logo e faz o redeploy em segundo plano. Requer as variáveis
+# Pede ao Portainer um redeploy do stack srh-devserver com as imagens locais (API do Portainer CE,
+# que não tem webhooks). O Portainer responde logo e faz o redeploy em segundo plano. Requer as variáveis
 # PORTAINER_URL, PORTAINER_TOKEN, PORTAINER_STACK_ID e PORTAINER_ENDPOINT_ID (ver
 # DEPLOY_PORTAINER.md); sem elas o job não aparece.
 deploy:devserver:
   stage: deploy
   image: alpine:3.24.2
   rules:
-    - if: $CI_COMMIT_BRANCH == "develop" && $CI_PIPELINE_SOURCE != "schedule" && $CI_REGISTRY && $PORTAINER_TOKEN
+    - if: $CI_COMMIT_BRANCH == "develop" && $CI_PIPELINE_SOURCE != "schedule" && $PORTAINER_TOKEN
   needs:
     - { job: build-images, artifacts: false }
   # Dois redeploys ao mesmo tempo não; e um push novo não interrompe um redeploy a meio.

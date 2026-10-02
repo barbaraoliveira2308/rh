@@ -187,8 +187,8 @@ O pipeline de CI é o [`.gitlab-ci.yml`](.gitlab-ci.yml) e corre num GitLab Runn
   atualização de dependências e imagens (majors só depois de aprovados no issue "Dependency
   Dashboard").
 - **Servidor de dev:** em cada push para o `develop`, com as verificações e os testes verdes, o CI
-  constrói as imagens do backend e do frontend, envia-as para o GitLab Container Registry e pede ao
-  Portainer o redeploy (ver [DEPLOY_PORTAINER.md](DEPLOY_PORTAINER.md#9-imagens-no-registry-e-redeploy-pelo-ci)).
+  constrói as imagens do backend e do frontend no Docker do servidor de dev e pede ao Portainer o
+  redeploy (ver [DEPLOY_PORTAINER.md](DEPLOY_PORTAINER.md#9-imagens-construídas-pelo-ci-e-redeploy)).
 - **Métricas:** cada pipeline do `develop` grava os resultados (jobs, testes, cobertura, achados de
   segurança) numa base de dados lida pelo Grafana, em `http://<host-do-servidor-de-dev>:3300/`
   (leitura sem login; ver

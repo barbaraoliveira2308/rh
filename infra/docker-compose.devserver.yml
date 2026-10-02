@@ -4,8 +4,8 @@
 # - só o frontend (8888) e a UI do Mailpit (8025) são publicados no host;
 # - o Mailpit captura todos os emails (nada é enviado para fora);
 # - o backend corre também o seed de dados de demo a cada arranque;
-# - o backend e o frontend vêm prontos do GitLab Container Registry (`${SRH_REGISTRY_IMAGE}/…:develop`),
-#   construídos pelo CI (P-106); o Portainer já não constrói imagens — só as descarrega;
+# - o backend e o frontend são imagens locais (`srh-local/…:develop`) construídas pelo CI no Docker
+#   deste mesmo host (P-106; sem registry — ver R-072); o Portainer já não constrói imagens;
 # - o serviço one-shot `prune` limpa imagens antigas e a cache de build antiga no fim de cada deploy.
 # Sem bind mounts de ficheiros do repositório: o Portainer corre o stack a partir do seu próprio
 # clone. A única exceção é o socket do Docker do host (caminho absoluto), usado pelo `prune`.
@@ -118,9 +118,9 @@ services:
       - '8025:8025'
 
   backend:
-    # Construída e enviada pelo job build-images do CI; SRH_REGISTRY_IMAGE é uma variável do stack.
-    image: ${SRH_REGISTRY_IMAGE:?definir SRH_REGISTRY_IMAGE nas variáveis do stack}/backend:develop
-    pull_policy: always
+    # Construída pelo job build-images do CI no Docker deste host; nunca é descarregada.
+    image: srh-local/backend:develop
+    pull_policy: never
     container_name: srh-backend-devserver
     restart: unless-stopped
     expose:
@@ -188,9 +188,9 @@ services:
         condition: service_started
 
   frontend:
-    # Construída com VITE_API_URL=/api pelo job build-images do CI.
-    image: ${SRH_REGISTRY_IMAGE:?definir SRH_REGISTRY_IMAGE nas variáveis do stack}/frontend:develop
-    pull_policy: always
+    # Construída com VITE_API_URL=/api pelo job build-images do CI no Docker deste host.
+    image: srh-local/frontend:develop
+    pull_policy: never
     container_name: srh-frontend-devserver
     restart: unless-stopped
     ports:
