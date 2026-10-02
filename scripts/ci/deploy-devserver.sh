@@ -27,7 +27,14 @@ api() { # $1 = método, $2 = caminho, $3 = corpo (opcional)
 api GET "/stacks/$PORTAINER_STACK_ID" > "$WORK/before.json"
 jq -e '.GitConfig != null' "$WORK/before.json" > /dev/null \
   || { echo "O stack $PORTAINER_STACK_ID não é um stack Git do Portainer."; exit 1; }
-echo "Stack: $(jq -r '.Name' "$WORK/before.json") · ref $(jq -r '.GitConfig.ReferenceName' "$WORK/before.json") · $(jq '.Env | length' "$WORK/before.json") variáveis"
+echo "Stack: $(jq -r '.Name' "$WORK/before.json") · ref $(jq -r '.GitConfig.ReferenceName' "$WORK/before.json") · $(jq '.Env // [] | length' "$WORK/before.json") variáveis"
+# O stack do servidor de dev tem sempre variáveis (passwords, chaves JWT, …). Se a API não devolver
+# nenhuma, reenviar a lista vazia apagava-as e o redeploy partia o backend: parar sem tocar em nada.
+jq -e '(.Env // []) | length > 0' "$WORK/before.json" > /dev/null || {
+  echo "ERRO: a API do Portainer não devolveu variáveis para este stack — redeploy cancelado."
+  echo "Verificar as variáveis do stack no Portainer (DEPLOY_PORTAINER.md, secção 9)."
+  exit 1
+}
 
 # Reenvia as variáveis atuais; a autenticação do Git fica a que está guardada no stack.
 PAYLOAD=$(jq -c '{

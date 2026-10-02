@@ -427,6 +427,8 @@ pedido traz) e falha se mudarem. A autenticação do Git guardada no stack mant�
    PTOKEN=ptr_<token>         # access token do passo 5
    SID=<stack id>; EID=<endpoint id>   # passo 6
    curl -sk -H "X-API-Key: $PTOKEN" "$PURL/api/stacks/$SID" > stack.json
+   # Parar se a resposta não trouxer as variáveis do stack (reenviar uma lista vazia apagava-as):
+   jq -e '(.Env // []) | length > 0' stack.json > /dev/null || { echo "Sem variáveis — parar"; exit 1; }
    jq -c '{autoUpdate: null, env: (.Env // []), prune: false,
            repositoryReferenceName: .GitConfig.ReferenceName,
            repositoryAuthentication: (.GitConfig.Authentication != null),
