@@ -107,10 +107,10 @@ job; não bloqueiam o MR.
 
 ### Pipeline semanal e Renovate
 
-> **Estado atual: o Renovate está desativado** (variável `RENOVATE_TOKEN` apagada a 2026-10-01) até
-> o nginx à frente de `git.redstout.com` deixar de descodificar `%2F` — ver `R-071` em
-> `specs/GLOBAL-TASKS-RISKS.md` e o troubleshooting no fim desta secção. O resto do pipeline
-> semanal corre normalmente.
+> **O Renovate fala com o GitLab pelo endereço interno** (`RENOVATE_ENDPOINT=http://10.1.30.40:50080/api/v4/`,
+> pelo túnel entre o servidor de dev e o servidor do GitLab), porque o nginx à frente do endereço
+> público `git.redstout.com` descodifica `%2F` e parte a API — ver `R-071` em
+> `specs/GLOBAL-TASKS-RISKS.md` e o troubleshooting no fim desta secção.
 
 Todas as segundas-feiras às 03:00 corre um pipeline agendado no `develop`: os mesmos jobs acima
 (apanha vulnerabilidades novas em código que não mudou) e ainda o `renovate`, que trata as
@@ -142,7 +142,10 @@ onboarding) estão no job `renovate` do `.gitlab-ci.yml`.
    scopes **`api`** e **`write_repository`**, com data de expiração (máximo permitido pela
    instância). Copiar o valor.
 2. **Variável:** _Settings → CI/CD → Variables → Add variable_ — chave `RENOVATE_TOKEN`, valor do
-   passo 1, **Masked** e **Protected** (o `develop` tem de ser um branch protegido).
+   passo 1, **Masked** e **Protected** (o `develop` tem de ser um branch protegido); e
+   `RENOVATE_ENDPOINT` = `http://10.1.30.40:50080/api/v4/` (com a `/` final), **Protected** — o
+   endereço interno da API do GitLab (`R-071`). Uma variável definida aqui tem precedência sobre o
+   valor do `.gitlab-ci.yml`. O endereço é `http`: o token viaja sem cifra, mas só dentro do túnel.
 3. **Agendamento:** _Build → Pipeline schedules → New schedule_ — descrição `Semanal`, padrão
    `0 3 * * 1`, fuso horário `Lisbon`, branch `develop`, ativo.
 4. **Teste:** na lista de agendamentos, _Run schedule pipeline_ (▶) — confirmar que o job
@@ -161,8 +164,11 @@ curl -s -o /dev/null -w "%{http_code}\n" -H "PRIVATE-TOKEN: <token>" \
   "https://git.redstout.com/api/v4/projects/bridge351%2Fsrh"   # tem de dar 200
 ```
 
-A correção é no nginx (administrador do servidor): `proxy_pass` sem caminho depois do endereço,
-para o pedido passar sem alterações. Até lá, apagar a variável `RENOVATE_TOKEN` desativa o job sem
-deixar o pipeline semanal vermelho.
+A correção definitiva é no nginx (administrador do servidor): `proxy_pass` sem caminho depois do
+endereço, para o pedido passar sem alterações. Até lá, o Renovate usa o endereço interno do GitLab
+(`RENOVATE_ENDPOINT`, passo 2 acima), onde o `%2F` chega intacto — confirmado a 2026-10-02:
+`http://10.1.30.40:50080/api/v4/projects/bridge351%2Fsrh` dá 200. Se esse endereço deixar de estar
+acessível a partir do servidor de dev, apagar a variável `RENOVATE_TOKEN` desativa o job sem deixar
+o pipeline semanal vermelho.
 Quando o token expirar, o job deixa de conseguir autenticar-se: criar um novo e atualizar a
 variável.

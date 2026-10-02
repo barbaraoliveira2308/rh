@@ -216,6 +216,8 @@ renovate:
   interruptible: false
   variables:
     RENOVATE_PLATFORM: gitlab
+    # Valor por omissão; no projeto está definida a variável de CI/CD RENOVATE_ENDPOINT com o
+    # endereço interno do GitLab, que tem precedência — o nginx do endereço público parte a API (R-071).
     RENOVATE_ENDPOINT: $CI_API_V4_URL
     RENOVATE_REPOSITORIES: $CI_PROJECT_PATH
     RENOVATE_BASE_BRANCH_PATTERNS: '["develop"]'
