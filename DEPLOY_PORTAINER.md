@@ -76,7 +76,7 @@ No Portainer: **Stacks → Add stack**.
 4. **Repository reference:** `refs/heads/develop`
 5. **Compose path:** `infra/docker-compose.devserver.yml`
 6. **Authentication:** ativo, com o username e o token do passo 2
-7. **GitOps updates:** **desligado** depois de configurar a secção 9 — quem pede o redeploy é o CI,
+7. **GitOps updates:** **desligado** depois de configurar a secção 9 (passo 8 dessa secção, pela API) — quem pede o redeploy é o CI,
    já com as imagens novas no registry. Com o polling ligado, cada commit gera um redeploy extra
    (com as imagens ainda antigas) e, no Portainer, qualquer redeploy reinicia todos os serviços do
    stack. Até a secção 9 estar configurada, pode ficar ligado (polling, `5m`, **Force
@@ -417,7 +417,31 @@ pedido traz) e falha se mudarem. A autenticação do Git guardada no stack mant�
    | `PORTAINER_ENDPOINT_ID`  | o endpoint do passo 6                                                     |
    | `PORTAINER_INSECURE_TLS` | `true` só se o Portainer usar o certificado autoassinado de origem (9443) |
 
-8. **GitOps updates** do stack: desligar (secção 4, passo 7).
+8. **Desligar o polling (GitOps updates) do stack.** Na página do stack do Portainer CE 2.45.1 não há
+   interruptor para isto; faz-se pela API, com o token do passo 5 (reenvia as variáveis e as
+   definições do Git tal como estão — a API substitui as variáveis pelas que o pedido traz). Numa
+   máquina com `curl` e `jq` que chegue ao Portainer:
+
+   ```bash
+   PURL=https://<host>:9443   # o endereço do Portainer no browser, sem /#!/…
+   PTOKEN=ptr_<token>         # access token do passo 5
+   SID=<stack id>; EID=<endpoint id>   # passo 6
+   curl -sk -H "X-API-Key: $PTOKEN" "$PURL/api/stacks/$SID" > stack.json
+   jq -c '{autoUpdate: null, env: (.Env // []), prune: false,
+           repositoryReferenceName: .GitConfig.ReferenceName,
+           repositoryAuthentication: (.GitConfig.Authentication != null),
+           repositoryUsername: (.GitConfig.Authentication.Username // "")}' stack.json > payload.json
+   curl -sk -o /dev/null -w "HTTP %{http_code}\n" -X POST -H "X-API-Key: $PTOKEN" \
+     -H 'Content-Type: application/json' --data @payload.json "$PURL/api/stacks/$SID/git?endpointId=$EID"
+   curl -sk -H "X-API-Key: $PTOKEN" "$PURL/api/stacks/$SID" | jq -c '{AutoUpdate, vars: (.Env | length)}'
+   rm stack.json payload.json
+   ```
+
+   Esperado: `HTTP 200` e depois `{"AutoUpdate":null,"vars":<o mesmo número de antes>}`. Não reinicia
+   os contentores e mantém a autenticação do Git (testado com o Portainer CE 2.45.1). **Não usar o
+   botão "Detach from Git"**: converte o stack num stack sem Git e o `deploy:devserver` deixa de
+   funcionar.
+
 9. **Testar:** correr um pipeline no `develop` (`…/-/pipelines/new`). No fim, `build-images` e
    `deploy:devserver` verdes, e no Portainer os contentores do stack recriados com as imagens novas.
 
