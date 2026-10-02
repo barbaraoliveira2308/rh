@@ -417,35 +417,37 @@ pedido traz) e falha se mudarem. A autenticação do Git guardada no stack mant�
    | `PORTAINER_ENDPOINT_ID`  | o endpoint do passo 6                                                     |
    | `PORTAINER_INSECURE_TLS` | `true` só se o Portainer usar o certificado autoassinado de origem (9443) |
 
-8. **Desligar o polling (GitOps updates) do stack.** Na página do stack do Portainer CE 2.45.1 não há
-   interruptor para isto; faz-se pela API, com o token do passo 5 (reenvia as variáveis e as
-   definições do Git tal como estão — a API substitui as variáveis pelas que o pedido traz). Numa
-   máquina com `curl` e `jq` que chegue ao Portainer:
+8. **Desligar o polling do `srh-devserver`, mantendo-o no `srh-observability`.** No Portainer 2.45 o
+   polling não é uma definição do stack: pertence à **fonte Git** (_GitOps → Sources_) que o stack usa,
+   e todos os stacks da mesma fonte partilham-no. O campo `AutoUpdate` do stack na API é obsoleto — só
+   mostra o intervalo da fonte; pô-lo a `null` não faz nada. Os dois stacks usam o mesmo repositório,
+   por isso:
 
-   ```bash
-   PURL=https://<host>:9443   # o endereço do Portainer no browser, sem /#!/…
-   PTOKEN=ptr_<token>         # access token do passo 5
-   SID=<stack id>; EID=<endpoint id>   # passo 6
+   1. **Deploy token novo** no GitLab (**Settings → Repository → Deploy tokens**), nome
+      `portainer-observability`, scope **`read_repository`**. O Portainer recusa duas fontes com o
+      mesmo URL **e** as mesmas credenciais; com outro token, aceita.
+   2. **Fonte nova** no Portainer: **GitOps → Sources → Add source (Git)** — nome `srh-observability`,
+      o mesmo URL do repositório, autenticação com o token do passo anterior, polling **5m**.
+   3. **Apontar o stack `srh-observability` para essa fonte**, na secção Git do stack. Fazer isto
+      **antes** do passo seguinte, para o `srh-observability` nunca ficar sem polling.
+   4. **Desligar o polling da fonte `srh`** (a do `srh-devserver`): em **GitOps → Sources → srh**, ou
+      pela API, que só altera o intervalo:
 
-   # Pára no primeiro erro (ex.: token inválido) e só continua se o stack for o srh-devserver
-   # e tiver variáveis — reenviar uma lista vazia apagava-as.
-   curl -skf -H "X-API-Key: $PTOKEN" "$PURL/api/stacks/$SID" -o stack.json \
-   && jq -e '.Name == "srh-devserver" and ((.Env // []) | length > 0)' stack.json > /dev/null \
-   && jq -c '{autoUpdate: null, env: .Env, prune: false,
-              repositoryReferenceName: .GitConfig.ReferenceName,
-              repositoryAuthentication: (.GitConfig.Authentication != null),
-              repositoryUsername: (.GitConfig.Authentication.Username // "")}' stack.json > payload.json \
-   && curl -skf -o /dev/null -w "HTTP %{http_code}\n" -X POST -H "X-API-Key: $PTOKEN" \
-        -H 'Content-Type: application/json' --data @payload.json "$PURL/api/stacks/$SID/git?endpointId=$EID" \
-   && curl -skf -H "X-API-Key: $PTOKEN" "$PURL/api/stacks/$SID" | jq -c '{Name, AutoUpdate, vars: (.Env | length)}' \
-   || echo "PAROU — passo falhado; o que vem depois dele não foi feito"
-   rm -f stack.json payload.json
-   ```
+      ```bash
+      PURL=https://<host>:9443; PTOKEN=ptr_<token>; SRC=<id da fonte srh>
+      curl -skf -X PUT -H "X-API-Key: $PTOKEN" -H 'Content-Type: application/json' \
+        --data '{"interval":""}' "$PURL/api/gitops/sources/$SRC" | jq -c '{name, interval}'
+      ```
 
-   Esperado: `HTTP 200` e depois `{"Name":"srh-devserver","AutoUpdate":null,"vars":<o mesmo número de antes>}`. Uma resposta de erro do Portainer (ex.: token inválido) não tem estes campos — por isso o comando usa `curl -f` e pára. Não reinicia
-   os contentores e mantém a autenticação do Git (testado com o Portainer CE 2.45.1). **Não usar o
-   botão "Detach from Git"**: converte o stack num stack sem Git e o `deploy:devserver` deixa de
-   funcionar.
+   5. **Confirmar** (não mostra valores):
+
+      ```bash
+      curl -skf -H "X-API-Key: $PTOKEN" "$PURL/api/stacks" | jq -r '.[] | "\(.Id)  \(.Name)  vars=\(.Env // [] | length)  polling=\((.AutoUpdate.Interval // "") | if . == "" then "off" else . end)"'
+      ```
+
+      Esperado: `srh-devserver` com `polling=off` e `srh-observability` com `polling=5m`, ambos com o
+      número de variáveis de sempre. **Não usar o botão "Detach from Git"**: converte o stack num stack
+      sem Git e o `deploy:devserver` deixa de funcionar.
 
 9. **Testar:** correr um pipeline no `develop` (`…/-/pipelines/new`). No fim, `build-images` e
    `deploy:devserver` verdes, e no Portainer os contentores do stack recriados com as imagens novas.
