@@ -45,7 +45,7 @@ services:
 
   # Armazenamento S3 (RustFS, Apache-2.0), versão fixada — ver DEPLOY_PORTAINER.md.
   rustfs:
-    image: rustfs/rustfs:1.0.0
+    image: rustfs/rustfs:1.0.1
     container_name: srh-rustfs-prod
     restart: unless-stopped
     ports:
@@ -65,7 +65,7 @@ services:
   # falham com NoSuchBucket — nem o compose nem o StorageService criam o bucket.
   # AWS CLI (cliente S3 genérico): não tem `mb --ignore-existing`, daí o `head-bucket` antes.
   createbuckets:
-    image: public.ecr.aws/aws-cli/aws-cli:2.37.4
+    image: public.ecr.aws/aws-cli/aws-cli:2.37.9
     container_name: srh-createbuckets-prod
     restart: 'no'
     depends_on:

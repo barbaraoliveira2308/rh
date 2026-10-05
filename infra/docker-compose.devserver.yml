@@ -51,7 +51,7 @@ services:
 
   # Armazenamento S3 (RustFS, Apache-2.0), versão fixada — ver DEPLOY_PORTAINER.md.
   rustfs:
-    image: rustfs/rustfs:1.0.0
+    image: rustfs/rustfs:1.0.1
     container_name: srh-rustfs-devserver
     restart: unless-stopped
     environment:
@@ -69,7 +69,7 @@ services:
   # falham com NoSuchBucket — nem o compose nem o StorageService criam o bucket.
   # AWS CLI (cliente S3 genérico): não tem `mb --ignore-existing`, daí o `head-bucket` antes.
   createbuckets:
-    image: public.ecr.aws/aws-cli/aws-cli:2.37.4
+    image: public.ecr.aws/aws-cli/aws-cli:2.37.9
     container_name: srh-createbuckets-devserver
     restart: 'no'
     depends_on:
@@ -110,7 +110,7 @@ services:
       retries: 3
 
   mailpit:
-    image: axllent/mailpit:v1.31.3
+    image: axllent/mailpit:v1.31.4
     container_name: srh-mailpit-devserver
     restart: unless-stopped
     ports:
@@ -214,7 +214,7 @@ services:
   #   deploy passa a buildar de raiz (mais lento), em troca de a cache nunca acumular.
   # ⚠️ O socket do Docker dá a este contentor controlo total do Docker do host (equivale a root).
   prune:
-    image: docker:29.8.1-cli
+    image: docker:29.8.2-cli
     container_name: srh-prune-devserver
     restart: 'no'
     depends_on:

@@ -187,7 +187,7 @@ renovate:
   stage: test
   needs: []
   # Versão exata: com o `pull_policy: if-not-present` do runner, uma tag móvel nunca se atualizava.
-  image: renovate/renovate:44.124.1
+  image: renovate/renovate:44.133.0
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $RENOVATE_TOKEN
   # Um push para o `develop` a meio da execução não deve interromper o Renovate.
