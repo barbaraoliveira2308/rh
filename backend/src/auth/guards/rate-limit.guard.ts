@@ -5,34 +5,42 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
+import { RateLimitStoreService } from '../rate-limit/rate-limit-store.service';
+import { RateLimitStorePolicy } from '../rate-limit/rate-limit-store';
+import { RATE_LIMIT_ON_STORE_UNAVAILABLE_KEY } from '../decorators/rate-limit-on-store-unavailable.decorator';
 
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
-}
+// Um único contador por IP, partilhado por todas as rotas que usam este guard (hoje `login` e
+// `login/mfa`), como antes de R-061 (decisão P107-07).
+const RATE_LIMIT_BUCKET = 'login';
 
 @Injectable()
 export class RateLimitGuard implements CanActivate {
-  private readonly store = new Map<string, RateLimitEntry>();
   private readonly maxRequests = 10;
-  private readonly windowMs = 60_000;
+  private readonly windowSeconds = 60;
 
-  canActivate(context: ExecutionContext): boolean {
+  constructor(
+    private readonly store: RateLimitStoreService,
+    private readonly reflector: Reflector,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
     const ip = request.ip ?? 'unknown';
-    const now = Date.now();
+    const onStoreUnavailable =
+      this.reflector.getAllAndOverride<RateLimitStorePolicy | undefined>(
+        RATE_LIMIT_ON_STORE_UNAVAILABLE_KEY,
+        [context.getHandler(), context.getClass()],
+      ) ?? 'memory';
 
-    let entry = this.store.get(ip);
+    const count = await this.store.hit(
+      `${RATE_LIMIT_BUCKET}:${ip}`,
+      this.windowSeconds,
+      onStoreUnavailable,
+    );
 
-    if (!entry || now > entry.resetAt) {
-      entry = { count: 0, resetAt: now + this.windowMs };
-      this.store.set(ip, entry);
-    }
-
-    entry.count++;
-
-    if (entry.count > this.maxRequests) {
+    if (count > this.maxRequests) {
       throw new HttpException(
         'Demasiados pedidos. Tente novamente mais tarde.',
         HttpStatus.TOO_MANY_REQUESTS,

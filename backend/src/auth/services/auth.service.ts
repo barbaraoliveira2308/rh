@@ -5,19 +5,18 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, IsNull, LessThan, Or, Repository } from 'typeorm';
+import { IsNull, LessThan, Or, Repository } from 'typeorm';
 import * as argon2 from 'argon2';
 import * as crypto from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { User } from '../entities/user.entity';
-import { Session } from '../entities/session.entity';
 import { UserRole } from '../entities/user-role.entity';
 import { PasswordResetToken } from '../entities/password-reset-token.entity';
 import { PasswordHistory } from '../entities/password-history.entity';
 import { MfaRecoveryCode } from '../entities/mfa-recovery-code.entity';
 import { JwtService } from './jwt.service';
 import { MfaService } from './mfa.service';
-import { SessionActivityService } from './session-activity.service';
+import { SessionsService } from './sessions.service';
 import { CacheService } from '../../cache/cache.service';
 import { AdminService } from '../../admin/admin.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
@@ -26,6 +25,8 @@ import { AuditService } from '../../audit/services/audit.service';
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 const PASSWORD_HISTORY_ENTRIES_KEPT = 4;
 const MFA_CHALLENGE_TTL_MS = 5 * 60 * 1000;
+// Validade da sessão e do refresh token; renovada a cada refresh, como a chave em cache fazia.
+const SESSION_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
 
 const LOGIN_USER_FIELDS: (keyof User)[] = [
   'id',
@@ -59,8 +60,6 @@ export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(Session)
-    private readonly sessionRepository: Repository<Session>,
     @InjectRepository(UserRole)
     private readonly userRoleRepository: Repository<UserRole>,
     @InjectRepository(PasswordResetToken)
@@ -71,7 +70,8 @@ export class AuthService {
     private readonly mfaRecoveryCodeRepository: Repository<MfaRecoveryCode>,
     private readonly jwtService: JwtService,
     private readonly mfaService: MfaService,
-    private readonly sessionActivity: SessionActivityService,
+    private readonly sessions: SessionsService,
+    // Só para o desafio MFA do login (decisão P107-11); as sessões vivem em hr.sessions.
     private readonly cacheService: CacheService,
     private readonly configService: ConfigService,
     private readonly adminService: AdminService,
@@ -210,22 +210,12 @@ export class AuthService {
     const accessHash = this.jwtService.computeTokenHash(tokens.accessToken);
     const refreshHash = this.jwtService.computeTokenHash(tokens.refreshToken);
 
-    const session = this.sessionRepository.create({
-      userId: user.id,
-      tokenHash: accessHash,
-      ipAddress: ip ?? 'unknown',
-      userAgent: userAgent ?? null,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    });
-    await this.sessionRepository.save(session);
-
-    // O valor da chave é o id da sessão: é por ele que o JwtAuthGuard encontra a atividade.
-    await this.cacheService.set(`session:${accessHash}`, session.id, 15 * 60 * 1000);
-    await this.sessionActivity.touch(session.id);
-    await this.cacheService.set(
-      `refresh:${refreshHash}`,
-      JSON.stringify({ userId: user.id, sessionId: session.id }),
-      7 * 24 * 60 * 60 * 1000,
+    await this.sessions.create(
+      user.id,
+      accessHash,
+      refreshHash,
+      new Date(Date.now() + SESSION_LIFETIME_MS),
+      { ipAddress: ip ?? 'unknown', userAgent: userAgent ?? null },
     );
 
     return {
@@ -238,40 +228,36 @@ export class AuthService {
         roles,
       },
       mfaSetupRequired,
-      sessionTimeoutMinutes: await this.sessionActivity.timeoutMinutes(),
+      sessionTimeoutMinutes: await this.sessions.timeoutMinutes(),
     };
   }
 
   async logout(tokenHash: string): Promise<void> {
-    await this.cacheService.del(`session:${tokenHash}`);
-    await this.sessionRepository.update({ tokenHash }, { revokedAt: new Date() });
+    const session = await this.sessions.findByTokenHash(tokenHash);
+    if (session) {
+      await this.sessions.revoke(session.id);
+    }
   }
 
   async refresh(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
     const payload = this.jwtService.verifyRefreshToken(refreshToken);
     const oldRefreshHash = this.jwtService.computeTokenHash(refreshToken);
 
-    const sessionData = await this.cacheService.get(`refresh:${oldRefreshHash}`);
-    if (!sessionData) {
+    // Um refresh token já rodado deixa de estar na linha da sessão e não é encontrado.
+    const session = await this.sessions.findByRefreshTokenHash(oldRefreshHash);
+    if (!session || session.expiresAt <= new Date()) {
       throw new UnauthorizedException('Refresh token inválido ou expirado');
     }
 
-    const parsed = JSON.parse(sessionData) as { userId: string; sessionId: string };
-
-    await this.cacheService.del(`refresh:${oldRefreshHash}`);
-
-    // O logout marca a sessão como revogada em hr.sessions mas não consegue apagar a chave
-    // `refresh:<hash>` (não conhece o hash do refresh token), pelo que a revogação tem de ser
-    // verificada aqui — vale também para changePassword()/confirmResetPassword().
-    const session = await this.sessionRepository.findOneBy({ id: parsed.sessionId });
-    if (!session || session.revokedAt) {
+    // Logout, troca/reset de password e MFA revogam a sessão (UC-AUTH-004).
+    if (session.revokedAt) {
       throw new UnauthorizedException('Sessão revogada ou inexistente');
     }
 
     // BR-AUTH-005: o refresh não conta como atividade (o frontend também o faz a partir do
     // polling) e não reanima uma sessão já inativa — revoga-a.
-    if (!(await this.sessionActivity.isActive(session.id))) {
-      await this.sessionRepository.update({ id: session.id }, { revokedAt: new Date() });
+    if (!(await this.sessions.isActive(session.id))) {
+      await this.sessions.revoke(session.id);
       throw new UnauthorizedException('Sessão terminada por inatividade');
     }
 
@@ -294,14 +280,17 @@ export class AuthService {
     const newAccessHash = this.jwtService.computeTokenHash(newAccessToken);
     const newRefreshHash = this.jwtService.computeTokenHash(newRefreshToken);
 
-    await this.sessionRepository.update({ id: parsed.sessionId }, { tokenHash: newAccessHash });
-
-    await this.cacheService.set(`session:${newAccessHash}`, parsed.sessionId, 15 * 60 * 1000);
-    await this.cacheService.set(
-      `refresh:${newRefreshHash}`,
-      JSON.stringify({ userId: user.id, sessionId: parsed.sessionId }),
-      7 * 24 * 60 * 60 * 1000,
+    // O access token anterior deixa de ser aceite: a linha só guarda o hash do mais recente.
+    const rotated = await this.sessions.rotate(
+      session.id,
+      oldRefreshHash,
+      newAccessHash,
+      newRefreshHash,
+      new Date(Date.now() + SESSION_LIFETIME_MS),
     );
+    if (!rotated) {
+      throw new UnauthorizedException('Refresh token inválido ou expirado');
+    }
 
     return {
       accessToken: newAccessToken,
@@ -432,22 +421,11 @@ export class AuthService {
     return { sessionEnded: mandatory };
   }
 
-  // Revoga as sessões ativas do utilizador, exceto a indicada, e apaga-as da cache para que os
-  // access tokens deixem de funcionar logo (e não só o refresh).
+  // Revoga as sessões ativas do utilizador, exceto a indicada; os access tokens deixam de
+  // funcionar logo, porque o JwtAuthGuard valida cada pedido contra hr.sessions.
   private async endSessions(userId: string, keepTokenHash?: string): Promise<void> {
-    const sessions = await this.sessionRepository.find({ where: { userId, revokedAt: IsNull() } });
-    const ended = sessions.filter((session) => session.tokenHash !== keepTokenHash);
-    if (ended.length === 0) {
-      return;
-    }
-
-    await this.sessionRepository.update(
-      { id: In(ended.map((session) => session.id)) },
-      { revokedAt: new Date() },
-    );
-    await Promise.all(
-      ended.map((session) => this.cacheService.del(`session:${session.tokenHash}`)),
-    );
+    const kept = keepTokenHash ? await this.sessions.findByTokenHash(keepTokenHash) : null;
+    await this.sessions.revokeAllForUser(userId, kept?.id);
   }
 
   // R-065: um código TOTP só é aceite uma vez. O UPDATE condicional grava o passo usado e falha se
@@ -533,7 +511,8 @@ export class AuthService {
     });
     await this.recordPasswordHistory(userId, user.passwordHash);
 
-    await this.sessionRepository.update({ userId, revokedAt: IsNull() }, { revokedAt: new Date() });
+    // Decisão P107-06: termina todas as sessões, incluindo a de quem trocou a password.
+    await this.sessions.revokeAllForUser(userId);
   }
 
   private async ensurePasswordNotReused(
@@ -639,10 +618,7 @@ export class AuthService {
     resetToken.usedAt = new Date();
     await this.passwordResetTokenRepository.save(resetToken);
 
-    await this.sessionRepository.update(
-      { userId: resetToken.userId, revokedAt: IsNull() },
-      { revokedAt: new Date() },
-    );
+    await this.sessions.revokeAllForUser(resetToken.userId);
 
     this.auditService.log({
       userId: resetToken.userId,

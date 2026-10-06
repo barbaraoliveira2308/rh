@@ -6,13 +6,12 @@ import * as argon2 from 'argon2';
 import { AuthService, LoginSuccess } from './auth.service';
 import { JwtService } from './jwt.service';
 import { MfaService } from './mfa.service';
-import { SessionActivityService } from './session-activity.service';
+import { SessionsService } from './sessions.service';
 import { CacheService } from '../../cache/cache.service';
 import { AdminService } from '../../admin/admin.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
 import { AuditService } from '../../audit/services/audit.service';
 import { User } from '../entities/user.entity';
-import { Session } from '../entities/session.entity';
 import { UserRole } from '../entities/user-role.entity';
 import { PasswordResetToken } from '../entities/password-reset-token.entity';
 import { PasswordHistory } from '../entities/password-history.entity';
@@ -23,7 +22,6 @@ jest.mock('argon2');
 describe('AuthService', () => {
   let service: AuthService;
   let mockUserRepo: Record<string, jest.Mock>;
-  let mockSessionRepo: Record<string, jest.Mock>;
   let mockUserRoleRepo: Record<string, jest.Mock>;
   let mockPasswordResetTokenRepo: Record<string, jest.Mock>;
   let mockPasswordHistoryRepo: Record<string, jest.Mock>;
@@ -31,7 +29,7 @@ describe('AuthService', () => {
   let mockJwtService: Record<string, jest.Mock>;
   let mockMfaService: Record<string, jest.Mock>;
   let mockCacheService: Record<string, jest.Mock>;
-  let mockSessionActivity: Record<string, jest.Mock>;
+  let mockSessions: Record<string, jest.Mock>;
   let mockConfigService: Record<string, jest.Mock>;
   let mockAdminService: Record<string, jest.Mock>;
   let mockNotificationsService: Record<string, jest.Mock>;
@@ -57,16 +55,6 @@ describe('AuthService', () => {
       findOne: jest.fn(),
       findOneBy: jest.fn(),
       update: jest.fn().mockResolvedValue({ affected: 1 }),
-    };
-    mockSessionRepo = {
-      create: jest.fn((data: Partial<Session>) => data),
-      // Como no TypeORM, o save atribui o id à própria entidade.
-      save: jest.fn((data: Partial<Session>) =>
-        Promise.resolve(Object.assign(data, { id: 'session-1' })),
-      ),
-      update: jest.fn(),
-      findOneBy: jest.fn(() => Promise.resolve({ id: 'session-1', revokedAt: null })),
-      find: jest.fn().mockResolvedValue([]),
     };
     mockUserRoleRepo = {
       find: jest.fn().mockResolvedValue([]),
@@ -112,10 +100,20 @@ describe('AuthService', () => {
       set: jest.fn(),
       del: jest.fn(),
     };
-    mockSessionActivity = {
+    mockSessions = {
+      create: jest.fn().mockResolvedValue({ id: 'session-1' }),
+      timeoutMinutes: jest.fn().mockResolvedValue(30),
       touch: jest.fn(),
       isActive: jest.fn().mockResolvedValue(true),
-      timeoutMinutes: jest.fn().mockResolvedValue(30),
+      findByTokenHash: jest.fn().mockResolvedValue(null),
+      findByRefreshTokenHash: jest.fn().mockResolvedValue({
+        id: 'session-1',
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      }),
+      rotate: jest.fn().mockResolvedValue(true),
+      revoke: jest.fn(),
+      revokeAllForUser: jest.fn(),
     };
     mockConfigService = {
       // Origens distintas de propósito: FRONTEND_URL é a SPA, APP_URL é o backend. Os testes
@@ -142,7 +140,6 @@ describe('AuthService', () => {
       providers: [
         AuthService,
         { provide: getRepositoryToken(User), useValue: mockUserRepo },
-        { provide: getRepositoryToken(Session), useValue: mockSessionRepo },
         { provide: getRepositoryToken(UserRole), useValue: mockUserRoleRepo },
         { provide: getRepositoryToken(PasswordResetToken), useValue: mockPasswordResetTokenRepo },
         { provide: getRepositoryToken(PasswordHistory), useValue: mockPasswordHistoryRepo },
@@ -150,7 +147,7 @@ describe('AuthService', () => {
         { provide: JwtService, useValue: mockJwtService },
         { provide: MfaService, useValue: mockMfaService },
         { provide: CacheService, useValue: mockCacheService },
-        { provide: SessionActivityService, useValue: mockSessionActivity },
+        { provide: SessionsService, useValue: mockSessions },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: AdminService, useValue: mockAdminService },
         { provide: NotificationsService, useValue: mockNotificationsService },
@@ -227,7 +224,7 @@ describe('AuthService', () => {
         5 * 60 * 1000,
       );
       expect(mockJwtService.generateTokenPair).not.toHaveBeenCalled();
-      expect(mockSessionRepo.save).not.toHaveBeenCalled();
+      expect(mockSessions.create).not.toHaveBeenCalled();
       // O contador só é reposto quando a sessão é emitida.
       expect(mockUserRepo.update).not.toHaveBeenCalled();
     });
@@ -250,15 +247,17 @@ describe('AuthService', () => {
         'user-1',
         expect.objectContaining({ failedLoginCount: 0, lockedUntil: null }),
       );
-      expect(mockSessionRepo.save).toHaveBeenCalled();
-      expect(mockCacheService.set).toHaveBeenCalledTimes(2);
-      // BR-AUTH-005: a chave de sessão guarda o id da sessão e o relógio de inatividade arranca.
-      expect(mockCacheService.set).toHaveBeenCalledWith(
-        'session:hash(access-token)',
-        'session-1',
-        15 * 60 * 1000,
+      // R-061: a sessão vive em hr.sessions, com os hashes dos dois tokens; nada vai para a cache.
+      expect(mockSessions.create).toHaveBeenCalledWith(
+        'user-1',
+        'hash(access-token)',
+        'hash(refresh-token)',
+        expect.any(Date),
+        { ipAddress: '127.0.0.1', userAgent: null },
       );
-      expect(mockSessionActivity.touch).toHaveBeenCalledWith('session-1');
+      const expiresAt = (mockSessions.create.mock.calls[0] as unknown[])[3] as Date;
+      expect(expiresAt.getTime()).toBeGreaterThan(Date.now() + 7 * 24 * 60 * 60 * 1000 - 5_000);
+      expect(mockCacheService.set).not.toHaveBeenCalled();
       expect(result.sessionTimeoutMinutes).toBe(30);
     });
 
@@ -355,7 +354,7 @@ describe('AuthService', () => {
         'user-1',
         expect.objectContaining({ failedLoginCount: 0, lockedUntil: null }),
       );
-      expect(mockSessionRepo.save).toHaveBeenCalled();
+      expect(mockSessions.create).toHaveBeenCalled();
     });
 
     it('deve aceitar um código de recuperação por usar', async () => {
@@ -381,7 +380,7 @@ describe('AuthService', () => {
       );
       // O desafio sobrevive a um código errado, para o utilizador poder corrigir.
       expect(mockCacheService.del).not.toHaveBeenCalled();
-      expect(mockSessionRepo.save).not.toHaveBeenCalled();
+      expect(mockSessions.create).not.toHaveBeenCalled();
     });
 
     it('deve bloquear a conta e invalidar o desafio ao atingir o limite de falhas', async () => {
@@ -410,107 +409,112 @@ describe('AuthService', () => {
   });
 
   describe('logout', () => {
-    it('deve remover a sessão da cache e marcar como revogada', async () => {
+    it('deve revogar a sessão do access token em hr.sessions', async () => {
+      mockSessions.findByTokenHash.mockResolvedValue({ id: 'session-1' });
+
       await service.logout('hash-1');
 
-      expect(mockCacheService.del).toHaveBeenCalledWith('session:hash-1');
-      expect(mockSessionRepo.update).toHaveBeenCalledWith(
-        { tokenHash: 'hash-1' },
-        { revokedAt: expect.any(Date) as Date },
-      );
+      expect(mockSessions.findByTokenHash).toHaveBeenCalledWith('hash-1');
+      expect(mockSessions.revoke).toHaveBeenCalledWith('session-1');
+    });
+
+    it('não deve falhar se a sessão já não existir', async () => {
+      await service.logout('hash-1');
+
+      expect(mockSessions.revoke).not.toHaveBeenCalled();
     });
   });
 
   describe('refresh', () => {
-    it('deve lançar UnauthorizedException se o refresh token não estiver na cache', async () => {
-      mockCacheService.get.mockResolvedValue(null);
+    it('deve lançar UnauthorizedException se o refresh token não pertencer a nenhuma sessão', async () => {
+      mockSessions.findByRefreshTokenHash.mockResolvedValue(null);
 
-      await expect(service.refresh('refresh-token')).rejects.toThrow(UnauthorizedException);
-    });
-
-    it('deve lançar UnauthorizedException se a sessão tiver sido revogada (UC-AUTH-004 passo 2)', async () => {
-      mockCacheService.get.mockResolvedValue(
-        JSON.stringify({ userId: 'user-1', sessionId: 'session-1' }),
+      await expect(service.refresh('refresh-token')).rejects.toThrow(
+        'Refresh token inválido ou expirado',
       );
-      mockSessionRepo.findOneBy.mockResolvedValue({ id: 'session-1', revokedAt: new Date() });
-
-      await expect(service.refresh('refresh-token')).rejects.toThrow(UnauthorizedException);
+      expect(mockSessions.findByRefreshTokenHash).toHaveBeenCalledWith('hash(refresh-token)');
       expect(mockJwtService.generateAccessToken).not.toHaveBeenCalled();
     });
 
-    it('deve lançar UnauthorizedException se a sessão não existir (decisão P090-02)', async () => {
-      mockCacheService.get.mockResolvedValue(
-        JSON.stringify({ userId: 'user-1', sessionId: 'session-inexistente' }),
-      );
-      mockSessionRepo.findOneBy.mockResolvedValue(null);
+    it('deve lançar UnauthorizedException se a sessão já tiver expirado', async () => {
+      mockSessions.findByRefreshTokenHash.mockResolvedValue({
+        id: 'session-1',
+        revokedAt: null,
+        expiresAt: new Date(Date.now() - 1000),
+      });
 
-      await expect(service.refresh('refresh-token')).rejects.toThrow(UnauthorizedException);
+      await expect(service.refresh('refresh-token')).rejects.toThrow(
+        'Refresh token inválido ou expirado',
+      );
+    });
+
+    it('deve lançar UnauthorizedException se a sessão tiver sido revogada (UC-AUTH-004 passo 2)', async () => {
+      mockSessions.findByRefreshTokenHash.mockResolvedValue({
+        id: 'session-1',
+        revokedAt: new Date(),
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+
+      await expect(service.refresh('refresh-token')).rejects.toThrow(
+        'Sessão revogada ou inexistente',
+      );
       expect(mockJwtService.generateAccessToken).not.toHaveBeenCalled();
     });
 
     it('deve recusar e revogar uma sessão inativa há mais do que o timeout (BR-AUTH-005)', async () => {
-      mockCacheService.get.mockResolvedValue(
-        JSON.stringify({ userId: 'user-1', sessionId: 'session-1' }),
-      );
-      mockSessionActivity.isActive.mockResolvedValue(false);
+      mockSessions.isActive.mockResolvedValue(false);
 
       await expect(service.refresh('refresh-token')).rejects.toThrow(
         'Sessão terminada por inatividade',
       );
 
-      expect(mockSessionRepo.update).toHaveBeenCalledWith(
-        { id: 'session-1' },
-        { revokedAt: expect.any(Date) as Date },
-      );
+      expect(mockSessions.revoke).toHaveBeenCalledWith('session-1');
       expect(mockJwtService.generateAccessToken).not.toHaveBeenCalled();
     });
 
     it('não deve contar o refresh como atividade', async () => {
-      mockCacheService.get.mockResolvedValue(
-        JSON.stringify({ userId: 'user-1', sessionId: 'session-1' }),
-      );
       mockUserRepo.findOneBy.mockResolvedValue({ ...baseUser });
 
       await service.refresh('refresh-token');
 
-      expect(mockSessionActivity.touch).not.toHaveBeenCalled();
-      expect(mockCacheService.set).toHaveBeenCalledWith(
-        'session:hash(new-access-token)',
-        'session-1',
-        15 * 60 * 1000,
-      );
+      expect(mockSessions.touch).not.toHaveBeenCalled();
     });
 
     it('deve lançar UnauthorizedException se o utilizador estiver inativo', async () => {
-      mockCacheService.get.mockResolvedValue(
-        JSON.stringify({ userId: 'user-1', sessionId: 'session-1' }),
-      );
       mockUserRepo.findOneBy.mockResolvedValue({ ...baseUser, isActive: false });
 
       await expect(service.refresh('refresh-token')).rejects.toThrow(UnauthorizedException);
+      expect(mockSessions.rotate).not.toHaveBeenCalled();
     });
 
-    it('deve gerar novos tokens e atualizar a sessão', async () => {
-      mockCacheService.get.mockResolvedValue(
-        JSON.stringify({ userId: 'user-1', sessionId: 'session-1' }),
-      );
+    it('deve gerar novos tokens e rodar os dois hashes na sessão', async () => {
       mockUserRepo.findOneBy.mockResolvedValue({ ...baseUser });
 
       const result = await service.refresh('refresh-token');
 
       expect(result.accessToken).toBe('new-access-token');
       expect(result.refreshToken).toBe('new-refresh-token');
-      expect(mockSessionRepo.update).toHaveBeenCalledWith(
-        { id: 'session-1' },
-        { tokenHash: 'hash(new-access-token)' },
+      expect(mockSessions.rotate).toHaveBeenCalledWith(
+        'session-1',
+        'hash(refresh-token)',
+        'hash(new-access-token)',
+        'hash(new-refresh-token)',
+        expect.any(Date),
       );
-      expect(mockCacheService.del).toHaveBeenCalledWith('refresh:hash(refresh-token)');
+      const expiresAt = (mockSessions.rotate.mock.calls[0] as unknown[])[4] as Date;
+      expect(expiresAt.getTime()).toBeGreaterThan(Date.now() + 7 * 24 * 60 * 60 * 1000 - 5_000);
+    });
+
+    it('deve recusar se outro refresh já tiver rodado o mesmo token', async () => {
+      mockUserRepo.findOneBy.mockResolvedValue({ ...baseUser });
+      mockSessions.rotate.mockResolvedValue(false);
+
+      await expect(service.refresh('refresh-token')).rejects.toThrow(
+        'Refresh token inválido ou expirado',
+      );
     });
 
     it('deve recalcular o âmbito limitado do token para um admin sem MFA', async () => {
-      mockCacheService.get.mockResolvedValue(
-        JSON.stringify({ userId: 'user-1', sessionId: 'session-1' }),
-      );
       mockUserRepo.findOneBy.mockResolvedValue({ ...baseUser });
       mockUserRoleRepo.find.mockResolvedValue([{ role: { name: 'admin' } }]);
 
@@ -546,10 +550,8 @@ describe('AuthService', () => {
         'user-1',
         expect.objectContaining({ passwordHash: 'new-hash' }),
       );
-      expect(mockSessionRepo.update).toHaveBeenCalledWith(
-        { userId: 'user-1', revokedAt: expect.anything() as object },
-        { revokedAt: expect.any(Date) as Date },
-      );
+      // Decisão P107-06: todas, incluindo a de quem trocou/repôs a password.
+      expect(mockSessions.revokeAllForUser).toHaveBeenCalledWith('user-1');
     });
 
     it('deve lançar BadRequestException se a nova password for igual à atual (BR-AUTH-006)', async () => {
@@ -702,10 +704,8 @@ describe('AuthService', () => {
       expect(mockPasswordResetTokenRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({ usedAt: expect.any(Date) as Date }),
       );
-      expect(mockSessionRepo.update).toHaveBeenCalledWith(
-        { userId: 'user-1', revokedAt: expect.anything() as object },
-        { revokedAt: expect.any(Date) as Date },
-      );
+      // Decisão P107-06: todas, incluindo a de quem trocou/repôs a password.
+      expect(mockSessions.revokeAllForUser).toHaveBeenCalledWith('user-1');
       expect(mockAuditService.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'PASSWORD_RESET_COMPLETED', userId: 'user-1' }),
       );
@@ -800,10 +800,11 @@ describe('AuthService', () => {
   });
 
   describe('R-065 — reutilização de códigos e sessões', () => {
-    const openSessions = [
-      { id: 's-current', tokenHash: 'current-hash' },
-      { id: 's-other', tokenHash: 'other-hash' },
-    ];
+    beforeEach(() => {
+      mockSessions.findByTokenHash.mockImplementation((hash: string) =>
+        Promise.resolve(hash === 'current-hash' ? { id: 's-current' } : null),
+      );
+    });
 
     it('deve recusar um código TOTP cujo passo já foi aceite', async () => {
       mockUserRepo.findOne.mockResolvedValue({
@@ -830,41 +831,32 @@ describe('AuthService', () => {
         mfaEnabled: false,
       });
       mockMfaService.matchTotpStep.mockReturnValue(1000);
-      mockSessionRepo.find.mockResolvedValue(openSessions);
 
       await service.verifyMfa('user-1', '123456', 'current-hash');
 
-      expect(mockSessionRepo.update).toHaveBeenCalledWith(expect.anything(), {
-        revokedAt: expect.any(Date) as Date,
-      });
-      expect(mockCacheService.del).toHaveBeenCalledWith('session:other-hash');
-      expect(mockCacheService.del).not.toHaveBeenCalledWith('session:current-hash');
+      expect(mockSessions.revokeAllForUser).toHaveBeenCalledWith('user-1', 's-current');
     });
 
     it('ao desativar o MFA sem ser obrigatório, deve manter a sessão corrente', async () => {
       mockUserRepo.findOne.mockResolvedValue({ ...baseUser, mfaSecret: 'secret' });
       mockMfaService.matchTotpStep.mockReturnValue(1000);
       mockUserRoleRepo.find.mockResolvedValue([{ role: { name: 'employee' } }]);
-      mockSessionRepo.find.mockResolvedValue(openSessions);
 
       const result = await service.disableMfa('user-1', '123456', 'current-hash');
 
       expect(result).toEqual({ sessionEnded: false });
-      expect(mockCacheService.del).toHaveBeenCalledWith('session:other-hash');
-      expect(mockCacheService.del).not.toHaveBeenCalledWith('session:current-hash');
+      expect(mockSessions.revokeAllForUser).toHaveBeenCalledWith('user-1', 's-current');
     });
 
     it('ao desativar o MFA obrigatório de um admin, deve terminar todas as sessões (decisão P095-02)', async () => {
       mockUserRepo.findOne.mockResolvedValue({ ...baseUser, mfaSecret: 'secret' });
       mockMfaService.matchTotpStep.mockReturnValue(1000);
       mockUserRoleRepo.find.mockResolvedValue([{ role: { name: 'admin' } }]);
-      mockSessionRepo.find.mockResolvedValue(openSessions);
 
       const result = await service.disableMfa('user-1', '123456', 'current-hash');
 
       expect(result).toEqual({ sessionEnded: true });
-      expect(mockCacheService.del).toHaveBeenCalledWith('session:current-hash');
-      expect(mockCacheService.del).toHaveBeenCalledWith('session:other-hash');
+      expect(mockSessions.revokeAllForUser).toHaveBeenCalledWith('user-1', undefined);
     });
   });
 

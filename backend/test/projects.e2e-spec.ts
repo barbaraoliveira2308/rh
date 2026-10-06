@@ -10,6 +10,8 @@ import { Employee, EmployeeStatus } from '../src/users/entities/employee.entity'
 import { Client, ClientStatus } from '../src/clients/entities/client.entity';
 import { ProjectStatus } from '../src/projects/entities/project.entity';
 import { AllocationType } from '../src/projects/entities/project-allocation.entity';
+import { RATE_LIMIT_KEY_PREFIX } from '../src/auth/rate-limit/rate-limit-store';
+import { testRateLimitKeyPrefix } from './support/rate-limit';
 
 process.env.MFA_ENCRYPTION_KEY = 'change_me_mfa_key_32_bytes';
 
@@ -105,6 +107,8 @@ describe('Projects (e2e)', () => {
     })
       .overrideProvider(DataSource)
       .useValue(dataSource)
+      .overrideProvider(RATE_LIMIT_KEY_PREFIX)
+      .useValue(testRateLimitKeyPrefix())
       .compile();
 
     app = moduleFixture.createNestApplication();

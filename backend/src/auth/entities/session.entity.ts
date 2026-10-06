@@ -13,6 +13,7 @@ import { User } from './user.entity';
 @Index('idx_sessions_user_id', ['userId'])
 @Index('idx_sessions_token_hash', ['tokenHash'])
 @Index('idx_sessions_expires_at', ['expiresAt'])
+@Index('idx_sessions_refresh_token_hash', ['refreshTokenHash'], { unique: true })
 export class Session {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -22,6 +23,9 @@ export class Session {
 
   @Column({ type: 'varchar', length: 512, unique: true, nullable: false })
   tokenHash: string;
+
+  @Column({ type: 'varchar', length: 512, nullable: true })
+  refreshTokenHash: string | null;
 
   @Column({ type: 'varchar', length: 45, nullable: false })
   ipAddress: string;
@@ -34,6 +38,10 @@ export class Session {
 
   @Column({ type: 'timestamp', nullable: true })
   revokedAt: Date | null;
+
+  // Escrita só pela base de dados (`now()`), para que a comparação com o timeout use um único relógio.
+  @Column({ type: 'timestamp', nullable: false, default: () => 'now()' })
+  lastActivityAt: Date;
 
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;

@@ -8,14 +8,15 @@ import { rbacSeed } from '../src/database/seeds';
 import { hash } from 'argon2';
 import { TOTP, Secret } from 'otpauth';
 import { NotificationsService } from '../src/notifications/services/notifications.service';
-import { RateLimitGuard } from '../src/auth/guards/rate-limit.guard';
-import { CacheService } from '../src/cache/cache.service';
+import { RATE_LIMIT_KEY_PREFIX } from '../src/auth/rate-limit/rate-limit-store';
+import { deleteRateLimitKeys, testRateLimitKeyPrefix } from './support/rate-limit';
 
 process.env.MFA_ENCRYPTION_KEY = 'change_me_mfa_key_32_bytes';
 
 describe('Auth (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
+  const rateLimitKeyPrefix = testRateLimitKeyPrefix();
 
   beforeAll(async () => {
     dataSource = new DataSource({
@@ -33,6 +34,8 @@ describe('Auth (e2e)', () => {
     })
       .overrideProvider(DataSource)
       .useValue(dataSource)
+      .overrideProvider(RATE_LIMIT_KEY_PREFIX)
+      .useValue(rateLimitKeyPrefix)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -49,11 +52,12 @@ describe('Auth (e2e)', () => {
 
   // O RateLimitGuard conta 10 pedidos/minuto por IP e todos os pedidos da suite vêm do mesmo IP;
   // sem isto, cada teste que acrescenta um login desloca a falha para o fim da suite.
-  beforeEach(() => {
-    (app.get(RateLimitGuard) as unknown as { store: Map<string, unknown> }).store.clear();
+  beforeEach(async () => {
+    await deleteRateLimitKeys(rateLimitKeyPrefix);
   });
 
   afterAll(async () => {
+    await deleteRateLimitKeys(rateLimitKeyPrefix);
     await dataSource.destroy();
     if (app) {
       await app.close();
@@ -103,6 +107,17 @@ describe('Auth (e2e)', () => {
       expect(refreshRes.body.refreshToken).toBeDefined();
       expect(refreshRes.body.accessToken).not.toBe(loginRes.body.accessToken);
       expect(refreshRes.body.refreshToken).not.toBe(refreshToken);
+
+      // R-061: a rotação vive em hr.sessions — o refresh token antigo deixa de servir e o novo
+      // access token é aceite.
+      await request(app.getHttpServer())
+        .post('/api/auth/refresh')
+        .send({ refreshToken })
+        .expect(401);
+      await request(app.getHttpServer())
+        .get('/api/auth/me')
+        .set('Authorization', `Bearer ${refreshRes.body.accessToken as string}`)
+        .expect(200);
     });
 
     it('should return 401 for invalid refresh token', () => {
@@ -528,17 +543,22 @@ describe('Auth (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(204);
 
-      // Simula o fim do timeout: a chave de atividade expira sem pedidos do utilizador.
+      // Simula o fim do timeout: a última atividade fica para lá dos 30 min.
       const [session] = await dataSource.query<Array<{ id: string }>>(
         `SELECT s.id FROM hr.sessions s JOIN hr.users u ON u.id = s.user_id WHERE u.email = $1`,
         [email],
       );
-      await app.get(CacheService).del(`activity:${session.id}`);
+      await dataSource.query(
+        `UPDATE hr.sessions SET last_activity_at = now() - interval '31 minutes' WHERE id = $1`,
+        [session.id],
+      );
 
-      await request(app.getHttpServer())
+      const meRes = await request(app.getHttpServer())
         .get('/api/auth/me')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(401);
+      // A mesma resposta de antes de R-061 (o useIdleLogout depende dela).
+      expect(meRes.body.message).toBe('Sessão inválida ou expirada');
       const refreshRes = await request(app.getHttpServer())
         .post('/api/auth/refresh')
         .send({ refreshToken: loginRes.body.refreshToken })
@@ -564,12 +584,29 @@ describe('Auth (e2e)', () => {
         .expect(200);
 
       const accessToken = loginRes.body.accessToken;
+      const otherSession = (
+        await request(app.getHttpServer())
+          .post('/api/auth/login')
+          .send({ email: 'admin@hr-suite.local', password: 'Admin123!' })
+          .expect(200)
+      ).body.accessToken as string;
 
       await request(app.getHttpServer())
         .post('/api/auth/password/change')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({ oldPassword: 'Admin123!', newPassword: 'NewPass123!' })
         .expect(200);
+
+      // Decisão P107-06: a troca termina todas as sessões, incluindo a de quem a fez, e a
+      // revogação é imediata.
+      await request(app.getHttpServer())
+        .get('/api/auth/me')
+        .set('Authorization', `Bearer ${otherSession}`)
+        .expect(401);
+      await request(app.getHttpServer())
+        .get('/api/auth/me')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(401);
 
       const userRepo = dataSource.getRepository('User');
       await userRepo.update(

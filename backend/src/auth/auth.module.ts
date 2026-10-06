@@ -7,18 +7,22 @@ import { SessionActivityController } from './session-activity.controller';
 import { AuthService } from './services/auth.service';
 import { JwtService, EncryptionService } from './services';
 import { MfaService } from './services/mfa.service';
-import { SessionActivityService } from './services/session-activity.service';
+import { SessionsService } from './services/sessions.service';
 import { EmployeeIdentityService } from './services/employee-identity.service';
 import { JwtAuthGuard, SESSION_VALIDATOR } from './guards';
-import { SessionValidator } from './guards/jwt-auth.guard';
 import { RateLimitGuard } from './guards/rate-limit.guard';
+import { RateLimitStoreService } from './rate-limit/rate-limit-store.service';
+import { RedisRateLimitStore } from './rate-limit/redis-rate-limit.store';
+import {
+  DEFAULT_RATE_LIMIT_KEY_PREFIX,
+  RATE_LIMIT_KEY_PREFIX,
+} from './rate-limit/rate-limit-store';
 import {
   AuthAuditInterceptor,
   AUDIT_EVENT_HANDLER,
   AuditEvent,
   AuditEventHandler,
 } from './interceptors/auth-audit.interceptor';
-import { CacheService } from '../cache/cache.service';
 import { Employee } from '../users/entities/employee.entity';
 import { AuditModule } from '../audit/audit.module';
 import { AuditService } from '../audit/services/audit.service';
@@ -71,41 +75,27 @@ const AUTH_ACTION_BY_HANDLER: Record<string, string> = {
     JwtService,
     EncryptionService,
     MfaService,
-    SessionActivityService,
+    SessionsService,
     EmployeeIdentityService,
     AuthAuditInterceptor,
     RateLimitGuard,
+    RateLimitStoreService,
+    RedisRateLimitStore,
+    { provide: RATE_LIMIT_KEY_PREFIX, useValue: DEFAULT_RATE_LIMIT_KEY_PREFIX },
     {
       provide: JwtAuthGuard,
       useFactory: (
         jwtService: JwtService,
-        cacheService: CacheService,
-        sessionActivity: SessionActivityService,
+        sessions: SessionsService,
         reflector: Reflector,
       ): JwtAuthGuard => {
-        return new JwtAuthGuard(
-          jwtService,
-          {
-            isSessionActive: (tokenHash: string, countsAsActivity: boolean) =>
-              sessionActivity.validate(tokenHash, countsAsActivity),
-            invalidateSession: (tokenHash: string) => cacheService.del(`session:${tokenHash}`),
-          },
-          reflector,
-        );
+        return new JwtAuthGuard(jwtService, sessions, reflector);
       },
-      inject: [JwtService, CacheService, SessionActivityService, Reflector],
+      inject: [JwtService, SessionsService, Reflector],
     },
     {
       provide: SESSION_VALIDATOR,
-      useFactory: (
-        cacheService: CacheService,
-        sessionActivity: SessionActivityService,
-      ): SessionValidator => ({
-        isSessionActive: (tokenHash: string, countsAsActivity: boolean) =>
-          sessionActivity.validate(tokenHash, countsAsActivity),
-        invalidateSession: (tokenHash: string) => cacheService.del(`session:${tokenHash}`),
-      }),
-      inject: [CacheService, SessionActivityService],
+      useExisting: SessionsService,
     },
     {
       provide: AUDIT_EVENT_HANDLER,
@@ -166,6 +156,7 @@ const AUTH_ACTION_BY_HANDLER: Record<string, string> = {
     EncryptionService,
     JwtAuthGuard,
     SESSION_VALIDATOR,
+    RateLimitStoreService,
     EmployeeIdentityService,
     TypeOrmModule,
   ],
