@@ -15,7 +15,6 @@ import FolderOpenOutlined from '@mui/icons-material/FolderOpenOutlined';
 import GroupsOutlined from '@mui/icons-material/GroupsOutlined';
 import IconButton from '@mui/material/IconButton';
 import InboxOutlined from '@mui/icons-material/InboxOutlined';
-import InputAdornment from '@mui/material/InputAdornment';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -27,11 +26,9 @@ import MenuItem from '@mui/material/MenuItem';
 import NotificationsNoneOutlined from '@mui/icons-material/NotificationsNoneOutlined';
 import AccountCircleOutlined from '@mui/icons-material/AccountCircleOutlined';
 import PrivacyTipOutlined from '@mui/icons-material/PrivacyTipOutlined';
-import SearchOutlined from '@mui/icons-material/SearchOutlined';
 import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
 import ShieldOutlined from '@mui/icons-material/ShieldOutlined';
 import SpeedOutlined from '@mui/icons-material/SpeedOutlined';
-import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
@@ -94,7 +91,6 @@ export function AppLayout(): React.JSX.Element {
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const [searchValue, setSearchValue] = React.useState('');
   const [userMenuAnchor, setUserMenuAnchor] = React.useState<HTMLElement | null>(null);
   const { data: employeeProfile } = useQuery({
     queryKey: ['my-employee-profile'],
@@ -127,7 +123,7 @@ export function AppLayout(): React.JSX.Element {
     void navigate('/login');
   };
 
-  const drawerWidth = sidebarOpen ? 232 : 64;
+  const drawerWidth = sidebarOpen ? 240 : 64;
   const fullName = employeeProfile
     ? `${employeeProfile.firstName} ${employeeProfile.lastName}`
     : (user?.username ?? 'Utilizador');
@@ -141,28 +137,31 @@ export function AppLayout(): React.JSX.Element {
     navItems.find((item) => item.href === location.pathname)?.label ?? 'Dashboard';
 
   const drawerContent = (
-    <Box sx={{ height: '100%', bgcolor: '#082b4c', color: '#ffffff', overflow: 'hidden' }}>
+    <Box sx={{ height: '100%', bgcolor: '#EAF3FB', color: 'text.primary', overflow: 'hidden' }}>
       <Box
         sx={{
-          height: 44,
+          height: 64,
           display: 'flex',
           alignItems: 'center',
           justifyContent: sidebarOpen ? 'flex-start' : 'center',
-          px: sidebarOpen ? 1 : 0.75,
+          px: sidebarOpen ? 2.5 : 1.5,
         }}
       >
-        <GroupsOutlined aria-hidden="true" sx={{ mr: sidebarOpen ? 0.75 : 0, color: '#ffffff' }} />
+        <GroupsOutlined
+          aria-hidden="true"
+          sx={{ mr: sidebarOpen ? 1 : 0, color: 'primary.main' }}
+        />
         {sidebarOpen && (
           <Typography
-            variant="caption"
-            sx={{ fontWeight: 800, color: '#ffffff', whiteSpace: 'nowrap' }}
+            variant="subtitle1"
+            sx={{ fontWeight: 800, color: 'text.primary', whiteSpace: 'nowrap' }}
           >
             HR Suite
           </Typography>
         )}
       </Box>
-      <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
-      <List component="nav" aria-label="Navegação principal" sx={{ px: 0.75, py: 0.75 }}>
+      <Divider sx={{ borderColor: 'divider' }} />
+      <List component="nav" aria-label="Navegação principal" sx={{ px: 1, py: 1.5 }}>
         {navItems
           .filter((item) => !mfaSetupRequired || item.href === '/settings/security')
           .filter((item) => !adminOnlyRoutes.includes(item.href) || isAdmin)
@@ -183,24 +182,24 @@ export function AppLayout(): React.JSX.Element {
                   if (isMobile) setSidebarOpen(false);
                 }}
                 sx={{
-                  minHeight: 32,
-                  mb: 0.15,
-                  px: sidebarOpen ? 0.75 : 0.5,
+                  minHeight: 36,
+                  mb: 0.25,
+                  px: sidebarOpen ? 1 : 0.75,
                   justifyContent: sidebarOpen ? 'initial' : 'center',
-                  color: 'rgba(255,255,255,0.78)',
+                  color: 'text.secondary',
                   borderRadius: 1.5,
                   '& .MuiListItemIcon-root': {
                     color: 'inherit',
-                    minWidth: sidebarOpen ? 25 : 0,
+                    minWidth: sidebarOpen ? 28 : 0,
                     justifyContent: 'center',
-                    '& svg': { fontSize: 17 },
+                    '& svg': { fontSize: 18 },
                   },
                   '&.Mui-selected': {
-                    bgcolor: '#1267b1',
-                    color: '#ffffff',
-                    '&:hover': { bgcolor: '#1976c8' },
+                    bgcolor: 'rgba(25, 118, 210, 0.16)',
+                    color: 'primary.main',
+                    '&:hover': { bgcolor: 'rgba(25, 118, 210, 0.22)' },
                   },
-                  '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
+                  '&:hover': { bgcolor: 'rgba(25, 118, 210, 0.08)' },
                 }}
               >
                 <ListItemIcon>{item.icon}</ListItemIcon>
@@ -209,13 +208,12 @@ export function AppLayout(): React.JSX.Element {
                     primary={item.label}
                     slotProps={{
                       primary: {
-                        variant: 'caption',
+                        variant: 'body2',
                         sx: {
-                          fontSize: 10,
+                          fontSize: 13,
                           fontWeight: selected ? 700 : 500,
                           color: 'inherit',
-                          lineHeight: 1.1,
-                          whiteSpace: 'nowrap',
+                          lineHeight: 1.2,
                         },
                       },
                     }}
@@ -226,11 +224,9 @@ export function AppLayout(): React.JSX.Element {
                     size="small"
                     label={String(inboxCount?.count ?? 0)}
                     sx={{
-                      height: 19,
-                      minWidth: 20,
+                      height: 22,
                       bgcolor: 'primary.main',
                       color: 'common.white',
-                      '& .MuiChip-label': { px: 0.5, fontSize: 11 },
                     }}
                   />
                 )}
@@ -264,8 +260,8 @@ export function AppLayout(): React.JSX.Element {
             width: isMobile ? 240 : drawerWidth,
             boxSizing: 'border-box',
             border: 0,
-            bgcolor: '#082b4c',
-            color: '#ffffff',
+            bgcolor: '#EAF3FB',
+            color: 'text.primary',
             transition: theme.transitions.create('width'),
           },
         }}
@@ -299,35 +295,7 @@ export function AppLayout(): React.JSX.Element {
                 {activeRoute}
               </Typography>
             </Stack>
-            <Box
-              component="form"
-              onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
-                event.preventDefault();
-                const term = searchValue.trim();
-                void navigate(term ? `/users?search=${encodeURIComponent(term)}` : '/users');
-              }}
-              sx={{ flex: 1, maxWidth: 560, mx: 'auto' }}
-            >
-              <TextField
-                fullWidth
-                size="small"
-                value={searchValue}
-                onChange={(event) => {
-                  setSearchValue(event.target.value);
-                }}
-                placeholder="Pesquisar colaboradores, projetos, documentos..."
-                slotProps={{
-                  htmlInput: { 'aria-label': 'Pesquisar colaboradores, projetos e documentos' },
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchOutlined fontSize="small" color="action" />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-            </Box>
+            <Box sx={{ flex: 1 }} />
             <Tooltip title="Notificações">
               <IconButton
                 aria-label={`Notificações${(unreadCount?.count ?? 0) > 0 ? `, ${String(unreadCount?.count)} não lidas` : ''}`}
