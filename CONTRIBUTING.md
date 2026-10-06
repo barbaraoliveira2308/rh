@@ -73,28 +73,44 @@ O pipeline de CI é o `.gitlab-ci.yml` (GitLab CI, requer um runner com o execut
 e operação em [DEPLOY_PORTAINER.md](DEPLOY_PORTAINER.md#7-runner-do-gitlab-ci)). Corre em
 todos os merge requests e em cada push para `develop` e `main`:
 
-| Stage    | Job                   | O que faz                                                                           | Bloqueia |
-| -------- | --------------------- | ----------------------------------------------------------------------------------- | -------- |
-| `verify` | `lint`                | `pnpm run lint:ci` (ESLint sem `--fix`)                                             | Sim      |
-| `verify` | `format`              | `pnpm run format:check`                                                             | Sim      |
-| `verify` | `build:backend`       | build do backend                                                                    | Sim      |
-| `verify` | `build:frontend`      | typecheck + build do frontend                                                       | Sim      |
-| `test`   | `test:unit`           | testes unitários do backend, com relatório JUnit e cobertura                        | Sim      |
-| `test`   | `test:e2e`            | testes e2e do backend com PostgreSQL + Redis (`services:`)                          | Sim      |
-| `test`   | `audit`               | `pnpm audit --prod --audit-level high`                                              | Não      |
-| `test`   | SAST/Secret Detection | templates do GitLab (`backend/.env.test` excluído de propósito)                     | Não      |
-| `test`   | `kics-iac-sast`       | análise dos Dockerfiles e composes (template SAST-IaC)                              | Não      |
-| `test`   | `renovate`            | só no pipeline agendado — ver abaixo                                                | Não      |
-| `.post`  | `collect-metrics`     | só no `develop`: grava os resultados para o Grafana (DEPLOY_PORTAINER.md, secção 8) | Não      |
+| Stage    | Job                   | O que faz                                                                                                                                                         | Bloqueia           |
+| -------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `verify` | `lint`                | `pnpm run lint:ci` (ESLint sem `--fix`)                                                                                                                           | Sim                |
+| `verify` | `format`              | `pnpm run format:check`                                                                                                                                           | Sim                |
+| `verify` | `build:backend`       | build do backend                                                                                                                                                  | Sim                |
+| `verify` | `build:frontend`      | typecheck + build do frontend                                                                                                                                     | Sim                |
+| `verify` | `versions`            | Node no major esperado (20) e pnpm igual ao `packageManager`, no CI e em todas as imagens declaradas                                                              | Sim                |
+| `test`   | `test:unit`           | testes unitários do backend, com relatório JUnit e cobertura                                                                                                      | Sim                |
+| `test`   | `test:e2e`            | testes e2e do backend com PostgreSQL + Redis (`services:`)                                                                                                        | Sim                |
+| `test`   | `audit`               | `pnpm audit --prod --audit-level high`                                                                                                                            | Não                |
+| `test`   | SAST/Secret Detection | templates do GitLab (`backend/.env.test` excluído de propósito)                                                                                                   | Não                |
+| `test`   | `kics-iac-sast`       | análise dos Dockerfiles e composes (template SAST-IaC)                                                                                                            | Não                |
+| `test`   | `renovate`            | só no pipeline agendado — ver abaixo                                                                                                                              | Não                |
+| `images` | `build-images`        | só em pushes para o `develop`, depois de verificações e testes verdes: constrói o backend e o frontend e envia-os para o registry (DEPLOY_PORTAINER.md, secção 9) | Sim (no `develop`) |
+| `deploy` | `deploy:devserver`    | só em pushes para o `develop`: pede ao Portainer o redeploy do servidor de dev com as imagens novas                                                               | Sim (no `develop`) |
+| `.post`  | `collect-metrics`     | só no `develop`: grava os resultados para o Grafana (DEPLOY_PORTAINER.md, secção 8)                                                                               | Não                |
 
 Antes de abrir um MR, `pnpm run lint:ci` e `pnpm run format:check` reproduzem localmente os dois
 primeiros jobs. Os testes e2e do frontend (Playwright) ainda não correm no CI (`R-066`), nem a
 verificação de migrações face às entidades (`R-069`).
 
+**Mudar de versão do Node ou do pnpm** — o job `versions` falha até tudo bater certo:
+
+- Node (novo major): atualizar a imagem `node:` nos 4 Dockerfiles e no `.gitlab-ci.yml` **e** a variável
+  `EXPECTED_NODE_MAJOR` do job `versions`, no mesmo MR. Localmente:
+  `EXPECTED_NODE_MAJOR=20 sh scripts/ci/check-versions.sh`.
+- pnpm: atualizar o `packageManager` do `package.json` e os `corepack prepare pnpm@…` dos Dockerfiles,
+  no mesmo MR (o pnpm do CI vem sempre do `packageManager`).
+
 Os relatórios de segurança (SAST, Secret Detection, IaC) são ficheiros JSON nos artefactos de cada
 job; não bloqueiam o MR.
 
 ### Pipeline semanal e Renovate
+
+> **O Renovate fala com o GitLab pelo endereço interno** (`RENOVATE_ENDPOINT=http://10.1.30.40:50080/api/v4/`,
+> pelo túnel entre o servidor de dev e o servidor do GitLab), porque o nginx à frente do endereço
+> público `git.redstout.com` descodifica `%2F` e parte a API — ver `R-071` em
+> `specs/GLOBAL-TASKS-RISKS.md` e o troubleshooting no fim desta secção.
 
 Todas as segundas-feiras às 03:00 corre um pipeline agendado no `develop`: os mesmos jobs acima
 (apanha vulnerabilidades novas em código que não mudou) e ainda o `renovate`, que trata as
@@ -126,12 +142,33 @@ onboarding) estão no job `renovate` do `.gitlab-ci.yml`.
    scopes **`api`** e **`write_repository`**, com data de expiração (máximo permitido pela
    instância). Copiar o valor.
 2. **Variável:** _Settings → CI/CD → Variables → Add variable_ — chave `RENOVATE_TOKEN`, valor do
-   passo 1, **Masked** e **Protected** (o `develop` tem de ser um branch protegido).
+   passo 1, **Masked** e **Protected** (o `develop` tem de ser um branch protegido); e
+   `RENOVATE_ENDPOINT` = `http://10.1.30.40:50080/api/v4/` (com a `/` final), **Protected** — o
+   endereço interno da API do GitLab (`R-071`). Uma variável definida aqui tem precedência sobre o
+   valor do `.gitlab-ci.yml`. O endereço é `http`: o token viaja sem cifra, mas só dentro do túnel.
 3. **Agendamento:** _Build → Pipeline schedules → New schedule_ — descrição `Semanal`, padrão
    `0 3 * * 1`, fuso horário `Lisbon`, branch `develop`, ativo.
 4. **Teste:** na lista de agendamentos, _Run schedule pipeline_ (▶) — confirmar que o job
    `renovate` corre e que aparecem os MRs e o issue "Dependency Dashboard".
 
 Sem a variável `RENOVATE_TOKEN`, o pipeline agendado corre na mesma, só sem o job `renovate`.
+
+**`ERROR: Repository is not found` no job `renovate`, com um token válido:** o nginx à frente de
+`git.redstout.com` está a descodificar `%2F` nos URLs (descoberto em P-104/02). O Renovate pede o
+projeto pelo caminho codificado (`projects/bridge351%2Fsrh`), que chega ao GitLab como
+`projects/bridge351/srh` e dá 404 com qualquer token; pelo número (`projects/13`) funciona.
+Confirmar com:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -H "PRIVATE-TOKEN: <token>" \
+  "https://git.redstout.com/api/v4/projects/bridge351%2Fsrh"   # tem de dar 200
+```
+
+A correção definitiva é no nginx (administrador do servidor): `proxy_pass` sem caminho depois do
+endereço, para o pedido passar sem alterações. Até lá, o Renovate usa o endereço interno do GitLab
+(`RENOVATE_ENDPOINT`, passo 2 acima), onde o `%2F` chega intacto — confirmado a 2026-10-02:
+`http://10.1.30.40:50080/api/v4/projects/bridge351%2Fsrh` dá 200. Se esse endereço deixar de estar
+acessível a partir do servidor de dev, apagar a variável `RENOVATE_TOKEN` desativa o job sem deixar
+o pipeline semanal vermelho.
 Quando o token expirar, o job deixa de conseguir autenticar-se: criar um novo e atualizar a
 variável.
