@@ -11,6 +11,9 @@
 #
 # Tags por imagem: `develop` (a que o servidor de dev usa) e o SHA curto do commit (para voltar a
 # uma versão concreta). Localmente fica só a `develop`; as versões anteriores são apagadas.
+#
+# `--provenance=false --sbom=false`: sem eles, o Docker 29 envia um índice (imagem + atestação de
+# proveniência) que o registry do GitLab recusa com "blob unknown to registry" (P106-12).
 set -eu
 
 : "${SRH_REGISTRY:?}" "${CI_PROJECT_PATH:?}" "${CI_REGISTRY_USER:?}" "${CI_REGISTRY_PASSWORD:?}"
@@ -26,7 +29,7 @@ build() { # $1 = backend | frontend; restantes argumentos vão para o docker bui
   shift
   img="$REGISTRY_IMAGE/$name"
   echo "=== $img:$TAG ($CI_COMMIT_SHORT_SHA)"
-  docker build --label "$LABEL" -f "$name/Dockerfile" \
+  docker build --provenance=false --sbom=false --label "$LABEL" -f "$name/Dockerfile" \
     -t "$img:$TAG" -t "$img:$CI_COMMIT_SHORT_SHA" "$@" .
   docker push "$img:$TAG"
   docker push "$img:$CI_COMMIT_SHORT_SHA"
