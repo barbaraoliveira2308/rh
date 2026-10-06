@@ -1,8 +1,8 @@
 #!/bin/sh
-# Pede ao Portainer um redeploy do stack do servidor de dev (P-106), como o botão "Pull and redeploy"
-# da interface mas sem pull: atualiza o stack a partir do Git e recria os contentores com as imagens
-# locais que o job build-images acabou de construir no mesmo host (sem registry — ver R-072). O
-# Portainer recria sempre todos os serviços do stack. O Portainer CE não tem webhooks; isto usa a API.
+# Pede ao Portainer um "Pull and redeploy" do stack do servidor de dev (P-106), o mesmo que o botão
+# na interface: atualiza o stack a partir do Git, descarrega as imagens que o job build-images
+# acabou de enviar para o registry e recria os contentores. O Portainer recria sempre todos os
+# serviços do stack. O Portainer CE não tem webhooks; isto usa a API dele.
 #
 # A API de redeploy substitui as variáveis de ambiente do stack pelas que o pedido traz: por isso
 # lêem-se primeiro as atuais e reenviam-se sem alterações, e no fim confirma-se que não mudaram.
@@ -41,7 +41,7 @@ jq -e '(.Env // []) | length > 0' "$WORK/before.json" > /dev/null || {
 PAYLOAD=$(jq -c '{
     env: (.Env // []),
     prune: false,
-    pullImage: false,
+    pullImage: true,
     repositoryReferenceName: .GitConfig.ReferenceName,
     repositoryAuthentication: (.GitConfig.Authentication != null),
     repositoryUsername: (.GitConfig.Authentication.Username // "")
