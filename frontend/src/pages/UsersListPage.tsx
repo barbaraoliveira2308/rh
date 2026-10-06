@@ -1,13 +1,11 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Download, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { DataTable, type Column } from '@/components/DataTable';
 import { StatusBadge, type BadgeVariant } from '@/components/StatusBadge';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { SearchField } from '@/components/SearchField';
-import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -72,21 +70,6 @@ export function UsersListPage(): React.JSX.Element {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleExport = async (): Promise<void> => {
-    const result = await fetchEmployees({ ...filters, limit: 100 });
-    const blob = new Blob([JSON.stringify(result.data, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `colaboradores-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
   const columns: Column<Employee>[] = [
     {
       key: 'name',
@@ -130,20 +113,9 @@ export function UsersListPage(): React.JSX.Element {
       />
 
       <div className="mb-4 flex flex-col gap-4 sm:flex-row">
-        <div className="flex-1">
-          <div className="relative">
-            <SearchField
-              id="search"
-              placeholder="Pesquisar por nome ou email"
-              value={filters.search ?? ''}
-              onChange={(value) => {
-                updateFilter('search', value || undefined);
-              }}
-            />
-          </div>
-        </div>
+        <div className="flex-1"></div>
 
-        <div className="w-full sm:w-64">
+        <div className="w-full sm:w-64 ">
           <Select
             value={filters.departmentId ?? ''}
             onValueChange={(value) => {
@@ -183,11 +155,6 @@ export function UsersListPage(): React.JSX.Element {
             </SelectContent>
           </Select>
         </div>
-
-        <Button onClick={() => void handleExport()}>
-          <Download className="mr-2 h-4 w-4" />
-          Exportar
-        </Button>
       </div>
 
       {isLoading && (

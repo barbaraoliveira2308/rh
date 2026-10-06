@@ -17,8 +17,18 @@ export interface Announcement {
   status: 'draft' | 'published' | 'archived';
   publishedAt: string | null;
   createdAt: string;
-  author: { firstName: string; lastName: string };
+  author: {
+    id?: string;
+    firstName: string;
+    lastName: string;
+    department?: { id: string; name: string } | null;
+  };
   assets: AnnouncementAsset[];
+  forms?: {
+    id: string;
+    title: string;
+    fields: Record<string, unknown>[];
+  }[];
 }
 
 export interface AnnouncementFeed {

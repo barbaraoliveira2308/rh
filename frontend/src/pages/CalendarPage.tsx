@@ -53,7 +53,7 @@ import {
   type BlockedPeriod,
 } from '@/types/calendar';
 
-const ALL_TEAMS = 'all';
+const ALL_TEAMS = 'Todos os filtro de equipa';
 
 const legend: { color: string; label: string }[] = [
   { color: '#22C55E', label: 'Férias aprovadas' },

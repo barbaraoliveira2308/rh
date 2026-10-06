@@ -46,7 +46,7 @@ export class AnnouncementsService {
         status: query.status ?? AnnouncementStatus.PUBLISHED,
         ...(cursorDate ? { publishedAt: LessThan(cursorDate) } : {}),
       },
-      relations: { author: true, assets: true, forms: true },
+      relations: { author: { department: true }, assets: true, forms: true },
       order: { publishedAt: 'DESC', id: 'DESC' },
       take: limit + 1,
     });
@@ -99,7 +99,7 @@ export class AnnouncementsService {
   async findOne(id: string): Promise<Announcement> {
     const announcement = await this.announcementRepository.findOne({
       where: { id },
-      relations: { author: true, assets: true, forms: true },
+      relations: { author: { department: true }, assets: true, forms: true },
     });
     if (!announcement) throw new NotFoundException('Comunicado não encontrado');
     return announcement;
