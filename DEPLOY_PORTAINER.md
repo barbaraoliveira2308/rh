@@ -1,9 +1,9 @@
 # Servidor de desenvolvimento via Portainer (deploy automático do `develop`)
 
 Guia para montar o servidor de desenvolvimento partilhado do HR Suite num host Docker gerido pelo
-**Portainer Community Edition** (testado para 2.45.1 LTS), sem acesso SSH ao servidor. O Portainer
-acompanha o branch `develop` do repositório e, a cada commit novo, volta a buildar as imagens e a
-fazer redeploy do stack.
+**Portainer Community Edition** (testado para 2.45.1 LTS), sem acesso SSH ao servidor. A cada push
+para o `develop`, o CI constrói as imagens do backend e do frontend no Docker deste mesmo host e
+pede ao Portainer o redeploy do stack (secção 9); o Portainer já não constrói imagens.
 
 O stack usa `infra/docker-compose.devserver.yml`, derivado do compose de produção:
 
@@ -76,19 +76,15 @@ No Portainer: **Stacks → Add stack**.
 4. **Repository reference:** `refs/heads/develop`
 5. **Compose path:** `infra/docker-compose.devserver.yml`
 6. **Authentication:** ativo, com o username e o token do passo 2
-7. **GitOps updates:** ativo
-   - **Mechanism:** Polling, **Fetch interval:** `5m`
-   - **Force redeployment:** **desligado.** Esta opção faz o Portainer redeployar a cada intervalo
-     de polling mesmo sem commits novos — aqui isso significa um build de raiz e um reinício do
-     backend a cada 5 minutos. Não é precisa: o Portainer já redeploya a cada commit novo, e o
-     `pull_policy: build` do compose garante o rebuild das imagens.
-   - Se a tua versão oferecer a opção **Webhook**, podes usá-la em vez do polling: copia o URL
-     mostrado pelo Portainer e, no GitLab, em **Settings → Webhooks**, cria um webhook com
-     _Trigger_ **Push events** filtrado ao branch `develop`. Só funciona se o GitLab conseguir
-     chegar ao Portainer.
+7. **GitOps updates:** **desligado** depois de configurar a secção 9 (passo 8 dessa secção, pela API) — quem pede o redeploy é o CI,
+   depois de construir as imagens. Com o polling ligado, cada commit gera um redeploy extra
+   (com as imagens ainda antigas) e, no Portainer, qualquer redeploy reinicia todos os serviços do
+   stack. Até a secção 9 estar configurada, pode ficar ligado (polling, `5m`, **Force
+   redeployment** desligado).
 8. **Environment variables** → _Advanced mode_ → cola (substituindo os `<...>`):
 
 ```
+SRH_REGISTRY_IMAGE=10.1.30.40:50050/bridge351/srh
 POSTGRES_DB=srh
 POSTGRES_USER=srh_user
 POSTGRES_PASSWORD=<passo 3>
@@ -129,18 +125,23 @@ pelo qual os utilizadores abrem a aplicação.
      `sofia.almeida`, `rui.cardoso`, `beatriz.nunes` — todos `@hr-suite.local` / `Demo123!`
 5. `srh-prune-devserver` termina com código 0; os logs mostram o espaço recuperado.
 6. Pede uma recuperação de password e confirma que o email aparece em `http://<host>:8025/`.
-7. Faz um push para `develop` e confirma que, dentro do intervalo de polling, as imagens
-   `srh-devserver-backend` e `srh-devserver-frontend` (em **Images**) têm uma data de criação nova.
+7. Faz um push para `develop` e confirma que, no fim do pipeline, o job `deploy:devserver` passou e
+   que os contentores `srh-backend-devserver` e `srh-frontend-devserver` foram recriados (secção 9).
 
 ## 6. Operação
 
 ### Como funciona o redeploy
 
-A cada commit novo em `develop`, o Portainer atualiza o clone e corre o compose. `pull_policy: build`
-obriga a rebuildar as duas imagens em cada redeploy. Se o build falhar, os contentores antigos
-continuam a correr. O backend é recriado e volta a correr migrações, seed base e seed de demo — conta
-com algumas dezenas de segundos de indisponibilidade por deploy. No fim, o `prune` corre uma vez e
-termina.
+A cada push para o `develop`, depois de as verificações e os testes passarem, o job `build-images`
+constrói as imagens e envia-as para o registry, e o job `deploy:devserver` pede ao Portainer um
+**Pull and redeploy**: o Portainer atualiza o clone, descarrega as imagens `:develop` e recria os
+contentores. Se o pipeline falhar antes, nada muda no servidor de dev.
+
+No Portainer, um redeploy de um stack Git **recria todos os serviços** (Postgres, Redis, RustFS,
+RabbitMQ, Mailpit, backend, frontend), mesmo os que não mudaram — confirmado com o Portainer CE
+2.45.1. Os dados ficam nos volumes; conta com alguns segundos a dezenas de segundos de
+indisponibilidade por deploy. O backend volta a correr migrações, seed base e seed de demo. No fim,
+o `prune` corre uma vez e termina.
 
 ### Dados de demo
 
@@ -176,12 +177,12 @@ utilizadores com MFA a reconfigurá-lo.
 O serviço `srh-prune-devserver` corre no fim de cada deploy, depois de o backend e o frontend terem
 sido recriados, e termina:
 
-- `docker image prune` com o label do projeto: remove só imagens sem tag deste stack. Com o Docker 29
-  (image store do containerd) o próprio Docker já apaga a imagem antiga quando a nova fica com o
-  nome, pelo que isto é só uma rede de segurança.
-- `docker builder prune -a`: remove **toda** a cache de build do host, incluindo a de outros stacks
-  que corram no mesmo Docker. A cache nunca acumula, mas cada deploy builda de raiz (cerca de 2–3
-  minutos, sobretudo a instalação de dependências).
+- `docker image prune` das imagens do CI (label `srh.ci-image`) que ficaram sem tag e já não têm
+  contentores — as versões anteriores do backend e do frontend. O job `build-images` faz o mesmo;
+  isto é uma rede de segurança.
+- `docker builder prune --filter until=168h`: remove só a cache de build sem uso há mais de 7 dias.
+  A cache recente fica de propósito: é ela que permite ao `build-images` reaproveitar a instalação
+  de dependências quando o `pnpm-lock.yaml` não mudou.
 
 Para isso o contentor monta `/var/run/docker.sock`, o que lhe dá controlo total do Docker do host
 (equivale a acesso root). Só corre os dois comandos acima, a partir da imagem oficial
@@ -232,6 +233,7 @@ gitlab-runner register --non-interactive \
   --docker-image node:20.20.2-alpine \
   --docker-pull-policy if-not-present \
   --docker-volumes /cache \
+  --docker-volumes /var/run/docker.sock:/var/run/docker.sock \
   --docker-cpus 2 \
   --docker-memory 4g \
   --docker-service-cpus 1 \
@@ -242,6 +244,15 @@ sed -i 's/^concurrent = .*/concurrent = 4/' /etc/gitlab-runner/config.toml
 
 A configuração fica no volume `gitlab-runner-config`: recriar ou atualizar o stack não obriga a
 registar de novo. O runner relê o `config.toml` sozinho ao fim de alguns segundos.
+
+O socket do Docker (`--docker-volumes /var/run/docker.sock:…`) é usado pelo job `build-images`
+(secção 9) para construir as imagens no Docker do host. Num runner já registado sem ele, acrescentar
+na consola do contentor `gitlab-runner` (o runner relê o ficheiro sozinho):
+
+```bash
+sed -i 's|volumes = \["/cache"\]|volumes = ["/cache", "/var/run/docker.sock:/var/run/docker.sock"]|' /etc/gitlab-runner/config.toml
+grep volumes /etc/gitlab-runner/config.toml
+```
 
 ### Recursos
 
@@ -364,6 +375,126 @@ incluídos na imagem do Grafana.
 | Um scanner não aparece numa execução                       | O job desse scanner não correu ou não produziu relatório                                               | No log do `collect-metrics`: `Sem <ficheiro> — <scanner> ignorado` |
 | Dashboards com _No data_                                   | Ainda nenhum pipeline do `develop` gravado                                                             | Esperar pelo próximo pipeline, ou correr o agendamento à mão       |
 
+## 9. Imagens construídas pelo CI e redeploy
+
+Desde P-106, o Portainer deixou de construir as imagens do servidor de dev. Em cada push para o
+`develop`, depois de todas as verificações e testes passarem:
+
+1. o job `build-images` constrói o backend e o frontend no Docker deste host, com a cache de build
+   mantida entre pipelines (se o `pnpm-lock.yaml` não mudou, a instalação de dependências vem da
+   cache), e envia-os para o GitLab Container Registry com as tags `develop` e o SHA curto do
+   commit;
+2. o job `deploy:devserver` chama a API do Portainer — o mesmo que **Pull and redeploy** — para
+   atualizar o stack `srh-devserver` com as imagens novas. O Portainer CE não tem webhooks.
+
+O job lê primeiro as variáveis do stack, recusa continuar se vierem vazias, reenvia-as sem
+alterações (a API substitui-as pelas que o pedido traz) e falha se mudarem. A autenticação do Git
+guardada no stack mantém-se.
+
+**O registry é usado pelo endereço interno** `10.1.30.40:50050` (túnel entre este host e o servidor
+do GitLab), em **HTTP simples**: o endereço público que o GitLab anuncia (`git.redstout.com:5050`)
+não responde (`R-072`). O login continua a passar pelo GitLab público
+(`https://git.redstout.com/jwt/auth`), que responde. Por isso o Docker deste host
+(`redslpod01`) tem esse endereço em `insecure-registries` (passo 2 abaixo).
+
+### Configurar (uma vez)
+
+1. **Runner:** montar o socket do Docker (secção 7, "Recursos").
+2. **Docker do host aceita o registry interno** (precisa de root no host — administrador): em
+   `/etc/docker/daemon.json` **deste** host (confirmar com `hostname`; é o `Name` do `docker info`
+   visto pelo Portainer),
+
+   ```json
+   {
+     "insecure-registries": ["10.1.30.40:50050"]
+   }
+   ```
+
+   depois `sudo dockerd --validate --config-file /etc/docker/daemon.json` (`configuration OK`) e
+   `sudo systemctl reload docker` (aplica sem reiniciar contentores). Confirmar num contentor
+   `docker:<versão>-cli` com o socket montado: `docker info | grep -A3 -i "insecure registries"`
+   tem de listar `10.1.30.40:50050`.
+
+3. **Acesso do Portainer ao registry:** no GitLab, **Settings → Repository → Deploy tokens** — nome
+   `portainer-registry`, scope **`read_registry`**. No Portainer, **Registries → Add registry →
+   Custom registry**: URL `10.1.30.40:50050`, autenticação com o username e o token gerados.
+4. **Variável do stack:** em **Stacks → srh-devserver → Environment variables**,
+   `SRH_REGISTRY_IMAGE=10.1.30.40:50050/bridge351/srh` (sem `/` final).
+5. **Access token do Portainer:** **My account → Access tokens → Add access token** (nome
+   `gitlab-ci`), com uma conta de administrador. Copiar o valor; só é mostrado uma vez. Nunca o
+   colar em chats ou tickets.
+6. **IDs:** abrir o stack no Portainer; o URL tem a forma
+   `…/#!/<endpoint id>/docker/stacks/srh-devserver?id=<stack id>&…`.
+7. **Variáveis de CI/CD no GitLab** (**Settings → CI/CD → Variables**), **Protected**; o token também
+   **Masked**:
+
+   | Chave                    | Valor                                                                     |
+   | ------------------------ | ------------------------------------------------------------------------- |
+   | `PORTAINER_URL`          | endereço do Portainer visto do host (ex.: `https://<host>:9443`)          |
+   | `PORTAINER_TOKEN`        | o token do passo 5                                                        |
+   | `PORTAINER_STACK_ID`     | o `id` do passo 6                                                         |
+   | `PORTAINER_ENDPOINT_ID`  | o endpoint do passo 6                                                     |
+   | `PORTAINER_INSECURE_TLS` | `true` só se o Portainer usar o certificado autoassinado de origem (9443) |
+
+   Confirmar a partir do host, na consola do contentor `gitlab-runner`:
+   `curl -sk --max-time 15 -o /dev/null -w "%{http_code}\n" -H "X-API-Key: <token>" "<PORTAINER_URL>/api/stacks/<stack id>"`
+   tem de dar `200`.
+
+8. **Desligar o polling do `srh-devserver`, mantendo-o no `srh-observability`.** No Portainer 2.45 o
+   polling não é uma definição do stack: pertence à **fonte Git** (_GitOps → Sources_) que o stack usa,
+   e todos os stacks da mesma fonte partilham-no. O campo `AutoUpdate` do stack na API é obsoleto — só
+   mostra o intervalo da fonte; pô-lo a `null` não faz nada. Os dois stacks usam o mesmo repositório,
+   por isso:
+
+   1. **Deploy token novo** no GitLab (**Settings → Repository → Deploy tokens**), nome
+      `portainer-observability`, scope **`read_repository`**. O Portainer recusa duas fontes com o
+      mesmo URL **e** as mesmas credenciais; com outro token, aceita.
+   2. **Fonte nova** no Portainer: **GitOps → Sources → Add source (Git)** — nome `srh-observability`,
+      o mesmo URL do repositório, autenticação com o token do passo anterior, polling **5m**.
+   3. **Apontar o stack `srh-observability` para essa fonte**, na secção Git do stack. Fazer isto
+      **antes** do passo seguinte, para o `srh-observability` nunca ficar sem polling.
+   4. **Desligar o polling da fonte `srh`** (a do `srh-devserver`): em **GitOps → Sources → srh**, ou
+      pela API, que só altera o intervalo:
+
+      ```bash
+      PURL=https://<host>:9443; PTOKEN=ptr_<token>; SRC=<id da fonte srh>
+      curl -skf -X PUT -H "X-API-Key: $PTOKEN" -H 'Content-Type: application/json' \
+        --data '{"interval":""}' "$PURL/api/gitops/sources/$SRC" | jq -c '{name, interval}'
+      ```
+
+   5. **Confirmar** (não mostra valores):
+
+      ```bash
+      curl -skf -H "X-API-Key: $PTOKEN" "$PURL/api/stacks" | jq -r '.[] | "\(.Id)  \(.Name)  vars=\(.Env // [] | length)  polling=\((.AutoUpdate.Interval // "") | if . == "" then "off" else . end)"'
+      ```
+
+      Esperado: `srh-devserver` com `polling=off` e `srh-observability` com `polling=5m`, ambos com o
+      número de variáveis de sempre. **Não usar o botão "Detach from Git"**: converte o stack num stack
+      sem Git e o `deploy:devserver` deixa de funcionar.
+
+9. **Testar:** correr um pipeline no `develop` (`…/-/pipelines/new`). No fim, `build-images` e
+   `deploy:devserver` verdes, e no Portainer os contentores do stack recriados com as imagens
+   `10.1.30.40:50050/bridge351/srh/…:develop`.
+10. **Limpeza do registry (recomendado):** no GitLab, **Settings → Packages and registries → Cleanup
+    policies** — manter, por exemplo, as 10 tags mais recentes e a `develop`, e apagar as com mais
+    de 30 dias. Cada push para o `develop` acrescenta uma tag com o SHA.
+
+Sem as variáveis `PORTAINER_*`, o `deploy:devserver` não aparece: as imagens ficam no registry e o
+stack só as usa no próximo **Pull and redeploy** feito à mão.
+
+### Voltar a uma versão anterior
+
+A forma simples é reverter o commit no `develop`: o pipeline volta a construir e a fazer o deploy.
+Cada versão fica também no registry com a tag do SHA curto do commit
+(`10.1.30.40:50050/bridge351/srh/backend:<sha>`), para quem precisar de voltar a uma delas à mão.
+
+### Registry público (quando estiver acessível)
+
+Quando `https://git.redstout.com:5050/v2/` responder `401` a partir deste host (`R-072`), pode passar
+a usar-se o endereço público, com HTTPS: variável `SRH_REGISTRY` do job `build-images`, variável
+`SRH_REGISTRY_IMAGE` do stack e registry no Portainer passam para `git.redstout.com:5050`, e a
+entrada `insecure-registries` deixa de ser precisa.
+
 ## Limitações conhecidas
 
 - **Métricas do CI expostas na rede.** O Grafana (3300) é de leitura anónima e a base de dados (5433)
@@ -374,19 +505,25 @@ incluídos na imagem do Grafana.
 - **Credenciais conhecidas.** O admin base e os utilizadores de demo têm passwords publicadas neste
   repositório — aceitável para um servidor de desenvolvimento interno, não para dados reais.
 - **Acesso ao Docker do host.** O serviço `prune` monta o socket do Docker (ver "Espaço em disco").
-- **Deploys sem cache.** Como a cache de build é apagada em cada deploy, todos os builds são de raiz.
+- **Cada deploy reinicia todo o stack.** É o comportamento do redeploy do Portainer para stacks Git
+  (incluindo Postgres e RabbitMQ), não só dos serviços com imagem nova — ver secção 6.
 
 ## Troubleshooting
 
-| Sintoma                                              | Causa provável                                                                                                                                 | Correção                                                                                                                                |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| O stack não é criado: erro ao clonar                 | Token sem `read_repository`, expirado, ou Portainer sem acesso ao GitLab                                                                       | Rever o passo 2 e a conectividade para `git.redstout.com`                                                                               |
-| O stack não é criado: `build` não suportado          | O ambiente é Swarm                                                                                                                             | Usar um ambiente Docker Standalone                                                                                                      |
-| Porta já em uso ao fazer deploy                      | Outro serviço usa a 8888 ou a 8025 no host                                                                                                     | Libertar a porta (mudar as portas implica alterar `infra/docker-compose.devserver.yml` no repositório)                                  |
-| Login falha com erro 500 genérico                    | Chaves `JWT_*` em falta ou inválidas                                                                                                           | Gerar de novo (passo 3), atualizar as variáveis e **Update the stack**                                                                  |
-| Backend reinicia sem nunca ficar pronto              | Falha numa migração ou num seed                                                                                                                | Ver os logs do `srh-backend-devserver`; o erro está logo antes do reinício                                                              |
-| `password authentication failed for user "srh_user"` | `POSTGRES_PASSWORD` mudou depois do primeiro deploy                                                                                            | Repor o valor antigo, ou repor a base de dados do zero                                                                                  |
-| `srh-prune-devserver` com código de saída ≠ 0        | Sem acesso ao socket do Docker, ou erro do Docker durante a limpeza                                                                            | Ver os logs do contentor; a aplicação não é afetada, só a limpeza                                                                       |
-| Build falha com `toomanyrequests`                    | Limite de downloads anónimos do Docker Hub: como a cache de build é apagada, cada deploy volta a descarregar as imagens base (`node`, `nginx`) | Em **Registries**, adicionar uma conta do Docker Hub (as imagens passam a ser descarregadas autenticadas) e fazer **Pull and redeploy** |
-| Push para `develop` não gera deploy                  | GitOps updates desligado, ou ainda dentro do intervalo de polling                                                                              | Confirmar a configuração no stack; forçar com **Pull and redeploy**                                                                     |
-| Upload de documento falha                            | O `createbuckets` não criou o bucket                                                                                                           | Ver os logs do `srh-createbuckets-devserver` e fazer **Update the stack**                                                               |
+| Sintoma                                                                                   | Causa provável                                                                                                                                 | Correção                                                                                                                                |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| O stack não é criado: erro ao clonar                                                      | Token sem `read_repository`, expirado, ou Portainer sem acesso ao GitLab                                                                       | Rever o passo 2 e a conectividade para `git.redstout.com`                                                                               |
+| O stack não é criado: `build` não suportado                                               | O ambiente é Swarm                                                                                                                             | Usar um ambiente Docker Standalone                                                                                                      |
+| Porta já em uso ao fazer deploy                                                           | Outro serviço usa a 8888 ou a 8025 no host                                                                                                     | Libertar a porta (mudar as portas implica alterar `infra/docker-compose.devserver.yml` no repositório)                                  |
+| Login falha com erro 500 genérico                                                         | Chaves `JWT_*` em falta ou inválidas                                                                                                           | Gerar de novo (passo 3), atualizar as variáveis e **Update the stack**                                                                  |
+| Backend reinicia sem nunca ficar pronto                                                   | Falha numa migração ou num seed                                                                                                                | Ver os logs do `srh-backend-devserver`; o erro está logo antes do reinício                                                              |
+| `password authentication failed for user "srh_user"`                                      | `POSTGRES_PASSWORD` mudou depois do primeiro deploy                                                                                            | Repor o valor antigo, ou repor a base de dados do zero                                                                                  |
+| `srh-prune-devserver` com código de saída ≠ 0                                             | Sem acesso ao socket do Docker, ou erro do Docker durante a limpeza                                                                            | Ver os logs do contentor; a aplicação não é afetada, só a limpeza                                                                       |
+| Build falha com `toomanyrequests`                                                         | Limite de downloads anónimos do Docker Hub: como a cache de build é apagada, cada deploy volta a descarregar as imagens base (`node`, `nginx`) | Em **Registries**, adicionar uma conta do Docker Hub (as imagens passam a ser descarregadas autenticadas) e fazer **Pull and redeploy** |
+| Push para `develop` não gera deploy                                                       | `build-images` ou `deploy:devserver` não correram (pipeline falhou antes, ou faltam as variáveis `PORTAINER_*`)                                | Ver o pipeline do `develop`; forçar com **Pull and redeploy** no stack                                                                  |
+| `deploy:devserver` falha com `401`                                                        | Access token do Portainer inválido ou apagado                                                                                                  | Novo token (secção 9, passo 5) e atualizar `PORTAINER_TOKEN`                                                                            |
+| `build-images` falha com `Cannot connect to the Docker daemon`                            | O runner não monta o socket do Docker                                                                                                          | Secção 7, "Recursos"                                                                                                                    |
+| `build-images` ou o redeploy falham com `http: server gave HTTP response to HTTPS client` | O Docker do host não tem o registry interno em `insecure-registries`                                                                           | Secção 9, passo 2 — e confirmar que foi feito no host certo (`redslpod01`)                                                              |
+| Redeploy falha com `pull access denied` / `unauthorized` no registry                      | O Portainer não tem as credenciais do registry                                                                                                 | Secção 9, passo 3                                                                                                                       |
+| `required variable SRH_REGISTRY_IMAGE is missing`                                         | Falta a variável do stack                                                                                                                      | Secção 9, passo 4                                                                                                                       |
+| Upload de documento falha                                                                 | O `createbuckets` não criou o bucket                                                                                                           | Ver os logs do `srh-createbuckets-devserver` e fazer **Update the stack**                                                               |

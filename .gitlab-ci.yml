@@ -12,6 +12,11 @@
 # Métricas (P-104): em cada pipeline do `develop`, o job `collect-metrics` grava os resultados
 # (jobs, testes, cobertura, achados de segurança) na base de dados lida pelo Grafana — ver
 # DEPLOY_PORTAINER.md, secção "8. Métricas do CI (Grafana)".
+#
+# Imagens e servidor de dev (P-106): em cada push para o `develop` (não no agendamento semanal),
+# depois de todas as verificações e testes passarem, `build-images` constrói as imagens no Docker do
+# host e envia-as para o GitLab Container Registry, pelo endereço interno (R-072), e
+# `deploy:devserver` pede ao Portainer que atualize o stack — que deixou de construir imagens.
 
 workflow:
   rules:
@@ -22,6 +27,8 @@ workflow:
 stages:
   - verify
   - test
+  - images
+  - deploy
 
 include:
   - template: Security/SAST.gitlab-ci.yml
@@ -83,6 +90,21 @@ build:frontend:
   stage: verify
   script:
     - pnpm --filter @bridge351/srh-frontend run build
+
+# Node no major esperado e pnpm igual ao `packageManager` do package.json — no CI e nas imagens
+# declaradas (Dockerfiles e este ficheiro). Para mudar de major do Node, atualizar as imagens e
+# EXPECTED_NODE_MAJOR no mesmo MR.
+versions:
+  extends: .node
+  stage: verify
+  variables:
+    EXPECTED_NODE_MAJOR: '20'
+  # Sem `pnpm install`: só precisa do Node e do pnpm (via corepack).
+  cache: []
+  before_script:
+    - corepack enable
+  script:
+    - sh scripts/ci/check-versions.sh
 
 # ─── test ──────────────────────────────────────────────────────────────────────
 
@@ -194,6 +216,8 @@ renovate:
   interruptible: false
   variables:
     RENOVATE_PLATFORM: gitlab
+    # Valor por omissão; no projeto está definida a variável de CI/CD RENOVATE_ENDPOINT com o
+    # endereço interno do GitLab, que tem precedência — o nginx do endereço público parte a API (R-071).
     RENOVATE_ENDPOINT: $CI_API_V4_URL
     RENOVATE_REPOSITORIES: $CI_PROJECT_PATH
     RENOVATE_BASE_BRANCH_PATTERNS: '["develop"]'
@@ -203,6 +227,53 @@ renovate:
     LOG_LEVEL: info
   script:
     - renovate
+
+# ─── imagens e servidor de dev (só em pushes para o develop) ──────────────────────
+
+# Constrói as imagens no Docker do host (o runner monta /var/run/docker.sock), com a cache de
+# build mantida entre pipelines, e envia-as para o registry do projeto pelo endereço interno
+# SRH_REGISTRY: `<SRH_REGISTRY>/bridge351/srh/{backend,frontend}`, tags `develop` e SHA.
+# Só corre se todas as verificações e testes passaram (ver `needs`); jobs que só reportam
+# (audit, SAST, …) não contam.
+build-images:
+  stage: images
+  image: docker:29.8.1-cli
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop" && $CI_PIPELINE_SOURCE != "schedule"
+  variables:
+    # Endereço interno do registry (túnel, HTTP simples): o público `git.redstout.com:5050` não
+    # responde (R-072). O Docker do host tem-no em `insecure-registries`. Uma variável de CI/CD com
+    # o mesmo nome tem precedência.
+    SRH_REGISTRY: 10.1.30.40:50050
+  needs:
+    - { job: lint, artifacts: false }
+    - { job: format, artifacts: false }
+    - { job: versions, artifacts: false }
+    - { job: 'build:backend', artifacts: false }
+    - { job: 'build:frontend', artifacts: false }
+    - { job: 'test:unit', artifacts: false }
+    - { job: 'test:e2e', artifacts: false }
+  script:
+    - sh scripts/ci/build-images.sh
+
+# Pede ao Portainer um "Pull and redeploy" do stack srh-devserver (API do Portainer CE, que não
+# tem webhooks). O Portainer responde logo e faz o redeploy em segundo plano. Requer as variáveis
+# PORTAINER_URL, PORTAINER_TOKEN, PORTAINER_STACK_ID e PORTAINER_ENDPOINT_ID (ver
+# DEPLOY_PORTAINER.md); sem elas o job não aparece.
+deploy:devserver:
+  stage: deploy
+  image: alpine:3.24.2
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop" && $CI_PIPELINE_SOURCE != "schedule" && $PORTAINER_TOKEN
+  needs:
+    - { job: build-images, artifacts: false }
+  # Dois redeploys ao mesmo tempo não; e um push novo não interrompe um redeploy a meio.
+  resource_group: devserver
+  interruptible: false
+  before_script:
+    - apk add --no-cache curl jq > /dev/null
+  script:
+    - sh scripts/ci/deploy-devserver.sh
 
 # ─── métricas (só no develop) ──────────────────────────────────────────────────
 
