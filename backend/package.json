@@ -80,7 +80,7 @@
     "@types/jest": "^29.5.14",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/multer": "^2.2.0",
-    "@types/node": "^22.0.0",
+    "@types/node": "^26.6.6",
     "@types/nodemailer": "^8.0.1",
     "@types/passport-oauth2": "^1.8.0",
     "@types/pdfmake": "^0.3.3",
