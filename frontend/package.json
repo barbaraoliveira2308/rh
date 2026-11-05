@@ -27,7 +27,7 @@
     "dayjs": "^1.11.13",
     "lucide-react": "^1.23.0",
     "postcss": "^8.5.16",
-    "react": "^18.3.0",
+    "react": "^19.3.1",
     "react-dom": "^18.3.0",
     "react-hook-form": "^7.81.0",
     "react-organizational-chart": "^2.2.1",
@@ -41,7 +41,7 @@
   "devDependencies": {
     "@bridge351/srh-shared": "workspace:*",
     "@playwright/test": "^1.61.1",
-    "@types/react": "^18.3.0",
+    "@types/react": "^19.3.0",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.0",
     "eslint": "^9.0.0",
